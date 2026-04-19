@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>棱镜译</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --black: #000000;
+  --near-black: #262626;
+  --white: #ffffff;
+  --snow: #fafafa;
+  --light-gray: #e5e5e5;
+  --stone: #737373;
+  --mid-gray: #525252;
+  --silver: #a3a3a3;
+  --btn-dark: #404040;
+  --border: #e5e5e5;
+  --border-md: #d4d4d4;
+  --r: 12px;
+  --pill: 9999px;
+  --font-d: -apple-system-ui-rounded, ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
+  --font: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--white);
+  color: var(--black);
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* TOP BAR */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--white);
+  z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-text { font-family: var(--font-d); font-size: 18px; font-weight: 500; color: var(--black); letter-spacing: -0.3px; }
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--stone);
+}
+.icon-btn:active { background: var(--snow); }
+
+/* LANG BAR */
+.lang-bar {
+  display: flex; align-items: center;
+  padding: 12px 20px; gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.lang-pill {
+  flex: 1; padding: 9px 16px;
+  background: var(--snow);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  cursor: pointer; text-align: center;
+}
+.lang-pill:active { background: var(--light-gray); }
+.lang-pill-name { font-size: 14px; font-weight: 500; color: var(--near-black); display: block; }
+.lang-pill-code { font-size: 11px; color: var(--silver); font-family: var(--mono); display: block; margin-top: 1px; }
+.swap-btn {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--stone);
+}
+.swap-btn:active { background: var(--snow); }
+
+/* INPUT */
+.input-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.textarea-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.textarea-wrap:focus-within { border-color: var(--stone); }
+#sourceText {
+  width: 100%; min-height: 110px; max-height: 200px;
+  padding: 14px 16px;
+  background: var(--white); border: none; outline: none; resize: none;
+  font-family: var(--font); font-size: 15px; line-height: 1.6; color: var(--black);
+}
+#sourceText::placeholder { color: var(--silver); }
+.input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border); background: var(--snow);
+}
+.char-count { font-size: 12px; color: var(--silver); font-family: var(--mono); }
+.clear-btn { font-size: 12px; color: var(--stone); background: none; border: none; cursor: pointer; font-family: var(--font); }
+.clear-btn:active { color: var(--black); }
+
+/* TRANSLATE BUTTON */
+.translate-wrap { padding: 16px 20px; }
+.translate-btn {
+  width: 100%; padding: 13px 24px;
+  background: var(--black); color: var(--white);
+  border: none; border-radius: var(--pill);
+  font-family: var(--font); font-size: 15px; font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.translate-btn:active { background: var(--near-black); }
+.translate-btn:disabled { background: var(--light-gray); color: var(--silver); cursor: not-allowed; }
+
+/* PROCESS PANEL */
+.process-panel { display: none; padding: 0 20px 8px; }
+.process-panel.active { display: block; }
+.process-meta {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0 10px;
+}
+.process-label { font-size: 12px; color: var(--stone); font-family: var(--mono); }
+.progress-track {
+  flex: 1; height: 2px; background: var(--border);
+  border-radius: var(--pill); overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--black);
+  border-radius: var(--pill); width: 0%;
+  transition: width 0.4s ease;
+}
+
+.round-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 10px; overflow: hidden;
+  background: var(--white);
+}
+.round-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--snow); border-bottom: 1px solid var(--border);
+}
+.round-badge {
+  width: 22px; height: 22px;
+  border-radius: var(--pill);
+  background: var(--black); color: var(--white);
+  font-size: 11px; font-weight: 500; font-family: var(--mono);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.round-title { font-size: 13px; font-weight: 500; color: var(--near-black); flex: 1; }
+.round-status { font-size: 11px; font-family: var(--mono); color: var(--silver); }
+.round-status.ok { color: var(--stone); }
+
+.sub-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.sub-item {
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 10px 12px; background: var(--snow); position: relative;
+}
+.sub-item-label {
+  font-size: 11px; font-family: var(--mono); color: var(--silver);
+  margin-bottom: 5px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.lock-tag {
+  font-size: 10px; color: var(--silver);
+  background: var(--light-gray);
+  padding: 2px 8px; border-radius: var(--pill);
+  font-family: var(--mono);
+  -webkit-user-select: none; user-select: none;
+}
+.sub-item-text {
+  font-size: 13px; line-height: 1.6; color: var(--mid-gray);
+  -webkit-user-select: none; user-select: none; min-height: 16px;
+}
+.sub-item-text.streaming::after {
+  content: '▌';
+  animation: blink 0.65s steps(1) infinite;
+  color: var(--silver); font-size: 10px;
+}
+
+.synth-item {
+  border: 1px solid var(--near-black); border-radius: var(--r);
+  padding: 10px 12px; background: var(--white);
+}
+.synth-item-label {
+  font-size: 11px; font-family: var(--mono); color: var(--stone);
+  margin-bottom: 5px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.synth-item-text {
+  font-size: 14px; line-height: 1.6; color: var(--near-black); font-weight: 500;
+  -webkit-user-select: none; user-select: none; min-height: 16px;
+}
+.synth-item-text.streaming::after {
+  content: '▌';
+  animation: blink 0.65s steps(1) infinite;
+  color: var(--stone); font-size: 10px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* FINAL RESULT */
+.result-section { display: none; padding: 0 20px 40px; }
+.result-section.active { display: block; }
+.result-card {
+  border: 1px solid var(--border); border-radius: var(--r);
+  overflow: hidden; background: var(--white);
+}
+.result-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--snow); border-bottom: 1px solid var(--border);
+}
+.result-label { font-size: 12px; font-family: var(--mono); font-weight: 500; color: var(--near-black); }
+.result-btns { display: flex; gap: 6px; }
+.pill-btn {
+  padding: 5px 14px; border-radius: var(--pill);
+  border: 1px solid var(--border); background: var(--white);
+  color: var(--btn-dark); font-size: 12px; font-family: var(--font);
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+}
+.pill-btn:active { background: var(--light-gray); }
+.pill-btn.done { color: var(--stone); border-color: var(--border-md); }
+.result-body { padding: 16px; }
+#finalResult { font-size: 16px; line-height: 1.75; color: var(--black); word-break: break-word; }
+
+/* LANGUAGE MODAL — full screen */
+.lang-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--white);
+  z-index: 500;
+  flex-direction: column;
+  max-width: 480px; margin: 0 auto;
+}
+.lang-modal.active { display: flex; }
+
+.lang-modal-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.back-btn {
+  width: 36px; height: 36px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--near-black); flex-shrink: 0;
+}
+.back-btn:active { background: var(--snow); }
+.lang-modal-title { font-family: var(--font-d); font-size: 17px; font-weight: 500; color: var(--black); }
+
+.lang-search-wrap {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.lang-search {
+  width: 100%; padding: 10px 18px;
+  border: 1px solid var(--border); border-radius: var(--pill);
+  background: var(--snow); outline: none;
+  font-family: var(--font); font-size: 14px; color: var(--black);
+}
+.lang-search::placeholder { color: var(--silver); }
+.lang-search:focus { border-color: var(--stone); }
+
+.lang-list { overflow-y: auto; flex: 1; }
+
+.lang-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.lang-item:active { background: var(--snow); }
+.lang-item-left { display: flex; align-items: center; gap: 14px; }
+.lang-flag {
+  width: 40px; height: 40px;
+  border-radius: var(--pill);
+  background: var(--snow); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.lang-item-name { font-size: 15px; font-weight: 500; color: var(--near-black); }
+.lang-item-code { font-size: 12px; color: var(--silver); font-family: var(--mono); margin-top: 2px; }
+.lang-check {
+  width: 22px; height: 22px;
+  border-radius: var(--pill);
+  background: var(--black);
+  display: none; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.lang-item.selected .lang-check { display: flex; }
+
+/* SETTINGS DRAWER */
+.drawer-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.2); z-index: 200;
+}
+.drawer-overlay.active { display: block; }
+.drawer {
+  position: fixed; bottom: 0; left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  width: 100%; max-width: 480px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  z-index: 201;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  max-height: 85vh; overflow-y: auto;
+}
+.drawer.open { transform: translateX(-50%) translateY(0); }
+.drawer-handle { width: 36px; height: 4px; background: var(--light-gray); border-radius: var(--pill); margin: 12px auto 0; }
+.drawer-title { font-family: var(--font-d); font-size: 17px; font-weight: 500; color: var(--black); padding: 16px 20px 12px; }
+
+.setting-section { border-top: 1px solid var(--border); padding: 16px 20px; }
+.setting-section-label { font-size: 11px; font-family: var(--mono); color: var(--silver); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 12px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; }
+.setting-row + .setting-row { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+.setting-name { font-size: 14px; font-weight: 500; color: var(--near-black); }
+.setting-desc { font-size: 12px; color: var(--silver); margin-top: 2px; }
+
+.num-control { display: flex; align-items: center; gap: 14px; }
+.num-btn {
+  width: 30px; height: 30px; border-radius: var(--pill);
+  border: 1px solid var(--border); background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 18px; color: var(--near-black);
+  line-height: 1; user-select: none;
+}
+.num-btn:active { background: var(--snow); }
+.num-val { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--black); min-width: 20px; text-align: center; }
+
+.key-field {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--pill);
+  background: var(--snow); display: flex; align-items: center; overflow: hidden;
+  margin-top: 10px;
+}
+#apiKeyInput {
+  flex: 1; background: transparent; border: none; outline: none;
+  padding: 10px 18px;
+  font-family: var(--mono); font-size: 13px; color: var(--black); min-width: 0;
+}
+#apiKeyInput::placeholder { color: var(--silver); }
+.key-eye { padding: 0 14px; color: var(--silver); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; }
+.key-eye:active { color: var(--stone); }
+.key-note { font-size: 11px; color: var(--silver); margin-top: 8px; line-height: 1.5; }
+.model-pill { font-size: 12px; font-family: var(--mono); padding: 4px 12px; border-radius: var(--pill); background: var(--light-gray); color: var(--near-black); }
+
+.save-btn {
+  margin: 16px 20px 36px; width: calc(100% - 40px);
+  padding: 13px 24px;
+  background: var(--black); color: var(--white);
+  border: none; border-radius: var(--pill);
+  font-family: var(--font); font-size: 15px; font-weight: 500; cursor: pointer;
+}
+.save-btn:active { background: var(--near-black); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 32px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--black); color: var(--white);
+  font-size: 13px; padding: 9px 18px; border-radius: var(--pill);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  z-index: 999; white-space: nowrap; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; animation: spin 0.9s linear infinite; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="logo">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <polygon points="13,1 24,7.5 24,18.5 13,25 2,18.5 2,7.5" fill="none" stroke="#000" stroke-width="1.5"/>
+      <polygon points="13,6 20,10 20,16 13,20 6,16 6,10" fill="none" stroke="#a3a3a3" stroke-width="1"/>
+      <circle cx="13" cy="13" r="2.5" fill="#000"/>
+    </svg>
+    <span class="logo-text">棱镜译</span>
+  </div>
+  <div class="icon-btn" id="settingsBtn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </div>
+</div>
+
+<!-- Language Bar -->
+<div class="lang-bar">
+  <div class="lang-pill" id="srcLangBtn">
+    <span class="lang-pill-name" id="srcLangName">中文</span>
+    <span class="lang-pill-code" id="srcLangCode">ZH</span>
+  </div>
+  <div class="swap-btn" id="swapBtn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>
+    </svg>
+  </div>
+  <div class="lang-pill" id="tgtLangBtn">
+    <span class="lang-pill-name" id="tgtLangName">英语</span>
+    <span class="lang-pill-code" id="tgtLangCode">EN</span>
+  </div>
+</div>
+
+<!-- Input -->
+<div class="input-section">
+  <div class="textarea-wrap">
+    <textarea id="sourceText" placeholder="输入要翻译的内容…" maxlength="3000"></textarea>
+    <div class="input-footer">
+      <span class="char-count"><span id="charNum">0</span> / 3000</span>
+      <button class="clear-btn" id="clearBtn">清空</button>
+    </div>
+  </div>
+</div>
+
+<!-- Translate Button -->
+<div class="translate-wrap">
+  <button class="translate-btn" id="translateBtn">开始多层翻译</button>
+</div>
+
+<!-- Process Panel -->
+<div class="process-panel" id="processPanel">
+  <div class="process-meta">
+    <span class="process-label" id="processStatus">准备中…</span>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+  <div id="roundsContainer"></div>
+</div>
+
+<!-- Final Result -->
+<div class="result-section" id="resultSection">
+  <div class="result-card">
+    <div class="result-header">
+      <span class="result-label">最终译文</span>
+      <div class="result-btns">
+        <button class="pill-btn" id="speakBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          朗读
+        </button>
+        <button class="pill-btn" id="copyBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          复制
+        </button>
+      </div>
+    </div>
+    <div class="result-body">
+      <div id="finalResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Language Modal (full screen) -->
+<div class="lang-modal" id="langModal">
+  <div class="lang-modal-bar">
+    <div class="back-btn" id="langModalBack">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M19 12H5"/><path d="m12 5-7 7 7 7"/>
+      </svg>
+    </div>
+    <span class="lang-modal-title" id="langModalTitle">选择语言</span>
+  </div>
+  <div class="lang-search-wrap">
+    <input class="lang-search" id="langSearch" type="text" placeholder="搜索语言…" autocomplete="off"/>
+  </div>
+  <div class="lang-list" id="langList"></div>
+</div>
+
+<!-- Settings Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">设置</div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">API 密钥</div>
+    <div class="key-field">
+      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false"/>
+      <div class="key-eye" id="keyToggle">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+    </div>
+    <div class="key-note">密钥仅存储于本地浏览器，不会上传至任何服务器。</div>
+  </div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">翻译精度</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">循环轮数</div>
+        <div class="setting-desc">每轮：2次并发 + 1次综合</div>
+      </div>
+      <div class="num-control">
+        <div class="num-btn" id="roundsMinus">−</div>
+        <div class="num-val" id="roundsDisplay">2</div>
+        <div class="num-btn" id="roundsPlus">+</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">模型</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">DeepSeek Chat</div>
+        <div class="setting-desc">V3.2 · 非思考模式</div>
+      </div>
+      <span class="model-pill">deepseek-chat</span>
+    </div>
+  </div>
+
+  <button class="save-btn" id="saveSettingsBtn">保存</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const LANGS = [
+  { code:'zh', name:'中文',     label:'ZH', flag:'🇨🇳' },
+  { code:'en', name:'英语',     label:'EN', flag:'🇺🇸' },
+  { code:'ja', name:'日语',     label:'JA', flag:'🇯🇵' },
+  { code:'ko', name:'韩语',     label:'KO', flag:'🇰🇷' },
+  { code:'fr', name:'法语',     label:'FR', flag:'🇫🇷' },
+  { code:'de', name:'德语',     label:'DE', flag:'🇩🇪' },
+  { code:'es', name:'西班牙语', label:'ES', flag:'🇪🇸' },
+  { code:'ru', name:'俄语',     label:'RU', flag:'🇷🇺' },
+  { code:'ar', name:'阿拉伯语', label:'AR', flag:'🇸🇦' },
+  { code:'pt', name:'葡萄牙语', label:'PT', flag:'🇧🇷' },
+  { code:'it', name:'意大利语', label:'IT', flag:'🇮🇹' },
+  { code:'th', name:'泰语',     label:'TH', flag:'🇹🇭' },
+  { code:'vi', name:'越南语',   label:'VI', flag:'🇻🇳' },
+  { code:'nl', name:'荷兰语',   label:'NL', flag:'🇳🇱' },
+  { code:'tr', name:'土耳其语', label:'TR', flag:'🇹🇷' },
+  { code:'pl', name:'波兰语',   label:'PL', flag:'🇵🇱' },
+];
+
+const state = {
+  srcLang: LANGS[0],
+  tgtLang: LANGS[1],
+  rounds: parseInt(localStorage.getItem('prism_rounds') || '2'),
+  apiKey: localStorage.getItem('prism_key') || '',
+  running: false,
+  pickingFor: null,
+};
+
+function init() {
+  document.getElementById('roundsDisplay').textContent = state.rounds;
+  if (state.apiKey) document.getElementById('apiKeyInput').value = state.apiKey;
+  updateLangDisplay();
+}
+
+function updateLangDisplay() {
+  document.getElementById('srcLangName').textContent = state.srcLang.name;
+  document.getElementById('srcLangCode').textContent = state.srcLang.label;
+  document.getElementById('tgtLangName').textContent = state.tgtLang.name;
+  document.getElementById('tgtLangCode').textContent = state.tgtLang.label;
+}
+
+// Textarea
+document.getElementById('sourceText').addEventListener('input', function() {
+  document.getElementById('charNum').textContent = this.value.length;
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('sourceText').value = '';
+  document.getElementById('charNum').textContent = '0';
+  document.getElementById('resultSection').classList.remove('active');
+  document.getElementById('processPanel').classList.remove('active');
+  document.getElementById('roundsContainer').innerHTML = '';
+});
+
+// Swap
+document.getElementById('swapBtn').addEventListener('click', () => {
+  [state.srcLang, state.tgtLang] = [state.tgtLang, state.srcLang];
+  updateLangDisplay();
+  const final = document.getElementById('finalResult').textContent;
+  if (final) {
+    document.getElementById('sourceText').value = final;
+    document.getElementById('charNum').textContent = final.length;
+    document.getElementById('resultSection').classList.remove('active');
+    document.getElementById('processPanel').classList.remove('active');
+    document.getElementById('roundsContainer').innerHTML = '';
+  }
+});
+
+// Language Modal
+function openLangModal(forSrc) {
+  state.pickingFor = forSrc ? 'src' : 'tgt';
+  document.getElementById('langModalTitle').textContent = forSrc ? '选择源语言' : '选择目标语言';
+  document.getElementById('langSearch').value = '';
+  renderLangList('');
+  document.getElementById('langModal').classList.add('active');
+  setTimeout(() => document.getElementById('langSearch').focus(), 150);
+}
+function closeLangModal() {
+  document.getElementById('langModal').classList.remove('active');
+}
+function renderLangList(query) {
+  const active = state.pickingFor === 'src' ? state.srcLang : state.tgtLang;
+  const q = query.toLowerCase();
+  const filtered = q ? LANGS.filter(l => l.name.includes(query) || l.label.toLowerCase().includes(q)) : LANGS;
+  const list = document.getElementById('langList');
+  list.innerHTML = '';
+  filtered.forEach(l => {
+    const el = document.createElement('div');
+    el.className = 'lang-item' + (l.code === active.code ? ' selected' : '');
+    el.innerHTML = `
+      <div class="lang-item-left">
+        <div class="lang-flag">${l.flag}</div>
+        <div>
+          <div class="lang-item-name">${l.name}</div>
+          <div class="lang-item-code">${l.label}</div>
+        </div>
+      </div>
+      <div class="lang-check">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>`;
+    el.addEventListener('click', () => {
+      if (state.pickingFor === 'src') state.srcLang = l;
+      else state.tgtLang = l;
+      updateLangDisplay();
+      closeLangModal();
+    });
+    list.appendChild(el);
+  });
+}
+document.getElementById('srcLangBtn').addEventListener('click', () => openLangModal(true));
+document.getElementById('tgtLangBtn').addEventListener('click', () => openLangModal(false));
+document.getElementById('langModalBack').addEventListener('click', closeLangModal);
+document.getElementById('langSearch').addEventListener('input', function() { renderLangList(this.value.trim()); });
+
+// Settings
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('active');
+});
+document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+function closeDrawer() {
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('active');
+}
+document.getElementById('roundsMinus').addEventListener('click', () => {
+  if (state.rounds > 1) { state.rounds--; document.getElementById('roundsDisplay').textContent = state.rounds; }
+});
+document.getElementById('roundsPlus').addEventListener('click', () => {
+  if (state.rounds < 5) { state.rounds++; document.getElementById('roundsDisplay').textContent = state.rounds; }
+});
+document.getElementById('keyToggle').addEventListener('click', () => {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+});
+document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { showToast('请输入 API 密钥'); return; }
+  state.apiKey = key;
+  localStorage.setItem('prism_key', key);
+  localStorage.setItem('prism_rounds', state.rounds);
+  showToast('已保存');
+  closeDrawer();
+});
+
+// Toast
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Copy & Speak
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('finalResult').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('done');
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 已复制`;
+    setTimeout(() => {
+      btn.classList.remove('done');
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 复制`;
+    }, 2000);
+  });
+});
+document.getElementById('speakBtn').addEventListener('click', () => {
+  const text = document.getElementById('finalResult').textContent;
+  if (!text || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = state.tgtLang.code;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+});
+
+// DeepSeek API
+async function callDeepSeek(messages, onChunk, temperature = 0.5) {
+  if (!state.apiKey) throw new Error('NO_KEY');
+  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+    body: JSON.stringify({ model: 'deepseek-chat', messages, stream: true, temperature, max_tokens: 2048 })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let result = '', buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content || '';
+        if (delta) { result += delta; onChunk && onChunk(delta, result); }
+      } catch {}
+    }
+  }
+  return result;
+}
+
+// System Prompts
+function getSysPrompt1(src, tgt) {
+  return `你是一名顶尖专业翻译专家，精通${src}与${tgt}互译。\n\n翻译原则：\n1. 忠实原文语义，严格逐句对应，不遗漏不添加\n2. 保留原文句式结构、语气与语域\n3. 专有名词与文化表达做最贴切本地化处理\n4. 存在歧义时选择最符合语境的解读\n\n只输出译文，不要任何解释或注释。`;
+}
+function getSysPrompt2(src, tgt) {
+  return `你是一名资深双语编辑，擅长${src}与${tgt}的意译与润色。\n\n翻译策略：\n1. 深刻理解原文深层含义与言外之意\n2. 以地道${tgt}重新诠释，不拘泥原文句式\n3. 注重节奏感与可读性，适当重构句子结构\n4. 惯用语、俗语、比喻给出最符合目标语言文化的对等表达\n5. 大胆改写，以目标语言母语者的语感自然表达\n\n只输出最终译文，无需任何说明。`;
+}
+function getSynthPrompt(src, tgt) {
+  return `你是翻译评审与优化专家。你会收到原文和两个独立翻译版本，综合两者生成最优${tgt}译文。\n\n评审维度：\n1. 准确性 — 完整传达原文信息，无遗漏无误译\n2. 地道性 — 使用${tgt}母语者自然的表达方式\n3. 流畅性 — 读来自然，不拗口不生硬\n4. 风格还原 — 保持原文语气、正式程度与文体\n\n取两个版本之长，补其不足，必要时创意改写。只输出最终综合译文，不要任何分析或注释。`;
+}
+
+// Main Translation
+async function doTranslate() {
+  const text = document.getElementById('sourceText').value.trim();
+  if (!text) { showToast('请先输入要翻译的内容'); return; }
+  if (!state.apiKey) { showToast('请先在设置中填写 API 密钥'); openSettings(); return; }
+  if (state.running) return;
+
+  state.running = true;
+  const btn = document.getElementById('translateBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner">◌</span>&nbsp;翻译中…`;
+
+  document.getElementById('resultSection').classList.remove('active');
+  document.getElementById('finalResult').textContent = '';
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('processPanel').classList.add('active');
+
+  const totalSteps = state.rounds * 3;
+  let completedSteps = 0;
+  const setProgress = n => { document.getElementById('progressFill').style.width = Math.round(n / totalSteps * 100) + '%'; };
+  const setStatus = msg => { document.getElementById('processStatus').textContent = msg; };
+
+  let lastSynthResult = '';
+
+  try {
+    for (let r = 0; r < state.rounds; r++) {
+      const roundEl = document.createElement('div');
+      roundEl.className = 'round-card';
+      roundEl.innerHTML = `
+        <div class="round-header">
+          <div class="round-badge">${r + 1}</div>
+          <div class="round-title">第 ${r + 1} 轮 — 双路并发</div>
+          <div class="round-status" id="rs${r}">进行中</div>
+        </div>
+        <div class="sub-list">
+          <div class="sub-item">
+            <div class="sub-item-label">
+              <span>路径 A · 直译派</span>
+              <span class="lock-tag">过程</span>
+            </div>
+            <div class="sub-item-text streaming" id="t${r}a"></div>
+          </div>
+          <div class="sub-item">
+            <div class="sub-item-label">
+              <span>路径 B · 意译派</span>
+              <span class="lock-tag">过程</span>
+            </div>
+            <div class="sub-item-text streaming" id="t${r}b"></div>
+          </div>
+          <div class="synth-item">
+            <div class="synth-item-label">
+              <span>综合融汇 · Round ${r + 1}</span>
+              <span class="lock-tag">过程</span>
+            </div>
+            <div class="synth-item-text streaming" id="t${r}s"></div>
+          </div>
+        </div>`;
+      document.getElementById('roundsContainer').appendChild(roundEl);
+      roundEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      const elA = document.getElementById(`t${r}a`);
+      const elB = document.getElementById(`t${r}b`);
+      const elS = document.getElementById(`t${r}s`);
+      const src = state.srcLang.name, tgt = state.tgtLang.name;
+
+      setStatus(`第 ${r + 1} 轮 · 双路并发中…`);
+
+      const [resA, resB] = await Promise.all([
+        callDeepSeek([
+          { role: 'system', content: getSysPrompt1(src, tgt) },
+          { role: 'user', content: r === 0
+              ? `【直译任务】请将以下${src}文本严格逐句翻译成${tgt}，忠实保留原文结构与用词：\n\n${text}`
+              : `【直译优化】请在上一轮译文基础上，从忠实度角度找出不准确之处并修正，给出更忠实原文的${tgt}译文：\n\n【原文】\n${text}\n\n【上一轮参考译文】\n${lastSynthResult}` }
+        ], (_, full) => { elA.textContent = full; }, 0.6),
+        callDeepSeek([
+          { role: 'system', content: getSysPrompt2(src, tgt) },
+          { role: 'user', content: r === 0
+              ? `【意译任务】请将以下${src}文本自由意译成地道的${tgt}，不必拘泥于原文句式，以目标语言读者的语感重新表达：\n\n${text}`
+              : `【意译优化】请在上一轮译文基础上，从地道性角度大胆改写，让译文更符合${tgt}母语者的表达习惯：\n\n【原文】\n${text}\n\n【上一轮参考译文】\n${lastSynthResult}` }
+        ], (_, full) => { elB.textContent = full; }, 0.9),
+      ]);
+
+      elA.classList.remove('streaming');
+      elB.classList.remove('streaming');
+      completedSteps += 2;
+      setProgress(completedSteps);
+      setStatus(`第 ${r + 1} 轮 · 综合中…`);
+
+      const synthMsg = r === 0
+        ? `原文（${src}）：\n${text}\n\n版本A（直译）：\n${resA}\n\n版本B（意译）：\n${resB}\n\n请综合两个版本，给出最优${tgt}译文。`
+        : `原始文本（${src}）：\n${text}\n\n上一轮综合译文：\n${lastSynthResult}\n\n本轮版本A（直译）：\n${resA}\n\n本轮版本B（意译）：\n${resB}\n\n请在上一轮基础上进一步提炼，综合本轮两个新版本，给出更精准地道的${tgt}最终译文。`;
+
+      const resS = await callDeepSeek([
+        { role: 'system', content: getSynthPrompt(src, tgt) },
+        { role: 'user', content: synthMsg }
+      ], (_, full) => { elS.textContent = full; }, 0.3);
+
+      elS.className = 'synth-item-text';
+      lastSynthResult = resS;
+      completedSteps += 1;
+      setProgress(completedSteps);
+
+      const rsEl = document.getElementById(`rs${r}`);
+      rsEl.textContent = '完成';
+      rsEl.classList.add('ok');
+    }
+
+    setProgress(totalSteps);
+    setStatus('翻译完成');
+    document.getElementById('finalResult').textContent = lastSynthResult;
+    document.getElementById('resultSection').classList.add('active');
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    if (err.message === 'NO_KEY') {
+      showToast('请先填写 API 密钥');
+      openSettings();
+    } else {
+      showToast('失败：' + err.message.slice(0, 40));
+    }
+    setStatus('翻译失败');
+  } finally {
+    state.running = false;
+    btn.disabled = false;
+    btn.innerHTML = '开始多层翻译';
+  }
+}
+
+function openSettings() {
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('active');
+}
+
+document.getElementById('translateBtn').addEventListener('click', doTranslate);
+init();
+</script>
+</body>
+</html>
