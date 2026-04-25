@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>棱镜译 · PrismTrans</title>
+<title>棱镜译 · PrismTrans (DeepSeek V4)</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-  /* Anthropic palette */
+  /* Anthropic / DeepSeek palette */
   --near-black: #141413;
   --terracotta: #c96442;
   --coral: #d97757;
@@ -189,11 +189,7 @@ body {
 .engine-panel { display: none; }
 .engine-panel.active { display: block; }
 
-/* Phase header strip */
-.phase-strip {
-  padding: 14px 20px 0;
-  background: var(--parchment);
-}
+.phase-strip { padding: 14px 20px 0; background: var(--parchment); }
 
 .phase-progress-row {
   display: flex; align-items: center; gap: 10px;
@@ -215,7 +211,6 @@ body {
   transition: width 0.5s ease;
 }
 
-/* Round block */
 .round-section { padding: 12px 20px; }
 
 .round-card {
@@ -252,16 +247,14 @@ body {
 }
 .round-badge.done { color: var(--terracotta); background: #f9ede7; }
 
-/* Path items */
+/* Engine Output Layout & Text Elements */
 .paths-row {
-  display: flex; gap: 0;
-  border-bottom: 1px solid var(--border-cream);
+  display: flex; gap: 0; border-bottom: 1px solid var(--border-cream);
 }
 .path-item {
   flex: 1; padding: 10px 12px;
   border-right: 1px solid var(--border-cream);
   position: relative;
-  -webkit-user-select: none; user-select: none;
 }
 .path-item:last-child { border-right: none; }
 
@@ -275,351 +268,191 @@ body {
   background: var(--warm-sand); padding: 1px 6px;
   border-radius: var(--r-2xl); letter-spacing: 0.3px;
 }
-.path-text {
-  font-size: 12px; line-height: 1.6; color: var(--olive);
-  min-height: 14px;
-  -webkit-user-select: none; user-select: none;
-}
-.path-text.streaming::after {
-  content: '▌'; animation: blink .65s steps(1) infinite;
-  color: var(--warm-silver); font-size: 9px;
-}
 
-/* Critique section */
-.critique-row {
-  display: flex; gap: 0;
-  border-bottom: 1px solid var(--border-cream);
-  background: var(--parchment);
-}
-.critique-item {
-  flex: 1; padding: 8px 12px;
-  border-right: 1px solid var(--border-cream);
-  -webkit-user-select: none; user-select: none;
-}
+/* Content blocks with Reasoning separation */
+.path-text { font-size: 12px; line-height: 1.6; color: var(--olive); min-height: 14px; white-space: pre-wrap; word-break: break-word; }
+.critique-row { display: flex; gap: 0; border-bottom: 1px solid var(--border-cream); background: var(--parchment); }
+.critique-item { flex: 1; padding: 8px 12px; border-right: 1px solid var(--border-cream); }
 .critique-item:last-child { border-right: none; }
-.critique-label {
-  font-size: 10px; color: var(--warm-silver);
-  letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 4px;
-}
-.critique-text {
-  font-size: 11px; line-height: 1.55; color: var(--stone);
-  min-height: 12px;
-  -webkit-user-select: none; user-select: none;
-}
-.critique-text.streaming::after {
-  content: '▌'; animation: blink .65s steps(1) infinite;
-  color: var(--warm-silver); font-size: 9px;
-}
-
-/* Synthesis row */
+.critique-label { font-size: 10px; color: var(--warm-silver); letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 4px; }
+.critique-text { font-size: 11px; line-height: 1.55; color: var(--stone); min-height: 12px; white-space: pre-wrap; word-break: break-word; }
 .synth-row { padding: 12px 14px; background: var(--white); }
-.synth-label {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 7px;
-}
-.synth-label-text {
-  font-family: var(--serif);
-  font-size: 11px; font-weight: 500; color: var(--charcoal);
-  letter-spacing: 0.2px;
-}
-.synth-lock {
-  font-size: 9px; color: var(--warm-silver);
-  background: var(--warm-sand); padding: 1px 7px;
-  border-radius: var(--r-2xl); letter-spacing: 0.3px;
-  -webkit-user-select: none; user-select: none;
-}
-.synth-text {
-  font-size: 13px; line-height: 1.65; color: var(--near-black);
-  font-weight: 400; min-height: 16px;
-  -webkit-user-select: none; user-select: none;
-}
-.synth-text.streaming::after {
-  content: '▌'; animation: blink .65s steps(1) infinite;
-  color: var(--stone); font-size: 10px;
-}
+.synth-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.synth-label-text { font-family: var(--serif); font-size: 11px; font-weight: 500; color: var(--charcoal); letter-spacing: 0.2px; }
+.synth-lock { font-size: 9px; color: var(--warm-silver); background: var(--warm-sand); padding: 1px 7px; border-radius: var(--r-2xl); letter-spacing: 0.3px; }
+.synth-text { font-size: 13px; line-height: 1.65; color: var(--near-black); font-weight: 400; min-height: 16px; white-space: pre-wrap; word-break: break-word; }
+.memo-row { padding: 8px 14px 10px; background: var(--parchment); border-top: 1px solid var(--border-cream); }
+.memo-label { font-size: 10px; color: var(--warm-silver); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+.memo-text { font-size: 11px; line-height: 1.55; color: var(--stone); min-height: 12px; white-space: pre-wrap; word-break: break-word; }
 
-/* Memo row (improvement notes) */
-.memo-row {
-  padding: 8px 14px 10px;
-  background: var(--parchment);
-  border-top: 1px solid var(--border-cream);
+/* Reasoning UI components */
+.reasoning-text {
+  display: block; font-size: 11px; line-height: 1.5; color: var(--stone);
+  border-left: 2px solid var(--border-warm); background: var(--parchment);
+  padding: 6px 10px; margin-bottom: 8px; border-radius: 0 4px 4px 0;
+  white-space: pre-wrap; font-style: normal; font-family: var(--sans);
 }
-.memo-label {
-  font-size: 10px; color: var(--warm-silver);
-  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px;
+.reasoning-text::before {
+  content: '思考链 ⋯'; font-size: 10px; color: var(--warm-silver);
+  font-style: normal; display: block; margin-bottom: 4px;
 }
-.memo-text {
-  font-size: 11px; line-height: 1.55; color: var(--stone);
-  min-height: 12px;
-  -webkit-user-select: none; user-select: none;
-}
-.memo-text.streaming::after {
-  content: '▌'; animation: blink .65s steps(1) infinite;
-  color: var(--warm-silver); font-size: 9px;
-}
+.reasoning-text:empty { display: none; margin-bottom: 0; }
+.content-text { display: inline; white-space: pre-wrap; word-break: break-word; }
 
+.path-text.streaming::after,
+.critique-text.streaming::after,
+.synth-text.streaming::after,
+.memo-text.streaming::after,
+.audit-remark.streaming::after {
+  content: '▌'; animation: blink .65s steps(1) infinite;
+  color: var(--warm-silver); font-size: 10px;
+}
 @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
 
 /* ── QUALITY AUDIT ── */
 .audit-card {
-  margin: 0 20px 12px;
-  background: var(--ivory);
-  border: 1px solid var(--border-cream);
-  border-radius: var(--r-xl);
-  overflow: hidden;
-  box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
+  margin: 0 20px 12px; background: var(--ivory);
+  border: 1px solid var(--border-cream); border-radius: var(--r-xl);
+  overflow: hidden; box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
 }
 .audit-header {
-  padding: 11px 14px;
-  background: var(--parchment);
-  border-bottom: 1px solid var(--border-cream);
-  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px; background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream); display: flex; align-items: center; gap: 8px;
 }
-.audit-title {
-  font-family: var(--serif);
-  font-size: 13px; font-weight: 500; color: var(--charcoal);
-}
+.audit-title { font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--charcoal); }
 .audit-body { padding: 14px; }
 .score-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .score-item {
-  flex: 1; text-align: center;
-  background: var(--parchment);
-  border: 1px solid var(--border-cream);
-  border-radius: var(--r-lg); padding: 10px 6px;
+  flex: 1; text-align: center; background: var(--parchment);
+  border: 1px solid var(--border-cream); border-radius: var(--r-lg); padding: 10px 6px;
 }
-.score-num {
-  font-family: var(--serif);
-  font-size: 22px; font-weight: 500; color: var(--near-black);
-  display: block; line-height: 1;
-}
+.score-num { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--near-black); display: block; line-height: 1; }
 .score-label { font-size: 10px; color: var(--stone); margin-top: 4px; letter-spacing: 0.3px; display: block; }
 .score-bar-wrap { height: 3px; background: var(--border-warm); border-radius: 2px; margin-top: 6px; overflow: hidden; }
 .score-bar { height: 100%; background: var(--terracotta); border-radius: 2px; }
-
-.audit-remark {
-  font-size: 12px; line-height: 1.65; color: var(--olive);
-  -webkit-user-select: none; user-select: none;
-}
-.audit-remark.streaming::after {
-  content: '▌'; animation: blink .65s steps(1) infinite;
-  color: var(--warm-silver); font-size: 9px;
-}
+.audit-remark { font-size: 12px; line-height: 1.65; color: var(--olive); white-space: pre-wrap; word-break: break-word; }
 
 /* ── FINAL RESULT ── */
 .result-section { display: none; padding: 0 20px 40px; background: var(--parchment); }
 .result-section.active { display: block; }
 
 .result-card {
-  background: var(--white);
-  border: 1px solid var(--border-warm);
-  border-radius: var(--r-xl);
-  overflow: hidden;
-  box-shadow: rgba(0,0,0,0.05) 0px 4px 24px;
+  background: var(--white); border: 1px solid var(--border-warm);
+  border-radius: var(--r-xl); overflow: hidden; box-shadow: rgba(0,0,0,0.05) 0px 4px 24px;
 }
 .result-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--parchment);
-  border-bottom: 1px solid var(--border-cream);
+  display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+  background: var(--parchment); border-bottom: 1px solid var(--border-cream);
 }
-.result-label {
-  font-family: var(--serif);
-  font-size: 13px; font-weight: 500; color: var(--charcoal);
-}
+.result-label { font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--charcoal); }
 .result-actions { display: flex; gap: 6px; }
 
 .action-btn {
-  padding: 6px 13px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border-warm);
-  background: var(--ivory);
-  color: var(--charcoal); font-size: 12px; font-family: var(--sans);
-  cursor: pointer; display: flex; align-items: center; gap: 5px;
-  transition: background 0.1s;
+  padding: 6px 13px; border-radius: var(--r-md); border: 1px solid var(--border-warm);
+  background: var(--ivory); color: var(--charcoal); font-size: 12px; font-family: var(--sans);
+  cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background 0.1s;
 }
 .action-btn:active { background: var(--warm-sand); }
 .action-btn.success { color: var(--terracotta); border-color: var(--coral); }
 
 .result-body { padding: 18px; }
-#finalResult {
-  font-family: var(--serif);
-  font-size: 16px; font-weight: 400;
-  line-height: 1.85; color: var(--near-black);
-  word-break: break-word;
-}
+#finalResult { font-family: var(--serif); font-size: 16px; font-weight: 400; line-height: 1.85; color: var(--near-black); white-space: pre-wrap; word-break: break-word; }
 
 /* ── LANGUAGE MODAL ── */
 .lang-modal {
-  display: none; position: fixed; inset: 0;
-  background: var(--parchment);
-  z-index: 500; flex-direction: column;
-  max-width: 480px; margin: 0 auto;
+  display: none; position: fixed; inset: 0; background: var(--parchment);
+  z-index: 500; flex-direction: column; max-width: 480px; margin: 0 auto;
 }
 .lang-modal.active { display: flex; }
-
 .lang-modal-bar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 20px;
-  background: var(--parchment);
-  border-bottom: 1px solid var(--border-cream);
-  flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+  background: var(--parchment); border-bottom: 1px solid var(--border-cream); flex-shrink: 0;
 }
 .back-btn {
-  width: 34px; height: 34px; border-radius: var(--r-md);
-  border: 1px solid var(--border-warm); background: var(--ivory);
-  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: var(--r-md); border: 1px solid var(--border-warm);
+  background: var(--ivory); display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--charcoal); flex-shrink: 0;
 }
 .back-btn:active { background: var(--warm-sand); }
-.lang-modal-title {
-  font-family: var(--serif);
-  font-size: 17px; font-weight: 500; color: var(--near-black);
-}
-
-.lang-search-wrap {
-  padding: 12px 20px;
-  background: var(--ivory);
-  border-bottom: 1px solid var(--border-cream); flex-shrink: 0;
-}
+.lang-modal-title { font-family: var(--serif); font-size: 17px; font-weight: 500; color: var(--near-black); }
+.lang-search-wrap { padding: 12px 20px; background: var(--ivory); border-bottom: 1px solid var(--border-cream); flex-shrink: 0; }
 .lang-search {
-  width: 100%; padding: 10px 16px;
-  border: 1px solid var(--border-warm); border-radius: var(--r-lg);
-  background: var(--parchment); outline: none;
-  font-family: var(--sans); font-size: 14px; color: var(--near-black);
+  width: 100%; padding: 10px 16px; border: 1px solid var(--border-warm); border-radius: var(--r-lg);
+  background: var(--parchment); outline: none; font-family: var(--sans); font-size: 14px; color: var(--near-black);
 }
 .lang-search::placeholder { color: var(--warm-silver); }
-.lang-search:focus { border-color: var(--ring-warm); }
-
 .lang-list { overflow-y: auto; flex: 1; background: var(--ivory); }
-
 .lang-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 20px;
-  border-bottom: 1px solid var(--border-cream);
-  cursor: pointer; background: var(--ivory);
-  transition: background 0.08s;
+  display: flex; align-items: center; justify-content: space-between; padding: 13px 20px;
+  border-bottom: 1px solid var(--border-cream); cursor: pointer; background: var(--ivory); transition: background 0.08s;
 }
 .lang-item:active { background: var(--parchment); }
 .lang-item-left { display: flex; align-items: center; gap: 14px; }
-.lang-flag {
-  width: 40px; height: 40px; border-radius: var(--r-lg);
-  background: var(--parchment); border: 1px solid var(--border-cream);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; flex-shrink: 0;
-}
+.lang-flag { width: 40px; height: 40px; border-radius: var(--r-lg); background: var(--parchment); border: 1px solid var(--border-cream); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
 .lang-item-name { font-size: 15px; font-weight: 500; color: var(--near-black); }
 .lang-item-code { font-size: 11px; color: var(--stone); margin-top: 2px; letter-spacing: 0.3px; }
-.lang-check {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--terracotta);
-  display: none; align-items: center; justify-content: center; flex-shrink: 0;
-}
+.lang-check { width: 22px; height: 22px; border-radius: 50%; background: var(--terracotta); display: none; align-items: center; justify-content: center; flex-shrink: 0; }
 .lang-item.selected .lang-check { display: flex; }
 
 /* ── SETTINGS DRAWER ── */
-.drawer-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(20,20,19,0.35); z-index: 200;
-}
+.drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(20,20,19,0.35); z-index: 200; }
 .drawer-overlay.active { display: block; }
-
 .drawer {
-  position: fixed; bottom: 0; left: 50%;
-  transform: translateX(-50%) translateY(100%);
-  width: 100%; max-width: 480px;
-  background: var(--ivory);
-  border-top: 1px solid var(--border-cream);
-  border-radius: 20px 20px 0 0;
-  z-index: 201;
-  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+  width: 100%; max-width: 480px; background: var(--ivory); border-top: 1px solid var(--border-cream);
+  border-radius: 20px 20px 0 0; z-index: 201; transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
   max-height: 86vh; overflow-y: auto;
 }
 .drawer.open { transform: translateX(-50%) translateY(0); }
-
-.drawer-handle {
-  width: 36px; height: 4px;
-  background: var(--border-warm); border-radius: 2px;
-  margin: 12px auto 0;
-}
-.drawer-title {
-  font-family: var(--serif);
-  font-size: 18px; font-weight: 500; color: var(--near-black);
-  padding: 16px 20px 10px;
-}
+.drawer-handle { width: 36px; height: 4px; background: var(--border-warm); border-radius: 2px; margin: 12px auto 0; }
+.drawer-title { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--near-black); padding: 16px 20px 10px; }
 
 .setting-section { border-top: 1px solid var(--border-cream); padding: 16px 20px; }
-.setting-section-label {
-  font-size: 10px; color: var(--stone);
-  letter-spacing: 0.6px; text-transform: uppercase;
-  margin-bottom: 12px;
-}
-
+.setting-section-label { font-size: 10px; color: var(--stone); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 12px; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; }
 .setting-row + .setting-row { border-top: 1px solid var(--border-cream); margin-top: 12px; padding-top: 12px; }
+.setting-row.stacked { flex-direction: column; align-items: stretch; gap: 12px; }
 .setting-name { font-size: 14px; font-weight: 500; color: var(--near-black); }
 .setting-desc { font-size: 12px; color: var(--stone); margin-top: 2px; line-height: 1.5; }
 
 .num-control { display: flex; align-items: center; gap: 12px; }
-.num-btn {
-  width: 30px; height: 30px; border-radius: var(--r-md);
-  border: 1px solid var(--border-warm); background: var(--parchment);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 18px; color: var(--charcoal);
-  line-height: 1; user-select: none;
-}
+.num-btn { width: 30px; height: 30px; border-radius: var(--r-md); border: 1px solid var(--border-warm); background: var(--parchment); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: var(--charcoal); line-height: 1; user-select: none; }
 .num-btn:active { background: var(--warm-sand); }
-.num-val {
-  font-family: var(--serif);
-  font-size: 18px; font-weight: 500; color: var(--terracotta);
-  min-width: 22px; text-align: center;
-}
+.num-val { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--terracotta); min-width: 22px; text-align: center; }
 
-.key-field {
-  width: 100%; border: 1px solid var(--border-warm); border-radius: var(--r-lg);
-  background: var(--parchment);
-  display: flex; align-items: center; overflow: hidden; margin-top: 10px;
-}
-#apiKeyInput {
-  flex: 1; background: transparent; border: none; outline: none;
-  padding: 11px 16px; font-family: var(--sans); font-size: 13px;
-  color: var(--near-black); min-width: 0; letter-spacing: 0.5px;
-}
+.key-field { width: 100%; border: 1px solid var(--border-warm); border-radius: var(--r-lg); background: var(--parchment); display: flex; align-items: center; overflow: hidden; margin-top: 10px; }
+#apiKeyInput { flex: 1; background: transparent; border: none; outline: none; padding: 11px 16px; font-family: var(--sans); font-size: 13px; color: var(--near-black); min-width: 0; letter-spacing: 0.5px; }
 #apiKeyInput::placeholder { color: var(--warm-silver); }
-.key-eye {
-  padding: 0 14px; color: var(--stone);
-  cursor: pointer; display: flex; align-items: center; flex-shrink: 0;
-}
-.key-eye:active { color: var(--charcoal); }
+.key-eye { padding: 0 14px; color: var(--stone); cursor: pointer; display: flex; align-items: center; flex-shrink: 0; }
 .key-note { font-size: 11px; color: var(--stone); margin-top: 8px; line-height: 1.6; }
 
-.model-tag {
-  font-size: 11px; color: var(--charcoal);
-  background: var(--warm-sand);
-  padding: 4px 10px; border-radius: var(--r-2xl);
-  letter-spacing: 0.3px;
+.select-wrap { position: relative; }
+.select-wrap select {
+  width: 100%; appearance: none; background: var(--parchment); border: 1px solid var(--border-warm);
+  border-radius: var(--r-lg); padding: 11px 16px; font-family: var(--sans); font-size: 13px;
+  font-weight: 500; color: var(--near-black); outline: none; cursor: pointer; letter-spacing: 0.5px;
+}
+.select-wrap select:focus { border-color: var(--ring-warm); }
+.select-wrap::after {
+  content: ''; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  border-width: 5px 5px 0 5px; border-style: solid; border-color: var(--stone) transparent transparent transparent;
+  pointer-events: none;
 }
 
 .save-btn {
-  margin: 16px 20px 36px; width: calc(100% - 40px);
-  padding: 13px 24px;
-  background: var(--terracotta); color: var(--ivory);
-  border: none; border-radius: var(--r-lg);
-  font-family: var(--sans); font-size: 15px; font-weight: 500; cursor: pointer;
-  letter-spacing: 0.3px;
+  margin: 16px 20px 36px; width: calc(100% - 40px); padding: 13px 24px;
+  background: var(--terracotta); color: var(--ivory); border: none; border-radius: var(--r-lg);
+  font-family: var(--sans); font-size: 15px; font-weight: 500; cursor: pointer; letter-spacing: 0.3px;
 }
 .save-btn:active { background: #b5573a; }
 
 /* ── TOAST ── */
 .toast {
-  position: fixed; bottom: 32px; left: 50%;
-  transform: translateX(-50%) translateY(14px);
-  background: var(--near-black); color: var(--warm-silver);
-  font-size: 13px; padding: 10px 20px; border-radius: var(--r-2xl);
-  opacity: 0; transition: opacity 0.2s, transform 0.2s;
-  z-index: 999; white-space: nowrap; pointer-events: none;
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(14px);
+  background: var(--near-black); color: var(--warm-silver); font-size: 13px; padding: 10px 20px; border-radius: var(--r-2xl);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 999; white-space: nowrap; pointer-events: none;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { display: inline-block; animation: spin 0.9s linear infinite; }
 
@@ -709,16 +542,10 @@ body {
       <span class="result-label">最终译文</span>
       <div class="result-actions">
         <button class="action-btn" id="speakBtn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-          </svg>朗读
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>朗读
         </button>
         <button class="action-btn" id="copyBtn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-            <rect x="9" y="9" width="13" height="13" rx="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>复制
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
         </button>
       </div>
     </div>
@@ -732,9 +559,7 @@ body {
 <div class="lang-modal" id="langModal">
   <div class="lang-modal-bar">
     <div class="back-btn" id="langModalBack">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M19 12H5"/><path d="m12 5-7 7 7 7"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/></svg>
     </div>
     <span class="lang-modal-title" id="langModalTitle">选择语言</span>
   </div>
@@ -748,16 +573,14 @@ body {
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="settingsDrawer">
   <div class="drawer-handle"></div>
-  <div class="drawer-title">设置</div>
+  <div class="drawer-title">引擎设置</div>
 
   <div class="setting-section">
     <div class="setting-section-label">DeepSeek API 密钥</div>
     <div class="key-field">
       <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false"/>
       <div class="key-eye" id="keyToggle">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
     </div>
     <div class="key-note">密钥仅存储于本机浏览器，从不上传服务器。</div>
@@ -779,13 +602,33 @@ body {
   </div>
 
   <div class="setting-section">
-    <div class="setting-section-label">模型</div>
-    <div class="setting-row">
+    <div class="setting-section-label">DeepSeek V4 模型配置</div>
+    
+    <div class="setting-row stacked">
       <div>
-        <div class="setting-name">DeepSeek Chat</div>
-        <div class="setting-desc">V3.2 非思考模式 · 最快响应</div>
+        <div class="setting-name">核心模型</div>
+        <div class="setting-desc">V4 Pro 性能最强，V4 Flash 速度极快且极具性价比。</div>
       </div>
-      <span class="model-tag">deepseek-chat</span>
+      <div class="select-wrap">
+        <select id="modelSelect">
+          <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+          <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-row stacked">
+      <div>
+        <div class="setting-name">思考模式 (Thinking Mode)</div>
+        <div class="setting-desc">开启原生思维链，推理深度越高，模型在译文推敲和语言还原上的细节越惊艳。</div>
+      </div>
+      <div class="select-wrap">
+        <select id="thinkingSelect">
+          <option value="disabled">关闭 (Non-thinking)</option>
+          <option value="high">开启 - 高深度 (High)</option>
+          <option value="max">开启 - 极深度 (Max)</option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -795,7 +638,7 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
-const LANGS = [
+const LANGS =[
   { code:'zh', name:'中文',     label:'ZH', flag:'🇨🇳' },
   { code:'en', name:'英语',     label:'EN', flag:'🇺🇸' },
   { code:'ja', name:'日语',     label:'JA', flag:'🇯🇵' },
@@ -818,19 +661,38 @@ const state = {
   srcLang: LANGS[0], tgtLang: LANGS[1],
   rounds: parseInt(localStorage.getItem('prism_rounds') || '2'),
   apiKey: localStorage.getItem('prism_key') || '',
+  model: localStorage.getItem('prism_model') || 'deepseek-v4-flash',
+  thinkingMode: localStorage.getItem('prism_thinking') || 'disabled',
   running: false, pickingFor: null,
 };
 
 function init() {
   document.getElementById('roundsDisplay').textContent = state.rounds;
   if (state.apiKey) document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('modelSelect').value = state.model;
+  document.getElementById('thinkingSelect').value = state.thinkingMode;
   updateLangDisplay();
 }
+
 function updateLangDisplay() {
   document.getElementById('srcLangName').textContent = state.srcLang.name;
   document.getElementById('srcLangCode').textContent = state.srcLang.label;
   document.getElementById('tgtLangName').textContent = state.tgtLang.name;
   document.getElementById('tgtLangCode').textContent = state.tgtLang.label;
+}
+
+// UI Updater for streaming (Handles reasoning_content and content smoothly)
+function updateUI(el, full, reasoning) {
+  if (reasoning && !el.hasAttribute('data-has-reasoning')) {
+    el.innerHTML = `<div class="reasoning-text"></div><div class="content-text"></div>`;
+    el.setAttribute('data-has-reasoning', 'true');
+  }
+  if (el.hasAttribute('data-has-reasoning')) {
+    el.querySelector('.reasoning-text').textContent = reasoning;
+    el.querySelector('.content-text').textContent = full;
+  } else {
+    el.textContent = full;
+  }
 }
 
 // Textarea
@@ -848,7 +710,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 
 // Swap
 document.getElementById('swapBtn').addEventListener('click', () => {
-  [state.srcLang, state.tgtLang] = [state.tgtLang, state.srcLang];
+  [state.srcLang, state.tgtLang] =[state.tgtLang, state.srcLang];
   updateLangDisplay();
   const final = document.getElementById('finalResult').textContent;
   if (final) {
@@ -928,9 +790,16 @@ document.getElementById('keyToggle').addEventListener('click', () => {
 document.getElementById('saveSettingsBtn').addEventListener('click', () => {
   const key = document.getElementById('apiKeyInput').value.trim();
   if (!key) { showToast('请输入 API 密钥'); return; }
+  
   state.apiKey = key;
+  state.model = document.getElementById('modelSelect').value;
+  state.thinkingMode = document.getElementById('thinkingSelect').value;
+  
   localStorage.setItem('prism_key', key);
   localStorage.setItem('prism_rounds', state.rounds);
+  localStorage.setItem('prism_model', state.model);
+  localStorage.setItem('prism_thinking', state.thinkingMode);
+  
   showToast('已保存');
   closeDrawer();
 });
@@ -968,136 +837,129 @@ document.getElementById('speakBtn').addEventListener('click', () => {
 });
 
 // ─────────────────────────────────────────
-// DeepSeek API
+// DeepSeek V4 API
 // ─────────────────────────────────────────
+// 替换原有的 async function callDeepSeek 整个函数
 async function callDeepSeek(messages, onChunk, temperature = 0.5) {
   if (!state.apiKey) throw new Error('NO_KEY');
+
+  const payload = {
+    model: state.model,
+    messages,
+    stream: true,
+    temperature: temperature
+  };
+
+  // 新版 V4 思考模式控制（抛弃 reasoning_effort）
+  if (state.thinkingMode === 'disabled') {
+    // 显式禁用思考：确保模型完全不进行推理
+    payload.thinking = { type: 'disabled' };
+  } else if (state.thinkingMode === 'high') {
+    // 高深度：开启思考，并分配适中的推理预算
+    payload.thinking = { type: 'enabled', budget_tokens: 2048 };
+  } else if (state.thinkingMode === 'max') {
+    // 极深度：开启思考，并分配最大的推理预算
+    payload.thinking = { type: 'enabled', budget_tokens: 4096 };
+  }
+
   const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-    body: JSON.stringify({ model: 'deepseek-chat', messages, stream: true, temperature, max_tokens: 2048 })
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${state.apiKey}` 
+    },
+    body: JSON.stringify(payload)
   });
+
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     throw new Error(err.error?.message || `HTTP ${resp.status}`);
   }
+
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
-  let result = '', buf = '';
+  let resultContent = '', resultReasoning = '', buf = '';
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
     const lines = buf.split('\n'); buf = lines.pop();
+    
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
+      
       try {
-        const delta = JSON.parse(data).choices?.[0]?.delta?.content || '';
-        if (delta) { result += delta; onChunk && onChunk(delta, result); }
-      } catch {}
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta || {};
+        
+        // 推理链路和正式内容分别捕获
+        if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
+        if (delta.content) resultContent += delta.content;
+        
+        // 流式更新界面
+        if (onChunk && (delta.reasoning_content || delta.content)) {
+          onChunk(resultContent, resultReasoning);
+        }
+      } catch (e) {
+        // 忽略解析错误
+      }
     }
   }
-  return result;
+  
+  return resultContent;
 }
-
 // ─────────────────────────────────────────
 // SYSTEM PROMPTS — 四阶引擎
 // ─────────────────────────────────────────
-
-// 阶一：三路初译
 function promptPathA(src, tgt) {
   return `你是一位严谨的语言学家，专精${src}与${tgt}互译，你的核心使命是「忠实」。
-
-翻译准则：
 1. 逐句对应原文，不遗漏任何信息，不擅自增减内容
 2. 保留原文的句式结构、标点逻辑与段落节奏
 3. 专有名词、人名、地名采用标准译法
-4. 语域（正式/口语/学术/文学）与原文严格一致
-5. 对歧义词选择语境最贴切的解读，不做主观发挥
-
+4. 语域与原文严格一致，不对歧义词做主观发挥
 仅输出译文本身，不附任何说明或注释。`;
 }
 function promptPathB(src, tgt) {
   return `你是一位以${tgt}为母语的资深编辑，你的核心使命是「地道」。
-
-翻译策略：
 1. 深刻领会原文的深层意图与情感语气
 2. 以地道${tgt}自然表达，不受原文句式束缚
-3. 主动使用${tgt}中的惯用表达、成语、搭配，避免翻译腔
-4. 在保持语义完整的前提下，大胆重构句子结构以提升可读性
-5. 文化隐喻、俚语、幽默感尽量做到等效传递
-
+3. 主动使用${tgt}中的惯用表达、成语，避免翻译腔
+4. 胆重构句子结构以提升可读性
 仅输出译文本身，不附任何说明或注释。`;
 }
 function promptPathC(src, tgt) {
-  return `你是一位跨领域专家翻译，擅长自动识别文本所属领域并调用该领域专业知识进行翻译。
-
-工作流程：
-1. 首先判断文本领域：商务/法律/医学/技术/文学/学术/日常/新闻等
-2. 调用该领域的专业术语体系与表达惯例
-3. 确保专业词汇的准确性，同时保持目标读者可读
-4. 如涉及行业特有格式（合同条款/医嘱/代码注释等），保留其结构特征
-5. 在专业性与流畅性之间取得最佳平衡
-
+  return `你是一位跨领域专家翻译，核心使命是「专业与精准」。
+1. 识别文本所属领域，调用该领域专业术语体系
+2. 确保专业词汇的准确性，同时保持目标读者可读
+3. 保留行业特有格式的结构特征
 仅输出译文本身，不附任何说明或注释。`;
 }
 
-// 阶二：交叉批判
 function promptCritique(src, tgt, selfPath, otherPathA, otherPathB) {
-  return `你是一位翻译质量审核专家，现在需要你以批判视角评审两个竞争版本的翻译。
-
-你当前代表的视角是：「${selfPath}」
-
-请评审以下两个版本，找出它们各自的缺陷：
-- 错译、漏译、增译了什么
-- 哪里翻译腔过重
-- 哪些专业术语处理不当
-- 哪里语义有偏差或歧义
-
+  return `你是一位翻译质量审核专家。你当前代表的视角是：「${selfPath}」。
+请评审另外两个竞争版本的翻译，找出：错漏译、翻译腔、专业术语不当、语义偏差。
 输出格式：版本X的问题：…… | 版本Y的问题：……
-语言简洁，每个版本评语控制在50字以内。不输出其他任何内容。`;
+每个版本评语控制在50字以内。不输出其他内容。`;
 }
 
-// 阶三：综合裁决
 function promptSynth(src, tgt) {
-  return `你是首席翻译裁决官，拥有最终决定权。你将综合三路译文、三份批判报告，以及改进备忘录，裁决出最优${tgt}译文。
-
-裁决标准（按优先级排序）：
-1. 准确性 — 原文信息完整传达，零遗漏零增减
-2. 地道性 — 以${tgt}母语者的语感自然表达
-3. 流畅性 — 通篇连贯，过渡自然，节奏舒适
-4. 专业性 — 术语准确，语域匹配
-5. 风格还原 — 情感基调、正式程度与原文一致
-
-工作方式：
-- 综合三路的优点，修正已识别的缺陷
-- 必要时完全重写某些句子，不必拘泥于任何单一版本
-- 在正文之后，另起一行输出改进备忘录，格式为：【备忘录】本轮遗留问题：……
-
+  return `你是首席翻译裁决官。请综合三路译文、交叉批判，以及上一轮备忘录，裁决出最优${tgt}译文。
+裁决标准：准确性 > 地道性 > 流畅性 > 专业性 > 风格还原。
 输出格式：
 [最优译文正文]
 【备忘录】本轮遗留问题：[简要说明下一轮需重点优化的方向，不超过60字]`;
 }
 
-// 阶四：质量终审
 function promptAudit(src, tgt) {
-  return `你是顶级翻译质量评审员，请对以下最终译文进行专业评分与点评。
-
-评分维度（各满分10分）：
-- 忠实度：原文信息传达是否完整准确
-- 流畅度：目标语言读来是否自然流畅
-- 地道度：是否使用了${tgt}母语者的地道表达
-
-输出格式（严格遵守，不输出任何其他内容）：
+  return `你是顶级翻译质量评审员，请对以下最终译文进行专业评分与点评（满分10分）。
+输出格式（严格遵守）：
 SCORES:忠实度:[数字]/流畅度:[数字]/地道度:[数字]
-REMARK:[50字以内的综合评语，指出最大亮点和最主要的遗憾]`;
+REMARK:[50字以内的综合评语，指出亮点和遗憾]`;
 }
 
-// ─────────────────────────────────────────
-// 解析综合输出（正文 + 备忘录）
-// ─────────────────────────────────────────
 function parseSynthOutput(raw) {
   const memoMatch = raw.match(/【备忘录】(.+)/s);
   const memo = memoMatch ? memoMatch[1].replace('本轮遗留问题：', '').trim() : '';
@@ -1109,7 +971,7 @@ function parseAuditOutput(raw) {
   const scoreMatch = raw.match(/SCORES:忠实度:(\d+)\/流畅度:(\d+)\/地道度:(\d+)/);
   const remarkMatch = raw.match(/REMARK:(.+)/s);
   return {
-    scores: scoreMatch ? [parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] : [8, 8, 8],
+    scores: scoreMatch ?[parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] :[9, 9, 9],
     remark: remarkMatch ? remarkMatch[1].trim() : ''
   };
 }
@@ -1128,29 +990,24 @@ async function doTranslate() {
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner">◌</span>&nbsp;引擎运行中…`;
 
-  // Reset UI
   document.getElementById('resultSection').classList.remove('active');
   document.getElementById('finalResult').textContent = '';
   document.getElementById('roundsContainer').innerHTML = '';
   document.getElementById('auditContainer').innerHTML = '';
   document.getElementById('enginePanel').classList.add('active');
 
-  // Progress: rounds×(3paths + 3critiques + 1synth) + 1audit
   const stepsPerRound = 7;
   const totalSteps = state.rounds * stepsPerRound + 1;
   let completedSteps = 0;
-  const setProgress = n => {
-    document.getElementById('progressFill').style.width = Math.round(n / totalSteps * 100) + '%';
-  };
+  
+  const setProgress = n => { document.getElementById('progressFill').style.width = Math.round(n / totalSteps * 100) + '%'; };
   const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; };
 
   const src = state.srcLang.name, tgt = state.tgtLang.name;
-  let lastSynthResult = '';
-  let lastMemo = '';
+  let lastSynthResult = '', lastMemo = '';
 
   try {
     for (let r = 0; r < state.rounds; r++) {
-      // Build round card
       const roundEl = document.createElement('div');
       roundEl.className = 'round-card';
       roundEl.innerHTML = `
@@ -1161,24 +1018,15 @@ async function doTranslate() {
         </div>
         <div class="paths-row">
           <div class="path-item">
-            <div class="path-label">
-              <span>A · 语言学家</span>
-              <span class="path-lock">过程</span>
-            </div>
+            <div class="path-label"><span>A · 语言学家</span><span class="path-lock">过程</span></div>
             <div class="path-text streaming" id="pa${r}"></div>
           </div>
           <div class="path-item">
-            <div class="path-label">
-              <span>B · 本土编辑</span>
-              <span class="path-lock">过程</span>
-            </div>
+            <div class="path-label"><span>B · 本土编辑</span><span class="path-lock">过程</span></div>
             <div class="path-text streaming" id="pb${r}"></div>
           </div>
           <div class="path-item">
-            <div class="path-label">
-              <span>C · 领域专家</span>
-              <span class="path-lock">过程</span>
-            </div>
+            <div class="path-label"><span>C · 领域专家</span><span class="path-lock">过程</span></div>
             <div class="path-text streaming" id="pc${r}"></div>
           </div>
         </div>
@@ -1220,159 +1068,93 @@ async function doTranslate() {
 
       // ── 阶一：三路并发初译 ──
       setStatus(`第 ${r + 1} 轮 · 阶一：三路并发初译…`);
+      const buildUserMsg = (role) => r === 0 
+        ? `请将以下${src}文本翻译成${tgt}：\n\n${text}`
+        : `在上一轮最优译文基础上，从你的「${role}」视角针对性优化。${lastMemo ? `\n\n【上轮备忘录】\n${lastMemo}` : ''}\n\n【原文】\n${text}\n\n【上轮最优】\n${lastSynthResult}`;
 
-      const buildUserMsg = (pathRole) => {
-        if (r === 0) {
-          return `请将以下${src}文本翻译成${tgt}：\n\n${text}`;
-        }
-        const memoNote = lastMemo ? `\n\n【改进备忘录 — 上一轮遗留问题，请重点关注】\n${lastMemo}` : '';
-        return `请将以下${src}文本翻译成${tgt}，并在上一轮最优译文基础上，从你的「${pathRole}」视角进行针对性优化。${memoNote}\n\n【原文】\n${text}\n\n【上一轮最优译文（参考基准）】\n${lastSynthResult}`;
-      };
-
-      const [resA, resB, resC] = await Promise.all([
-        callDeepSeek([
-          { role: 'system', content: promptPathA(src, tgt) },
-          { role: 'user', content: buildUserMsg('语言学家 — 忠实') }
-        ], (_, full) => { paEl.textContent = full; }, 0.5),
-        callDeepSeek([
-          { role: 'system', content: promptPathB(src, tgt) },
-          { role: 'user', content: buildUserMsg('本土编辑 — 地道') }
-        ], (_, full) => { pbEl.textContent = full; }, 0.85),
-        callDeepSeek([
-          { role: 'system', content: promptPathC(src, tgt) },
-          { role: 'user', content: buildUserMsg('领域专家 — 专业') }
-        ], (_, full) => { pcEl.textContent = full; }, 0.6),
+      const[resA, resB, resC] = await Promise.all([
+        callDeepSeek([{ role: 'system', content: promptPathA(src, tgt) }, { role: 'user', content: buildUserMsg('语言学家') }], (full, reasoning) => updateUI(paEl, full, reasoning), 0.5),
+        callDeepSeek([{ role: 'system', content: promptPathB(src, tgt) }, { role: 'user', content: buildUserMsg('本土编辑') }], (full, reasoning) => updateUI(pbEl, full, reasoning), 0.8),
+        callDeepSeek([{ role: 'system', content: promptPathC(src, tgt) }, { role: 'user', content: buildUserMsg('领域专家') }], (full, reasoning) => updateUI(pcEl, full, reasoning), 0.6),
       ]);
 
-      paEl.classList.remove('streaming');
-      pbEl.classList.remove('streaming');
-      pcEl.classList.remove('streaming');
+      paEl.classList.remove('streaming'); pbEl.classList.remove('streaming'); pcEl.classList.remove('streaming');
       completedSteps += 3; setProgress(completedSteps);
 
-      // ── 阶二：交叉批判（并发） ──
+      // ── 阶二：交叉批判 ──
       setStatus(`第 ${r + 1} 轮 · 阶二：交叉批判…`);
-
-      const critiqueUserA = `原文（${src}）：\n${text}\n\n你需要评审：\n版本X（本土编辑）：${resB}\n版本Y（领域专家）：${resC}`;
-      const critiqueUserB = `原文（${src}）：\n${text}\n\n你需要评审：\n版本X（语言学家）：${resA}\n版本Y（领域专家）：${resC}`;
-      const critiqueUserC = `原文（${src}）：\n${text}\n\n你需要评审：\n版本X（语言学家）：${resA}\n版本Y（本土编辑）：${resB}`;
-
       const [critA, critB, critC] = await Promise.all([
-        callDeepSeek([
-          { role: 'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') },
-          { role: 'user', content: critiqueUserA }
-        ], (_, full) => { caEl.textContent = full; }, 0.4),
-        callDeepSeek([
-          { role: 'system', content: promptCritique(src, tgt, '本土编辑', '语言学家', '领域专家') },
-          { role: 'user', content: critiqueUserB }
-        ], (_, full) => { cbEl.textContent = full; }, 0.4),
-        callDeepSeek([
-          { role: 'system', content: promptCritique(src, tgt, '领域专家', '语言学家', '本土编辑') },
-          { role: 'user', content: critiqueUserC }
-        ], (_, full) => { ccEl.textContent = full; }, 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') }, { role: 'user', content: `原文：\n${text}\n\n版本X(B)：${resB}\n版本Y(C)：${resC}` }], (full, reasoning) => updateUI(caEl, full, reasoning), 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '本土编辑', '语言学家', '领域专家') }, { role: 'user', content: `原文：\n${text}\n\n版本X(A)：${resA}\n版本Y(C)：${resC}` }], (full, reasoning) => updateUI(cbEl, full, reasoning), 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '领域专家', '语言学家', '本土编辑') }, { role: 'user', content: `原文：\n${text}\n\n版本X(A)：${resA}\n版本Y(B)：${resB}` }], (full, reasoning) => updateUI(ccEl, full, reasoning), 0.4),
       ]);
 
-      caEl.classList.remove('streaming');
-      cbEl.classList.remove('streaming');
-      ccEl.classList.remove('streaming');
+      caEl.classList.remove('streaming'); cbEl.classList.remove('streaming'); ccEl.classList.remove('streaming');
       completedSteps += 3; setProgress(completedSteps);
 
       // ── 阶三：综合裁决 ──
       setStatus(`第 ${r + 1} 轮 · 阶三：综合裁决…`);
-
-      const synthMsg = `原文（${src}）：\n${text}
-
-版本A（语言学家）：\n${resA}
-版本B（本土编辑）：\n${resB}
-版本C（领域专家）：\n${resC}
-
-批判报告：
-A视角对B/C的批判：${critA}
-B视角对A/C的批判：${critB}
-C视角对A/B的批判：${critC}
-${lastSynthResult ? `\n上一轮最优译文（参考基准）：\n${lastSynthResult}` : ''}
-${lastMemo ? `\n上一轮改进备忘录：${lastMemo}` : ''}
-
-请综合以上所有信息，裁决出本轮最优${tgt}译文，并输出改进备忘录。`;
-
+      const synthMsg = `原文：\n${text}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n\n批判：\nA->B/C：${critA}\nB->A/C：${critB}\nC->A/B：${critC}\n\n请裁决并输出最优译文与备忘录。`;
+      
       let rawSynth = '';
-      await callDeepSeek([
-        { role: 'system', content: promptSynth(src, tgt) },
-        { role: 'user', content: synthMsg }
-      ], (_, full) => {
+      await callDeepSeek([{ role: 'system', content: promptSynth(src, tgt) }, { role: 'user', content: synthMsg }], (full, reasoning) => {
         rawSynth = full;
         const { translation } = parseSynthOutput(full);
-        synthEl.textContent = translation || full;
+        updateUI(synthEl, translation || full, reasoning);
       }, 0.3);
 
       synthEl.classList.remove('streaming');
+      const parsed = parseSynthOutput(rawSynth);
+      lastSynthResult = parsed.translation;
+      lastMemo = parsed.memo;
 
-      const { translation: synthTranslation, memo } = parseSynthOutput(rawSynth);
-      synthEl.textContent = synthTranslation;
-      lastSynthResult = synthTranslation;
-      lastMemo = memo;
-
-      // Show memo
-      if (memo) {
+      if (lastMemo) {
         document.getElementById(`memo-row${r}`).style.display = 'block';
-        document.getElementById(`memo${r}`).textContent = memo;
+        document.getElementById(`memo${r}`).textContent = lastMemo;
       }
 
       completedSteps += 1; setProgress(completedSteps);
-      const badge = document.getElementById(`rbadge${r}`);
-      badge.textContent = '完成'; badge.classList.add('done');
+      document.getElementById(`rbadge${r}`).textContent = '完成';
+      document.getElementById(`rbadge${r}`).classList.add('done');
     }
 
     // ── 阶四：质量终审 ──
     setStatus('阶四：质量终审…');
-
     const auditEl = document.createElement('div');
     auditEl.className = 'audit-card';
     auditEl.innerHTML = `
       <div class="audit-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-        <span class="audit-title">质量终审报告</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span class="audit-title">V4 最终质量评估</span>
       </div>
       <div class="audit-body">
-        <div class="score-row" id="scoreRow">
-          <div class="score-item">
-            <span class="score-num" id="s0">—</span>
-            <span class="score-label">忠实度</span>
-            <div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div>
-          </div>
-          <div class="score-item">
-            <span class="score-num" id="s1">—</span>
-            <span class="score-label">流畅度</span>
-            <div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div>
-          </div>
-          <div class="score-item">
-            <span class="score-num" id="s2">—</span>
-            <span class="score-label">地道度</span>
-            <div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div>
-          </div>
+        <div class="score-row">
+          <div class="score-item"><span class="score-num" id="s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div></div>
+          <div class="score-item"><span class="score-num" id="s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div></div>
+          <div class="score-item"><span class="score-num" id="s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div></div>
         </div>
         <div class="audit-remark streaming" id="auditRemark"></div>
       </div>`;
     document.getElementById('auditContainer').appendChild(auditEl);
     auditEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    const auditMsg = `原文（${src}）：\n${text}\n\n最终译文（${tgt}）：\n${lastSynthResult}`;
     let rawAudit = '';
-    await callDeepSeek([
-      { role: 'system', content: promptAudit(src, tgt) },
-      { role: 'user', content: auditMsg }
-    ], (_, full) => {
+    await callDeepSeek([{ role: 'system', content: promptAudit(src, tgt) }, { role: 'user', content: `原文：\n${text}\n\n最终译文：\n${lastSynthResult}` }], (full, reasoning) => {
       rawAudit = full;
       const { remark } = parseAuditOutput(full);
-      document.getElementById('auditRemark').textContent = remark || '';
+      updateUI(document.getElementById('auditRemark'), remark || '', reasoning);
     }, 0.3);
 
-    const { scores, remark } = parseAuditOutput(rawAudit);
-    document.getElementById('auditRemark').textContent = remark;
     document.getElementById('auditRemark').classList.remove('streaming');
+    const { scores, remark } = parseAuditOutput(rawAudit);
+    
+    // 如果存在 reasoning，已经通过 updateUI 渲染，这里只更新 content 文本部分
+    if(document.getElementById('auditRemark').hasAttribute('data-has-reasoning')) {
+      document.getElementById('auditRemark').querySelector('.content-text').textContent = remark;
+    } else {
+      document.getElementById('auditRemark').textContent = remark;
+    }
 
-    // Animate scores
     scores.forEach((s, i) => {
       document.getElementById(`s${i}`).textContent = s;
       setTimeout(() => {
@@ -1384,7 +1166,7 @@ ${lastMemo ? `\n上一轮改进备忘录：${lastMemo}` : ''}
     completedSteps += 1; setProgress(completedSteps);
     setStatus('翻译完成');
 
-    // Show final
+    // Show Final Result
     document.getElementById('finalResult').textContent = lastSynthResult;
     document.getElementById('resultSection').classList.add('active');
     document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
