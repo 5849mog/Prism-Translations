@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>棱镜译 · PrismTrans (DeepSeek V4)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  /* Anthropic / DeepSeek palette */
+  --near-black: #141413;
+  --terracotta: #c96442;
+  --coral: #d97757;
+  --parchment: #f5f4ed;
+  --ivory: #faf9f5;
+  --white: #ffffff;
+  --warm-sand: #e8e6dc;
+  --dark-surface: #30302e;
+  --deep-dark: #141413;
+  --charcoal: #4d4c48;
+  --olive: #5e5d59;
+  --stone: #87867f;
+  --dark-warm: #3d3d3a;
+  --warm-silver: #b0aea5;
+  --border-cream: #f0eee6;
+  --border-warm: #e8e6dc;
+  --ring-warm: #d1cfc5;
+  --ring-deep: #c2c0b6;
+
+  /* Typography */
+  --serif: 'Noto Serif SC', Georgia, serif;
+  --sans: 'Noto Sans SC', 'Arial', system-ui, sans-serif;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 24px;
+  --r-3xl: 32px;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--parchment);
+  color: var(--near-black);
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--near-black);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-text {
+  font-family: var(--serif);
+  font-size: 18px; font-weight: 500;
+  color: var(--near-black); letter-spacing: 0.2px;
+}
+.logo-sub {
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 400;
+  color: var(--stone); letter-spacing: 0.5px;
+  text-transform: uppercase; display: block; margin-top: 1px;
+}
+
+.topbar-right { display: flex; gap: 8px; align-items: center; }
+
+.icon-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-warm);
+  background: var(--ivory);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--olive);
+  box-shadow: 0px 0px 0px 0px var(--ivory), 0px 0px 0px 1px var(--ring-warm);
+  transition: background 0.12s;
+}
+.icon-btn:active { background: var(--warm-sand); }
+
+/* ── LANG SELECTOR ── */
+.lang-bar {
+  display: flex; align-items: center;
+  padding: 12px 20px; gap: 8px;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--border-cream);
+}
+
+.lang-pill {
+  flex: 1; padding: 10px 14px;
+  background: var(--parchment);
+  border: 1px solid var(--border-warm);
+  border-radius: var(--r-lg);
+  cursor: pointer; text-align: center;
+  transition: background 0.12s;
+}
+.lang-pill:active { background: var(--warm-sand); }
+.lang-pill-name { font-size: 14px; font-weight: 500; color: var(--near-black); display: block; }
+.lang-pill-code { font-size: 10px; color: var(--stone); display: block; margin-top: 2px; letter-spacing: 0.4px; }
+
+.swap-btn {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-warm);
+  background: var(--ivory);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--olive);
+}
+.swap-btn:active { background: var(--warm-sand); }
+
+/* ── INPUT SECTION ── */
+.input-section { padding: 16px 20px; background: var(--ivory); border-bottom: 1px solid var(--border-cream); }
+
+.textarea-card {
+  background: var(--white);
+  border: 1px solid var(--border-warm);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
+}
+.textarea-card:focus-within {
+  border-color: var(--ring-warm);
+  box-shadow: rgba(0,0,0,0.05) 0px 4px 24px;
+}
+
+#sourceText {
+  width: 100%; min-height: 120px; max-height: 220px;
+  padding: 16px;
+  background: transparent; border: none; outline: none; resize: none;
+  font-family: var(--sans); font-size: 15px; line-height: 1.65;
+  color: var(--near-black);
+}
+#sourceText::placeholder { color: var(--warm-silver); }
+
+.input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-cream);
+  background: var(--parchment);
+}
+.char-count { font-size: 12px; color: var(--warm-silver); letter-spacing: 0.2px; }
+.clear-btn {
+  font-size: 12px; color: var(--stone); background: none;
+  border: none; cursor: pointer; font-family: var(--sans);
+  padding: 2px 0;
+}
+.clear-btn:active { color: var(--terracotta); }
+
+/* ── TRANSLATE BUTTON ── */
+.translate-wrap { padding: 16px 20px; background: var(--ivory); border-bottom: 1px solid var(--border-cream); }
+
+.translate-btn {
+  width: 100%; padding: 14px 24px;
+  background: var(--terracotta); color: var(--ivory);
+  border: none; border-radius: var(--r-lg);
+  font-family: var(--sans); font-size: 15px; font-weight: 500;
+  cursor: pointer; letter-spacing: 0.3px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0px 0px 0px 0px var(--terracotta), 0px 0px 0px 1px var(--terracotta);
+  transition: background 0.12s;
+}
+.translate-btn:active { background: #b5573a; }
+.translate-btn:disabled {
+  background: var(--warm-sand); color: var(--stone);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── ENGINE PANEL ── */
+.engine-panel { display: none; }
+.engine-panel.active { display: block; }
+
+.phase-strip { padding: 14px 20px 0; background: var(--parchment); }
+
+.phase-progress-row {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-cream);
+}
+.phase-status-text {
+  font-size: 12px; color: var(--stone);
+  font-family: var(--sans); flex: 1;
+  letter-spacing: 0.2px;
+}
+.progress-track {
+  width: 80px; height: 2px;
+  background: var(--border-warm); border-radius: 2px; overflow: hidden; flex-shrink: 0;
+}
+.progress-fill {
+  height: 100%; background: var(--terracotta);
+  border-radius: 2px; width: 0%;
+  transition: width 0.5s ease;
+}
+
+.round-section { padding: 12px 20px; }
+
+.round-card {
+  background: var(--ivory);
+  border: 1px solid var(--border-cream);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
+}
+
+.round-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream);
+}
+.round-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--near-black); color: var(--ivory);
+  font-size: 11px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.round-title {
+  font-family: var(--serif);
+  font-size: 13px; font-weight: 500; color: var(--charcoal); flex: 1;
+}
+.round-badge {
+  font-size: 10px; color: var(--stone);
+  background: var(--warm-sand);
+  padding: 2px 8px; border-radius: var(--r-2xl);
+  letter-spacing: 0.3px;
+}
+.round-badge.done { color: var(--terracotta); background: #f9ede7; }
+
+/* Engine Output Layout & Text Elements */
+.paths-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border-cream);
+}
+.path-item {
+  padding: 10px 12px;
+  position: relative;
+}
+.path-item:nth-child(odd)  { border-right: 1px solid var(--border-cream); }
+.path-item:nth-child(1), .path-item:nth-child(2) { border-bottom: 1px solid var(--border-cream); }
+.path-item--dynamic { background: #f7f5ee; }
+
+.path-label {
+  font-size: 10px; color: var(--stone);
+  letter-spacing: 0.5px; text-transform: uppercase;
+  margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;
+}
+.path-lock {
+  font-size: 9px; color: var(--warm-silver);
+  background: var(--warm-sand); padding: 1px 6px;
+  border-radius: var(--r-2xl); letter-spacing: 0.3px;
+}
+
+/* Content blocks with Reasoning separation */
+.path-text { font-size: 12px; line-height: 1.6; color: var(--olive); min-height: 14px; white-space: pre-wrap; word-break: break-word; }
+.critique-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border-cream); background: var(--parchment); }
+.critique-item { padding: 8px 12px; }
+.critique-item:nth-child(odd) { border-right: 1px solid var(--border-cream); }
+.critique-item:nth-child(1), .critique-item:nth-child(2) { border-bottom: 1px solid var(--border-cream); }
+.critique-label { font-size: 10px; color: var(--warm-silver); letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 4px; }
+.critique-text { font-size: 11px; line-height: 1.55; color: var(--stone); min-height: 12px; white-space: pre-wrap; word-break: break-word; }
+.synth-row { padding: 12px 14px; background: var(--white); }
+.synth-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.synth-label-text { font-family: var(--serif); font-size: 11px; font-weight: 500; color: var(--charcoal); letter-spacing: 0.2px; }
+.synth-lock { font-size: 9px; color: var(--warm-silver); background: var(--warm-sand); padding: 1px 7px; border-radius: var(--r-2xl); letter-spacing: 0.3px; }
+.synth-text { font-size: 13px; line-height: 1.65; color: var(--near-black); font-weight: 400; min-height: 16px; white-space: pre-wrap; word-break: break-word; }
+.memo-row { padding: 8px 14px 10px; background: var(--parchment); border-top: 1px solid var(--border-cream); }
+.memo-label { font-size: 10px; color: var(--warm-silver); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+.memo-text { font-size: 11px; line-height: 1.55; color: var(--stone); min-height: 12px; white-space: pre-wrap; word-break: break-word; }
+
+/* Reasoning UI components */
+.reasoning-text {
+  display: block; font-size: 11px; line-height: 1.5; color: var(--stone);
+  border-left: 2px solid var(--border-warm); background: var(--parchment);
+  padding: 6px 10px; margin-bottom: 8px; border-radius: 0 4px 4px 0;
+  white-space: pre-wrap; font-style: normal; font-family: var(--sans);
+}
+.reasoning-text::before {
+  content: '思考链 ⋯'; font-size: 10px; color: var(--warm-silver);
+  font-style: normal; display: block; margin-bottom: 4px;
+}
+.reasoning-text:empty { display: none; margin-bottom: 0; }
+.content-text { display: inline; white-space: pre-wrap; word-break: break-word; }
+
+.path-text.streaming::after,
+.critique-text.streaming::after,
+.synth-text.streaming::after,
+.memo-text.streaming::after,
+.audit-remark.streaming::after {
+  content: '▌'; animation: blink .65s steps(1) infinite;
+  color: var(--warm-silver); font-size: 10px;
+}
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+
+/* ── QUALITY AUDIT ── */
+.audit-card {
+  margin: 0 20px 12px; background: var(--ivory);
+  border: 1px solid var(--border-cream); border-radius: var(--r-xl);
+  overflow: hidden; box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
+}
+.audit-header {
+  padding: 11px 14px; background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream); display: flex; align-items: center; gap: 8px;
+}
+.audit-title { font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--charcoal); }
+.audit-body { padding: 14px; }
+.score-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.score-item {
+  flex: 1; text-align: center; background: var(--parchment);
+  border: 1px solid var(--border-cream); border-radius: var(--r-lg); padding: 10px 6px;
+}
+.score-num { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--near-black); display: block; line-height: 1; }
+.score-label { font-size: 10px; color: var(--stone); margin-top: 4px; letter-spacing: 0.3px; display: block; }
+.score-bar-wrap { height: 3px; background: var(--border-warm); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.score-bar { height: 100%; background: var(--terracotta); border-radius: 2px; }
+.audit-remark { font-size: 12px; line-height: 1.65; color: var(--olive); white-space: pre-wrap; word-break: break-word; }
+
+/* ── FINAL RESULT ── */
+.result-section { display: none; padding: 0 20px 40px; background: var(--parchment); }
+.result-section.active { display: block; }
+
+.result-card {
+  background: var(--white); border: 1px solid var(--border-warm);
+  border-radius: var(--r-xl); overflow: hidden; box-shadow: rgba(0,0,0,0.05) 0px 4px 24px;
+}
+.result-header {
+  display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+  background: var(--parchment); border-bottom: 1px solid var(--border-cream);
+}
+.result-label { font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--charcoal); }
+.result-actions { display: flex; gap: 6px; }
+
+.action-btn {
+  padding: 6px 13px; border-radius: var(--r-md); border: 1px solid var(--border-warm);
+  background: var(--ivory); color: var(--charcoal); font-size: 12px; font-family: var(--sans);
+  cursor: pointer; display: flex; align-items: center; gap: 5px; transition: background 0.1s;
+}
+.action-btn:active { background: var(--warm-sand); }
+.action-btn.success { color: var(--terracotta); border-color: var(--coral); }
+
+.result-body { padding: 18px; }
+#finalResult { font-family: var(--serif); font-size: 16px; font-weight: 400; line-height: 1.85; color: var(--near-black); white-space: pre-wrap; word-break: break-word; }
+
+/* ── LANGUAGE MODAL ── */
+.lang-modal {
+  display: none; position: fixed; inset: 0; background: var(--parchment);
+  z-index: 500; flex-direction: column; max-width: 480px; margin: 0 auto;
+}
+.lang-modal.active { display: flex; }
+.lang-modal-bar {
+  display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+  background: var(--parchment); border-bottom: 1px solid var(--border-cream); flex-shrink: 0;
+}
+.back-btn {
+  width: 34px; height: 34px; border-radius: var(--r-md); border: 1px solid var(--border-warm);
+  background: var(--ivory); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--charcoal); flex-shrink: 0;
+}
+.back-btn:active { background: var(--warm-sand); }
+.lang-modal-title { font-family: var(--serif); font-size: 17px; font-weight: 500; color: var(--near-black); }
+.lang-search-wrap { padding: 12px 20px; background: var(--ivory); border-bottom: 1px solid var(--border-cream); flex-shrink: 0; }
+.lang-search {
+  width: 100%; padding: 10px 16px; border: 1px solid var(--border-warm); border-radius: var(--r-lg);
+  background: var(--parchment); outline: none; font-family: var(--sans); font-size: 14px; color: var(--near-black);
+}
+.lang-search::placeholder { color: var(--warm-silver); }
+.lang-list { overflow-y: auto; flex: 1; background: var(--ivory); }
+.lang-item {
+  display: flex; align-items: center; justify-content: space-between; padding: 13px 20px;
+  border-bottom: 1px solid var(--border-cream); cursor: pointer; background: var(--ivory); transition: background 0.08s;
+}
+.lang-item:active { background: var(--parchment); }
+.lang-item-left { display: flex; align-items: center; gap: 14px; }
+.lang-flag { width: 40px; height: 40px; border-radius: var(--r-lg); background: var(--parchment); border: 1px solid var(--border-cream); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.lang-item-name { font-size: 15px; font-weight: 500; color: var(--near-black); }
+.lang-item-code { font-size: 11px; color: var(--stone); margin-top: 2px; letter-spacing: 0.3px; }
+.lang-check { width: 22px; height: 22px; border-radius: 50%; background: var(--terracotta); display: none; align-items: center; justify-content: center; flex-shrink: 0; }
+.lang-item.selected .lang-check { display: flex; }
+
+/* ── SETTINGS DRAWER ── */
+.drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(20,20,19,0.35); z-index: 200; }
+.drawer-overlay.active { display: block; }
+.drawer {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+  width: 100%; max-width: 480px; background: var(--ivory); border-top: 1px solid var(--border-cream);
+  border-radius: 20px 20px 0 0; z-index: 201; transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  max-height: 86vh; overflow-y: auto;
+}
+.drawer.open { transform: translateX(-50%) translateY(0); }
+.drawer-handle { width: 36px; height: 4px; background: var(--border-warm); border-radius: 2px; margin: 12px auto 0; }
+.drawer-title { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--near-black); padding: 16px 20px 10px; }
+
+.setting-section { border-top: 1px solid var(--border-cream); padding: 16px 20px; }
+.setting-section-label { font-size: 10px; color: var(--stone); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 12px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; }
+.setting-row + .setting-row { border-top: 1px solid var(--border-cream); margin-top: 12px; padding-top: 12px; }
+.setting-row.stacked { flex-direction: column; align-items: stretch; gap: 12px; }
+.setting-name { font-size: 14px; font-weight: 500; color: var(--near-black); }
+.setting-desc { font-size: 12px; color: var(--stone); margin-top: 2px; line-height: 1.5; }
+
+.num-control { display: flex; align-items: center; gap: 12px; }
+.num-btn { width: 30px; height: 30px; border-radius: var(--r-md); border: 1px solid var(--border-warm); background: var(--parchment); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: var(--charcoal); line-height: 1; user-select: none; }
+.num-btn:active { background: var(--warm-sand); }
+.num-val { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--terracotta); min-width: 22px; text-align: center; }
+
+.key-field { width: 100%; border: 1px solid var(--border-warm); border-radius: var(--r-lg); background: var(--parchment); display: flex; align-items: center; overflow: hidden; margin-top: 10px; }
+#apiKeyInput { flex: 1; background: transparent; border: none; outline: none; padding: 11px 16px; font-family: var(--sans); font-size: 13px; color: var(--near-black); min-width: 0; letter-spacing: 0.5px; }
+#apiKeyInput::placeholder { color: var(--warm-silver); }
+.key-eye { padding: 0 14px; color: var(--stone); cursor: pointer; display: flex; align-items: center; flex-shrink: 0; }
+.key-note { font-size: 11px; color: var(--stone); margin-top: 8px; line-height: 1.6; }
+
+.select-wrap { position: relative; }
+.select-wrap select {
+  width: 100%; appearance: none; background: var(--parchment); border: 1px solid var(--border-warm);
+  border-radius: var(--r-lg); padding: 11px 16px; font-family: var(--sans); font-size: 13px;
+  font-weight: 500; color: var(--near-black); outline: none; cursor: pointer; letter-spacing: 0.5px;
+}
+.select-wrap select:focus { border-color: var(--ring-warm); }
+.select-wrap::after {
+  content: ''; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  border-width: 5px 5px 0 5px; border-style: solid; border-color: var(--stone) transparent transparent transparent;
+  pointer-events: none;
+}
+
+.save-btn {
+  margin: 16px 20px 36px; width: calc(100% - 40px); padding: 13px 24px;
+  background: var(--terracotta); color: var(--ivory); border: none; border-radius: var(--r-lg);
+  font-family: var(--sans); font-size: 15px; font-weight: 500; cursor: pointer; letter-spacing: 0.3px;
+}
+.save-btn:active { background: #b5573a; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(14px);
+  background: var(--near-black); color: var(--warm-silver); font-size: 13px; padding: 10px 20px; border-radius: var(--r-2xl);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 999; white-space: nowrap; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; animation: spin 0.9s linear infinite; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border-warm); border-radius: 2px; }
+
+/* ── AGENT GEN CARD ── */
+.agent-gen-section { padding: 12px 20px 0; }
+.agent-gen-card {
+  background: var(--ivory);
+  border: 1px solid var(--border-cream);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  box-shadow: rgba(0,0,0,0.03) 0px 2px 12px;
+}
+.agent-gen-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px;
+  background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream);
+}
+.agent-gen-title { font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--charcoal); flex: 1; }
+.agent-gen-badge { font-size: 10px; color: var(--stone); background: var(--warm-sand); padding: 2px 8px; border-radius: var(--r-2xl); letter-spacing: 0.3px; }
+.agent-gen-badge.done { color: var(--terracotta); background: #f9ede7; }
+.agent-gen-body { padding: 12px 14px; }
+.agent-gen-name { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--near-black); margin-bottom: 2px; }
+.agent-gen-label { font-size: 11px; color: var(--terracotta); margin-bottom: 8px; letter-spacing: 0.3px; }
+.agent-gen-prompt { font-size: 11px; line-height: 1.6; color: var(--stone); }
+.path-lock--dynamic { color: var(--terracotta) !important; background: #f9ede7 !important; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="#faf9f5" stroke-width="1.2"/>
+        <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="#c96442" stroke-width="0.9"/>
+        <circle cx="9" cy="9" r="1.8" fill="#faf9f5"/>
+      </svg>
+    </div>
+    <div>
+      <span class="logo-text">棱镜译</span>
+      <span class="logo-sub">PrismTrans</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="icon-btn" id="settingsBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- Lang Bar -->
+<div class="lang-bar">
+  <div class="lang-pill" id="srcLangBtn">
+    <span class="lang-pill-name" id="srcLangName">中文</span>
+    <span class="lang-pill-code" id="srcLangCode">ZH</span>
+  </div>
+  <div class="swap-btn" id="swapBtn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <path d="M8 3 4 7l4 4"/><path d="M4 7h16"/>
+      <path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>
+    </svg>
+  </div>
+  <div class="lang-pill" id="tgtLangBtn">
+    <span class="lang-pill-name" id="tgtLangName">英语</span>
+    <span class="lang-pill-code" id="tgtLangCode">EN</span>
+  </div>
+</div>
+
+<!-- Input -->
+<div class="input-section">
+  <div class="textarea-card">
+    <textarea id="sourceText" placeholder="在此输入要翻译的内容…" maxlength="3000"></textarea>
+    <div class="input-footer">
+      <span class="char-count"><span id="charNum">0</span> / 3000</span>
+      <button class="clear-btn" id="clearBtn">清空</button>
+    </div>
+  </div>
+</div>
+
+<!-- Translate Button -->
+<div class="translate-wrap">
+  <button class="translate-btn" id="translateBtn">启动四阶翻译引擎</button>
+</div>
+
+<!-- Engine Panel -->
+<div class="engine-panel" id="enginePanel">
+  <div class="phase-strip">
+    <div class="phase-progress-row">
+      <span class="phase-status-text" id="phaseStatus">准备中…</span>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+  </div>
+  <div class="agent-gen-section" id="agentGenSection" style="display:none">
+    <div class="agent-gen-card">
+      <div class="agent-gen-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span class="agent-gen-title" id="agentGenTitle">第四智能体生成中…</span>
+        <span class="agent-gen-badge" id="agentGenBadge">进行中</span>
+      </div>
+      <div class="agent-gen-body" id="agentGenBody" style="display:none">
+        <div class="agent-gen-name" id="agentGenName"></div>
+        <div class="agent-gen-label" id="agentGenLabel"></div>
+        <div class="agent-gen-prompt" id="agentGenPrompt"></div>
+      </div>
+    </div>
+  </div>
+  <div class="round-section" id="roundsContainer"></div>
+  <div id="auditContainer"></div>
+</div>
+
+<!-- Final Result -->
+<div class="result-section" id="resultSection">
+  <div class="result-card">
+    <div class="result-header">
+      <span class="result-label">最终译文</span>
+      <div class="result-actions">
+        <button class="action-btn" id="speakBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>朗读
+        </button>
+        <button class="action-btn" id="copyBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
+        </button>
+      </div>
+    </div>
+    <div class="result-body">
+      <div id="finalResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Language Modal -->
+<div class="lang-modal" id="langModal">
+  <div class="lang-modal-bar">
+    <div class="back-btn" id="langModalBack">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/></svg>
+    </div>
+    <span class="lang-modal-title" id="langModalTitle">选择语言</span>
+  </div>
+  <div class="lang-search-wrap">
+    <input class="lang-search" id="langSearch" type="text" placeholder="搜索语言…" autocomplete="off"/>
+  </div>
+  <div class="lang-list" id="langList"></div>
+</div>
+
+<!-- Settings Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="settingsDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">引擎设置</div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">DeepSeek API 密钥</div>
+    <div class="key-field">
+      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false"/>
+      <div class="key-eye" id="keyToggle">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+    </div>
+    <div class="key-note">密钥仅存储于本机浏览器，从不上传服务器。</div>
+  </div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">引擎精度</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">迭代轮数</div>
+        <div class="setting-desc">每轮：三路并发 → 交叉批判 → 综合裁决</div>
+      </div>
+      <div class="num-control">
+        <div class="num-btn" id="roundsMinus">−</div>
+        <div class="num-val" id="roundsDisplay">2</div>
+        <div class="num-btn" id="roundsPlus">+</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="setting-section">
+    <div class="setting-section-label">DeepSeek V4 模型配置</div>
+    
+    <div class="setting-row stacked">
+      <div>
+        <div class="setting-name">核心模型</div>
+        <div class="setting-desc">V4 Pro 性能最强，V4 Flash 速度极快且极具性价比。</div>
+      </div>
+      <div class="select-wrap">
+        <select id="modelSelect">
+          <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+          <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-row stacked">
+      <div>
+        <div class="setting-name">思考模式 (Thinking Mode)</div>
+        <div class="setting-desc">开启原生思维链，推理深度越高，模型在译文推敲和语言还原上的细节越惊艳。</div>
+      </div>
+      <div class="select-wrap">
+        <select id="thinkingSelect">
+          <option value="disabled">关闭 (Non-thinking)</option>
+          <option value="high">开启 - 高深度 (High)</option>
+          <option value="max">开启 - 极深度 (Max)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button class="save-btn" id="saveSettingsBtn">保存设置</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LANGS =[
+  { code:'zh', name:'中文',     label:'ZH', flag:'🇨🇳' },
+  { code:'en', name:'英语',     label:'EN', flag:'🇺🇸' },
+  { code:'ja', name:'日语',     label:'JA', flag:'🇯🇵' },
+  { code:'ko', name:'韩语',     label:'KO', flag:'🇰🇷' },
+  { code:'fr', name:'法语',     label:'FR', flag:'🇫🇷' },
+  { code:'de', name:'德语',     label:'DE', flag:'🇩🇪' },
+  { code:'es', name:'西班牙语', label:'ES', flag:'🇪🇸' },
+  { code:'ru', name:'俄语',     label:'RU', flag:'🇷🇺' },
+  { code:'ar', name:'阿拉伯语', label:'AR', flag:'🇸🇦' },
+  { code:'pt', name:'葡萄牙语', label:'PT', flag:'🇧🇷' },
+  { code:'it', name:'意大利语', label:'IT', flag:'🇮🇹' },
+  { code:'th', name:'泰语',     label:'TH', flag:'🇹🇭' },
+  { code:'vi', name:'越南语',   label:'VI', flag:'🇻🇳' },
+  { code:'nl', name:'荷兰语',   label:'NL', flag:'🇳🇱' },
+  { code:'tr', name:'土耳其语', label:'TR', flag:'🇹🇷' },
+  { code:'pl', name:'波兰语',   label:'PL', flag:'🇵🇱' },
+];
+
+const state = {
+  srcLang: LANGS[0], tgtLang: LANGS[1],
+  rounds: parseInt(localStorage.getItem('prism_rounds') || '2'),
+  apiKey: localStorage.getItem('prism_key') || '',
+  model: localStorage.getItem('prism_model') || 'deepseek-v4-flash',
+  thinkingMode: localStorage.getItem('prism_thinking') || 'disabled',
+  running: false, pickingFor: null,
+};
+
+function init() {
+  document.getElementById('roundsDisplay').textContent = state.rounds;
+  if (state.apiKey) document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('modelSelect').value = state.model;
+  document.getElementById('thinkingSelect').value = state.thinkingMode;
+  updateLangDisplay();
+}
+
+function updateLangDisplay() {
+  document.getElementById('srcLangName').textContent = state.srcLang.name;
+  document.getElementById('srcLangCode').textContent = state.srcLang.label;
+  document.getElementById('tgtLangName').textContent = state.tgtLang.name;
+  document.getElementById('tgtLangCode').textContent = state.tgtLang.label;
+}
+
+// UI Updater for streaming (Handles reasoning_content and content smoothly)
+function updateUI(el, full, reasoning) {
+  if (reasoning && !el.hasAttribute('data-has-reasoning')) {
+    el.innerHTML = `<div class="reasoning-text"></div><div class="content-text"></div>`;
+    el.setAttribute('data-has-reasoning', 'true');
+  }
+  if (el.hasAttribute('data-has-reasoning')) {
+    el.querySelector('.reasoning-text').textContent = reasoning;
+    el.querySelector('.content-text').textContent = full;
+  } else {
+    el.textContent = full;
+  }
+}
+
+// Textarea
+document.getElementById('sourceText').addEventListener('input', function() {
+  document.getElementById('charNum').textContent = this.value.length;
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('sourceText').value = '';
+  document.getElementById('charNum').textContent = '0';
+  document.getElementById('resultSection').classList.remove('active');
+  document.getElementById('enginePanel').classList.remove('active');
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('auditContainer').innerHTML = '';
+  const agSecClr = document.getElementById('agentGenSection');
+  agSecClr.style.display = 'none';
+  document.getElementById('agentGenBadge').textContent = '进行中';
+  document.getElementById('agentGenBadge').classList.remove('done');
+  document.getElementById('agentGenBody').style.display = 'none';
+  document.getElementById('agentGenTitle').textContent = '第四智能体生成中…';
+});
+
+// Swap
+document.getElementById('swapBtn').addEventListener('click', () => {
+  [state.srcLang, state.tgtLang] =[state.tgtLang, state.srcLang];
+  updateLangDisplay();
+  const final = document.getElementById('finalResult').textContent;
+  if (final) {
+    document.getElementById('sourceText').value = final;
+    document.getElementById('charNum').textContent = final.length;
+    document.getElementById('resultSection').classList.remove('active');
+    document.getElementById('enginePanel').classList.remove('active');
+    document.getElementById('roundsContainer').innerHTML = '';
+    document.getElementById('auditContainer').innerHTML = '';
+  }
+});
+
+// Lang Modal
+function openLangModal(forSrc) {
+  state.pickingFor = forSrc ? 'src' : 'tgt';
+  document.getElementById('langModalTitle').textContent = forSrc ? '选择源语言' : '选择目标语言';
+  document.getElementById('langSearch').value = '';
+  renderLangList('');
+  document.getElementById('langModal').classList.add('active');
+  setTimeout(() => document.getElementById('langSearch').focus(), 150);
+}
+function closeLangModal() { document.getElementById('langModal').classList.remove('active'); }
+function renderLangList(q) {
+  const active = state.pickingFor === 'src' ? state.srcLang : state.tgtLang;
+  const ql = q.toLowerCase();
+  const filtered = ql ? LANGS.filter(l => l.name.includes(q) || l.label.toLowerCase().includes(ql)) : LANGS;
+  const list = document.getElementById('langList');
+  list.innerHTML = '';
+  filtered.forEach(l => {
+    const el = document.createElement('div');
+    el.className = 'lang-item' + (l.code === active.code ? ' selected' : '');
+    el.innerHTML = `
+      <div class="lang-item-left">
+        <div class="lang-flag">${l.flag}</div>
+        <div>
+          <div class="lang-item-name">${l.name}</div>
+          <div class="lang-item-code">${l.label}</div>
+        </div>
+      </div>
+      <div class="lang-check">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>`;
+    el.addEventListener('click', () => {
+      if (state.pickingFor === 'src') state.srcLang = l;
+      else state.tgtLang = l;
+      updateLangDisplay(); closeLangModal();
+    });
+    list.appendChild(el);
+  });
+}
+document.getElementById('srcLangBtn').addEventListener('click', () => openLangModal(true));
+document.getElementById('tgtLangBtn').addEventListener('click', () => openLangModal(false));
+document.getElementById('langModalBack').addEventListener('click', closeLangModal);
+document.getElementById('langSearch').addEventListener('input', function() { renderLangList(this.value.trim()); });
+
+// Settings
+document.getElementById('settingsBtn').addEventListener('click', openDrawer);
+document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+function openDrawer() {
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('active');
+}
+function closeDrawer() {
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('active');
+}
+document.getElementById('roundsMinus').addEventListener('click', () => {
+  if (state.rounds > 1) { state.rounds--; document.getElementById('roundsDisplay').textContent = state.rounds; }
+});
+document.getElementById('roundsPlus').addEventListener('click', () => {
+  if (state.rounds < 4) { state.rounds++; document.getElementById('roundsDisplay').textContent = state.rounds; }
+});
+document.getElementById('keyToggle').addEventListener('click', () => {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+});
+document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { showToast('请输入 API 密钥'); return; }
+  
+  state.apiKey = key;
+  state.model = document.getElementById('modelSelect').value;
+  state.thinkingMode = document.getElementById('thinkingSelect').value;
+  
+  localStorage.setItem('prism_key', key);
+  localStorage.setItem('prism_rounds', state.rounds);
+  localStorage.setItem('prism_model', state.model);
+  localStorage.setItem('prism_thinking', state.thinkingMode);
+  
+  showToast('已保存');
+  closeDrawer();
+});
+
+// Toast
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// Copy & Speak
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('finalResult').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('success');
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>已复制`;
+    setTimeout(() => {
+      btn.classList.remove('success');
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制`;
+    }, 2000);
+  });
+});
+document.getElementById('speakBtn').addEventListener('click', () => {
+  const text = document.getElementById('finalResult').textContent;
+  if (!text || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = state.tgtLang.code;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+});
+
+// ─────────────────────────────────────────
+// DeepSeek V4 API
+// ─────────────────────────────────────────
+// 替换原有的 async function callDeepSeek 整个函数
+async function callDeepSeek(messages, onChunk, temperature = 0.5) {
+  if (!state.apiKey) throw new Error('NO_KEY');
+
+  const payload = {
+    model: state.model,
+    messages,
+    stream: true,
+    temperature: temperature
+  };
+
+  // 新版 V4 思考模式控制（抛弃 reasoning_effort）
+  if (state.thinkingMode === 'disabled') {
+    // 显式禁用思考：确保模型完全不进行推理
+    payload.thinking = { type: 'disabled' };
+  } else if (state.thinkingMode === 'high') {
+    // 高深度：开启思考，并分配适中的推理预算
+    payload.thinking = { type: 'enabled', budget_tokens: 2048 };
+  } else if (state.thinkingMode === 'max') {
+    // 极深度：开启思考，并分配最大的推理预算
+    payload.thinking = { type: 'enabled', budget_tokens: 4096 };
+  }
+
+  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${state.apiKey}` 
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let resultContent = '', resultReasoning = '', buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta || {};
+        
+        // 推理链路和正式内容分别捕获
+        if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
+        if (delta.content) resultContent += delta.content;
+        
+        // 流式更新界面
+        if (onChunk && (delta.reasoning_content || delta.content)) {
+          onChunk(resultContent, resultReasoning);
+        }
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+  }
+  
+  return resultContent;
+}
+// ─────────────────────────────────────────
+// SYSTEM PROMPTS — 四阶引擎
+// ─────────────────────────────────────────
+function promptMetaAgent(src, tgt) {
+  return `你是一位翻译系统架构师。当前翻译系统已有三个固定智能体：
+- 语言学家（Path A）：专注忠实度，逐句对应，严格保留原文语义与结构
+- 本土编辑（Path B）：专注地道性，以${tgt}母语者视角自然重构表达
+- 领域专家（Path C）：专注专业精准，识别领域术语并正确使用
+
+你的任务：根据待翻译文本，判断这三个智能体最缺乏哪种能力维度，设计第四个智能体补全最关键的短板。
+
+可能的补全方向（不限于此）：文化典故迁移 · 语气/情感还原 · 简洁凝练优化 · 跨文化读者适配 · 修辞风格还原 · 格式结构专家 · 幽默语感转化…
+
+输出格式（纯JSON，不附任何说明或代码块标记）：
+{"name":"智能体名称（2-5字）","label":"能力标签（4-10字）","systemPrompt":"完整系统提示词（120-200字，明确该智能体的翻译视角、核心使命与具体操作原则；末尾注明：仅输出译文本身，不附说明）"}`;
+}
+
+function promptPathA(src, tgt) {
+  return `你是一位严谨的语言学家，专精${src}与${tgt}互译，你的核心使命是「忠实」。
+1. 逐句对应原文，不遗漏任何信息，不擅自增减内容
+2. 保留原文的句式结构、标点逻辑与段落节奏
+3. 专有名词、人名、地名采用标准译法
+4. 语域与原文严格一致，不对歧义词做主观发挥
+仅输出译文本身，不附任何说明或注释。`;
+}
+function promptPathB(src, tgt) {
+  return `你是一位以${tgt}为母语的资深编辑，你的核心使命是「地道」。
+1. 深刻领会原文的深层意图与情感语气
+2. 以地道${tgt}自然表达，不受原文句式束缚
+3. 主动使用${tgt}中的惯用表达、成语，避免翻译腔
+4. 胆重构句子结构以提升可读性
+仅输出译文本身，不附任何说明或注释。`;
+}
+function promptPathC(src, tgt) {
+  return `你是一位跨领域专家翻译，核心使命是「专业与精准」。
+1. 识别文本所属领域，调用该领域专业术语体系
+2. 确保专业词汇的准确性，同时保持目标读者可读
+3. 保留行业特有格式的结构特征
+仅输出译文本身，不附任何说明或注释。`;
+}
+
+function promptCritique(src, tgt, selfPath, otherPathA, otherPathB) {
+  return `你是一位翻译质量审核专家，当前代表「${selfPath}」视角。
+请对另外两个版本逐句/逐段进行批判性审查，重点检查：错漏译、翻译腔、术语不当、语义偏差、语气失真。
+
+输出格式（严格遵守，每条独立一行）：
+【版本X】
+[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+【版本Y】
+[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+
+要求：
+- 每个问题必须附带改进建议，不允许只列问题
+- 如某版本某句无明显问题，可跳过该句，不必强行找茬
+- 每个版本至多列出3条最关键的问题，聚焦影响最大的缺陷
+- 不输出任何格式以外的内容`;
+}
+
+function promptSynth(src, tgt) {
+  return `你是首席翻译裁决官。请综合四路译文、各路分段批判与建议，以及上一轮备忘录，裁决出最优${tgt}译文。
+
+裁决策略：
+- 以 A 路为语义基准，从 B 路借鉴地道表达，从 C 路锚定专业术语，从 D 路补全其他三路未覆盖的维度
+- 优先采纳批判中附有明确建议的改进项
+- 裁决标准：准确性 > 地道性 > 流畅性 > 专业性 > 风格还原
+
+输出格式（严格遵守）：
+[最优译文正文]
+【备忘录】
+遗留问题：[本轮仍未解决的具体问题，列出1-3条，格式：① … ② …]
+待优化片段：[下一轮需重点打磨的原文句子或段落定位]
+下轮策略：[针对遗留问题的具体优化方向，不超过40字]`;
+}
+
+function promptAudit(src, tgt) {
+  return `你是顶级翻译质量评审员，请对以下最终译文进行专业评分与点评（满分10分）。
+输出格式（严格遵守）：
+SCORES:忠实度:[数字]/流畅度:[数字]/地道度:[数字]
+REMARK:[50字以内的综合评语，指出亮点和遗憾]`;
+}
+
+function parseSynthOutput(raw) {
+  const memoMatch = raw.match(/【备忘录】([\s\S]+)/);
+  let memo = '';
+  if (memoMatch) {
+    const memoRaw = memoMatch[1].trim();
+    const issues   = memoRaw.match(/遗留问题[：:]([\s\S]*?)(?=待优化片段|下轮策略|$)/)?.[1]?.trim() || '';
+    const segments = memoRaw.match(/待优化片段[：:]([\s\S]*?)(?=下轮策略|遗留问题|$)/)?.[1]?.trim() || '';
+    const strategy = memoRaw.match(/下轮策略[：:]([\s\S]*?)$/)?.[1]?.trim() || '';
+    const parts = [];
+    if (issues)   parts.push(`遗留问题：${issues}`);
+    if (segments) parts.push(`待优化片段：${segments}`);
+    if (strategy) parts.push(`下轮策略：${strategy}`);
+    memo = parts.join('\n') || memoRaw;
+  }
+  const translation = raw.replace(/【备忘录】[\s\S]*/, '').trim();
+  return { translation, memo };
+}
+
+function parseAuditOutput(raw) {
+  const scoreMatch = raw.match(/SCORES:忠实度:(\d+)\/流畅度:(\d+)\/地道度:(\d+)/);
+  const remarkMatch = raw.match(/REMARK:(.+)/s);
+  return {
+    scores: scoreMatch ?[parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] :[9, 9, 9],
+    remark: remarkMatch ? remarkMatch[1].trim() : ''
+  };
+}
+
+// ─────────────────────────────────────────
+// MAIN TRANSLATION ENGINE
+// ─────────────────────────────────────────
+async function doTranslate() {
+  const text = document.getElementById('sourceText').value.trim();
+  if (!text) { showToast('请先输入要翻译的内容'); return; }
+  if (!state.apiKey) { showToast('请先在设置中填写 API 密钥'); openDrawer(); return; }
+  if (state.running) return;
+
+  state.running = true;
+  const btn = document.getElementById('translateBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner">◌</span>&nbsp;引擎运行中…`;
+
+  document.getElementById('resultSection').classList.remove('active');
+  document.getElementById('finalResult').textContent = '';
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('auditContainer').innerHTML = '';
+  document.getElementById('enginePanel').classList.add('active');
+
+  const stepsPerRound = 9;  // 4 parallel + 4 critique + 1 synth
+  const totalSteps = 1 + state.rounds * stepsPerRound + 1;  // 1 agent-gen + rounds + 1 audit
+  let completedSteps = 0;
+  
+  const setProgress = n => { document.getElementById('progressFill').style.width = Math.round(n / totalSteps * 100) + '%'; };
+  const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; };
+
+  const src = state.srcLang.name, tgt = state.tgtLang.name;
+  let lastSynthResult = '', lastMemo = '';
+
+  try {
+    // ── 阶零：动态第四智能体生成 ──
+    setStatus('初始化：正在生成第四智能体…');
+    const agentSec = document.getElementById('agentGenSection');
+    agentSec.style.display = 'block';
+    agentSec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const agentRaw = await callDeepSeek(
+      [{ role: 'system', content: promptMetaAgent(src, tgt) },
+       { role: 'user', content: `请分析以下待翻译文本，设计最合适的第四智能体：\n\n源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本】\n${text}` }],
+      null, 0.7
+    );
+
+    // 默认兜底 agent（JSON解析失败时使用）
+    let dynamicAgent = {
+      name: '文化顾问',
+      label: '文化与语境补全',
+      systemPrompt: `你是一位专注文化适配的翻译专家。你的核心使命是「文化移植」：识别源语言中的文化负载词、习语、典故与隐含的社会背景，找到目标语言中最贴切的文化对等表达，使译文对目标读者天然可读、无需额外解释。仅输出译文本身，不附说明。`
+    };
+    try {
+      const cleaned = agentRaw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.name && parsed.systemPrompt) dynamicAgent = parsed;
+    } catch(e) { /* 使用默认兜底 */ }
+
+    // 渲染 agent 卡片
+    document.getElementById('agentGenName').textContent = dynamicAgent.name;
+    document.getElementById('agentGenLabel').textContent = dynamicAgent.label || '';
+    document.getElementById('agentGenPrompt').textContent = dynamicAgent.systemPrompt.slice(0, 90) + '…';
+    document.getElementById('agentGenBody').style.display = 'block';
+    document.getElementById('agentGenBadge').textContent = '已生成';
+    document.getElementById('agentGenBadge').classList.add('done');
+    document.getElementById('agentGenTitle').textContent = `第四智能体 · ${dynamicAgent.name}`;
+
+    completedSteps += 1; setProgress(completedSteps);
+
+    for (let r = 0; r < state.rounds; r++) {
+      const roundEl = document.createElement('div');
+      roundEl.className = 'round-card';
+      roundEl.innerHTML = `
+        <div class="round-header">
+          <div class="round-num">${r + 1}</div>
+          <div class="round-title">第 ${r + 1} 轮迭代</div>
+          <div class="round-badge" id="rbadge${r}">进行中</div>
+        </div>
+        <div class="paths-row">
+          <div class="path-item">
+            <div class="path-label"><span>A · 语言学家</span><span class="path-lock">过程</span></div>
+            <div class="path-text streaming" id="pa${r}"></div>
+          </div>
+          <div class="path-item">
+            <div class="path-label"><span>B · 本土编辑</span><span class="path-lock">过程</span></div>
+            <div class="path-text streaming" id="pb${r}"></div>
+          </div>
+          <div class="path-item">
+            <div class="path-label"><span>C · 领域专家</span><span class="path-lock">过程</span></div>
+            <div class="path-text streaming" id="pc${r}"></div>
+          </div>
+          <div class="path-item path-item--dynamic">
+            <div class="path-label"><span>D · ${dynamicAgent.name}</span><span class="path-lock path-lock--dynamic">动态</span></div>
+            <div class="path-text streaming" id="pd${r}"></div>
+          </div>
+        </div>
+        <div class="critique-row">
+          <div class="critique-item">
+            <div class="critique-label">A 的批判 → B/C</div>
+            <div class="critique-text streaming" id="ca${r}"></div>
+          </div>
+          <div class="critique-item">
+            <div class="critique-label">B 的批判 → C/D</div>
+            <div class="critique-text streaming" id="cb${r}"></div>
+          </div>
+          <div class="critique-item">
+            <div class="critique-label">C 的批判 → D/A</div>
+            <div class="critique-text streaming" id="cc${r}"></div>
+          </div>
+          <div class="critique-item">
+            <div class="critique-label">D 的批判 → A/B</div>
+            <div class="critique-text streaming" id="cd${r}"></div>
+          </div>
+        </div>
+        <div class="synth-row">
+          <div class="synth-label">
+            <span class="synth-label-text">裁决综合 · Round ${r + 1}</span>
+            <span class="synth-lock">过程</span>
+          </div>
+          <div class="synth-text streaming" id="synth${r}"></div>
+        </div>
+        <div class="memo-row" id="memo-row${r}" style="display:none">
+          <div class="memo-label">结构化备忘录 · 遗留 / 待优化 / 下轮策略</div>
+          <div class="memo-text" id="memo${r}"></div>
+        </div>`;
+      document.getElementById('roundsContainer').appendChild(roundEl);
+      roundEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      const paEl = document.getElementById(`pa${r}`);
+      const pbEl = document.getElementById(`pb${r}`);
+      const pcEl = document.getElementById(`pc${r}`);
+      const pdEl = document.getElementById(`pd${r}`);
+      const caEl = document.getElementById(`ca${r}`);
+      const cbEl = document.getElementById(`cb${r}`);
+      const ccEl = document.getElementById(`cc${r}`);
+      const cdEl = document.getElementById(`cd${r}`);
+      const synthEl = document.getElementById(`synth${r}`);
+
+      // ── 阶一：四路并发初译 ──
+      setStatus(`第 ${r + 1} 轮 · 阶一：四路并发初译…`);
+      const buildUserMsg = (role) => r === 0
+        ? `请将以下${src}文本翻译成${tgt}：\n\n${text}`
+        : `在上一轮最优译文基础上，从你的「${role}」视角针对性优化。${lastMemo ? `\n\n【上轮备忘录】\n${lastMemo}` : ''}\n\n【原文】\n${text}\n\n【上轮最优】\n${lastSynthResult}`;
+
+      const [resA, resB, resC, resD] = await Promise.all([
+        callDeepSeek([{ role: 'system', content: promptPathA(src, tgt) },        { role: 'user', content: buildUserMsg('语言学家') }],      (full, reasoning) => updateUI(paEl, full, reasoning), 0.5),
+        callDeepSeek([{ role: 'system', content: promptPathB(src, tgt) },        { role: 'user', content: buildUserMsg('本土编辑') }],      (full, reasoning) => updateUI(pbEl, full, reasoning), 0.8),
+        callDeepSeek([{ role: 'system', content: promptPathC(src, tgt) },        { role: 'user', content: buildUserMsg('领域专家') }],      (full, reasoning) => updateUI(pcEl, full, reasoning), 0.6),
+        callDeepSeek([{ role: 'system', content: dynamicAgent.systemPrompt },    { role: 'user', content: buildUserMsg(dynamicAgent.name) }], (full, reasoning) => updateUI(pdEl, full, reasoning), 0.7),
+      ]);
+
+      paEl.classList.remove('streaming'); pbEl.classList.remove('streaming');
+      pcEl.classList.remove('streaming'); pdEl.classList.remove('streaming');
+      completedSteps += 4; setProgress(completedSteps);
+
+      // ── 阶二：四路循环批判（A→B/C, B→C/D, C→D/A, D→A/B）──
+      setStatus(`第 ${r + 1} 轮 · 阶二：四路交叉批判…`);
+      const [critA, critB, critC, critD] = await Promise.all([
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '语言学家',      '本土编辑',      '领域专家') },        { role: 'user', content: `原文：\n${text}\n\n版本X(B)：${resB}\n版本Y(C)：${resC}` }], (full, reasoning) => updateUI(caEl, full, reasoning), 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '本土编辑',      '领域专家',      dynamicAgent.name) }, { role: 'user', content: `原文：\n${text}\n\n版本X(C)：${resC}\n版本Y(D)：${resD}` }], (full, reasoning) => updateUI(cbEl, full, reasoning), 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, '领域专家',      dynamicAgent.name, '语言学家') },      { role: 'user', content: `原文：\n${text}\n\n版本X(D)：${resD}\n版本Y(A)：${resA}` }], (full, reasoning) => updateUI(ccEl, full, reasoning), 0.4),
+        callDeepSeek([{ role: 'system', content: promptCritique(src, tgt, dynamicAgent.name, '语言学家',    '本土编辑') },        { role: 'user', content: `原文：\n${text}\n\n版本X(A)：${resA}\n版本Y(B)：${resB}` }], (full, reasoning) => updateUI(cdEl, full, reasoning), 0.4),
+      ]);
+
+      caEl.classList.remove('streaming'); cbEl.classList.remove('streaming');
+      ccEl.classList.remove('streaming'); cdEl.classList.remove('streaming');
+      completedSteps += 4; setProgress(completedSteps);
+
+      // ── 阶三：综合裁决 ──
+      setStatus(`第 ${r + 1} 轮 · 阶三：综合裁决…`);
+      const synthMsg = `原文：\n${text}\n\n版本A（语言学家）：\n${resA}\n版本B（本土编辑）：\n${resB}\n版本C（领域专家）：\n${resC}\n版本D（${dynamicAgent.name}）：\n${resD}\n\n批判（循环配对）：\nA→B/C：${critA}\nB→C/D：${critB}\nC→D/A：${critC}\nD→A/B：${critD}\n\n请裁决并输出最优译文与备忘录。`;
+      
+      let rawSynth = '';
+      await callDeepSeek([{ role: 'system', content: promptSynth(src, tgt) }, { role: 'user', content: synthMsg }], (full, reasoning) => {
+        rawSynth = full;
+        const { translation } = parseSynthOutput(full);
+        updateUI(synthEl, translation || full, reasoning);
+      }, 0.3);
+
+      synthEl.classList.remove('streaming');
+      const parsed = parseSynthOutput(rawSynth);
+      lastSynthResult = parsed.translation;
+      lastMemo = parsed.memo;
+
+      if (lastMemo) {
+        document.getElementById(`memo-row${r}`).style.display = 'block';
+        document.getElementById(`memo${r}`).textContent = lastMemo;
+      }
+
+      completedSteps += 1; setProgress(completedSteps);
+      document.getElementById(`rbadge${r}`).textContent = '完成';
+      document.getElementById(`rbadge${r}`).classList.add('done');
+    }
+
+    // ── 阶四：质量终审 ──
+    setStatus('阶四：质量终审…');
+    const auditEl = document.createElement('div');
+    auditEl.className = 'audit-card';
+    auditEl.innerHTML = `
+      <div class="audit-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span class="audit-title">V4 最终质量评估</span>
+      </div>
+      <div class="audit-body">
+        <div class="score-row">
+          <div class="score-item"><span class="score-num" id="s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div></div>
+          <div class="score-item"><span class="score-num" id="s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div></div>
+          <div class="score-item"><span class="score-num" id="s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div></div>
+        </div>
+        <div class="audit-remark streaming" id="auditRemark"></div>
+      </div>`;
+    document.getElementById('auditContainer').appendChild(auditEl);
+    auditEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    let rawAudit = '';
+    await callDeepSeek([{ role: 'system', content: promptAudit(src, tgt) }, { role: 'user', content: `原文：\n${text}\n\n最终译文：\n${lastSynthResult}` }], (full, reasoning) => {
+      rawAudit = full;
+      const { remark } = parseAuditOutput(full);
+      updateUI(document.getElementById('auditRemark'), remark || '', reasoning);
+    }, 0.3);
+
+    document.getElementById('auditRemark').classList.remove('streaming');
+    const { scores, remark } = parseAuditOutput(rawAudit);
+    
+    // 如果存在 reasoning，已经通过 updateUI 渲染，这里只更新 content 文本部分
+    if(document.getElementById('auditRemark').hasAttribute('data-has-reasoning')) {
+      document.getElementById('auditRemark').querySelector('.content-text').textContent = remark;
+    } else {
+      document.getElementById('auditRemark').textContent = remark;
+    }
+
+    scores.forEach((s, i) => {
+      document.getElementById(`s${i}`).textContent = s;
+      setTimeout(() => {
+        document.getElementById(`sb${i}`).style.width = (s * 10) + '%';
+        document.getElementById(`sb${i}`).style.transition = 'width 0.6s ease';
+      }, i * 150);
+    });
+
+    completedSteps += 1; setProgress(completedSteps);
+    setStatus('翻译完成');
+
+    // Show Final Result
+    document.getElementById('finalResult').textContent = lastSynthResult;
+    document.getElementById('resultSection').classList.add('active');
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    if (err.message === 'NO_KEY') {
+      showToast('请先填写 API 密钥'); openDrawer();
+    } else {
+      showToast('请求失败：' + err.message.slice(0, 38));
+    }
+    setStatus('引擎异常，请重试');
+  } finally {
+    state.running = false;
+    btn.disabled = false;
+    btn.innerHTML = '启动四阶翻译引擎';
+  }
+}
+
+document.getElementById('translateBtn').addEventListener('click', doTranslate);
+init();
+</script>
+</body>
+</html>
