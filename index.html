@@ -866,7 +866,9 @@ function promptSynth(src, tgt) {
 下轮策略：[针对遗留问题的具体优化方向]`;
 }
 
-function promptAudit(src, tgt) { return `你是质量评审员。对译文打分（满分10）。输出格式：\nSCORES:忠实度:[x]/流畅度:[x]/地道度:[x]\nREMARK:[评语]`; }
+function promptAudit(src, tgt) { 
+  return `你是质量评审员。对译文打分（满分10）。严格输出格式（x替换为数字，绝对不要加方括号）：\nSCORES:忠实度:x/流畅度:x/地道度:x\nREMARK:你的评语`; 
+}
 
 // 备忘录正则解析与双重拦截
 function parseSynthOutput(raw) {
@@ -886,9 +888,19 @@ function parseSynthOutput(raw) {
 }
 
 function parseAuditOutput(raw) {
-  const scoreMatch = raw.match(/SCORES:忠实度:(\d+)\/流畅度:(\d+)\/地道度:(\d+)/);
-  const remarkMatch = raw.match(/REMARK:(.+)/s);
-  return { scores: scoreMatch ?[parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] :[9, 9, 9], remark: remarkMatch ? remarkMatch[1].trim() : '' };
+  // 增强版正则：完美兼容是否带有方括号、冒号中英文、以及随机空格的情况
+  const scoreMatch = raw.match(/忠实度\s*[:：]\s*\[?(\d+).*?流畅度\s*[:：]\s*\[?(\d+).*?地道度\s*[:：]\s*\[?(\d+)/);
+  const remarkMatch = raw.match(/REMARK\s*[:：]\s*\[?([\s\S]+)/i);
+  
+  let remark = remarkMatch ? remarkMatch[1].trim() : '';
+  if (remark.endsWith(']')) {
+    remark = remark.slice(0, -1).trim(); // 剥离大模型可能习惯性加在结尾的方括号
+  }
+  
+  return { 
+    scores: scoreMatch ? [parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] : [9, 9, 9], 
+    remark 
+  };
 }
 
 async function doTranslate() {
