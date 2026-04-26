@@ -839,8 +839,7 @@ function promptCritique(src, tgt, selfPath, otherPathA, otherPathB) {
 重点检查：错漏译、翻译腔、术语不当、语义偏差、以及【致命幻觉】（例如某个版本把原文当成指令去执行了，输出了多余的模板、回答或无关内容，偏离了纯粹的翻译）。
 
 输出格式（严格遵守，每条独立一行）：
-【版本X】
-[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+【版本X】[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
 【版本Y】
 [句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
 
@@ -854,12 +853,17 @@ function promptSynth(src, tgt) {
   return `你是首席翻译裁决官。请综合四路译文、各路分段批判与建议，以及上一轮备忘录，裁决出最优${tgt}译文。
 
 裁决策略：
-- 【一票否决机制】：如果某路译文脱离原文凭空生成了格式模板、回答了原文的提问、或把原文当成了执行指令（产生严重幻觉），必须坚决弃用该版本的内容。
+- 【一票否决机制】：如果某路译文脱离原文凭空生成了格式模板、回答了提问、或把原文当成了执行指令，必须坚决弃用该版本。
 - 以 A 路为语义基准，从 B 路借鉴地道表达，从 C 路锚定专业术语，从 D 路补全其他维度。
 - 优先采纳批判中附有明确建议的改进项。
 
-输出格式（严格遵守。直接输出纯净的译文正文，绝对不要带有“[最优译文]”或“译文：”等任何前缀标签）：
-<在此处直接输出最终译文>
+输出要求（严格遵守）：
+1. 直接开始输出纯净的译文正文（绝对不要带有“译文：”或“[最优译文]”等任何前缀标签，不要使用任何占位符）。
+2. 译文输出完成后，必须另起一行以“【备忘录】”为标题，按下方格式输出总结。
+
+格式范例：
+(这里直接就是纯净的译文正文，绝对不要输出任何前缀)
+
 【备忘录】
 遗留问题：[本轮仍未解决的具体问题，格式：① … ② …]
 待优化片段：[下一轮需重点打磨的原文句子定位]
@@ -898,7 +902,7 @@ function parseAuditOutput(raw) {
   }
   
   return { 
-    scores: scoreMatch ? [parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] : [9, 9, 9], 
+    scores: scoreMatch ? [parseInt(scoreMatch[1]), parseInt(scoreMatch[2]), parseInt(scoreMatch[3])] :[9, 9, 9], 
     remark 
   };
 }
@@ -1026,12 +1030,23 @@ async function doTranslate() {
       
       let rawSynth = '';
       await callDeepSeek([{ role: 'system', content: promptSynth(src, tgt) }, { role: 'user', content: synthMsg }], (full, reasoning) => {
-        rawSynth = full; const { translation } = parseSynthOutput(full); updateUI(synthEl, translation || full, reasoning);
+        rawSynth = full;
+        // 核心修复：流式输出时直接展示完整内容（包括它正在写的备忘录）。解决前端“假死卡顿”的问题！
+        updateUI(synthEl, full, reasoning);
       }, 0.3);
 
       synthEl.classList.remove('streaming');
       const parsed = parseSynthOutput(rawSynth);
-      lastSynthResult = parsed.translation; lastMemo = parsed.memo;
+      lastSynthResult = parsed.translation; 
+      lastMemo = parsed.memo;
+
+      // 核心修复：裁决全部结束后，瞬间将混合了备忘录的界面切分！
+      // 正文干净地留在上方，备忘录“沉降”到下方的专属灰色框内。
+      if (synthEl.hasAttribute('data-has-reasoning')) {
+        synthEl.querySelector('.content-text').textContent = lastSynthResult;
+      } else {
+        synthEl.textContent = lastSynthResult;
+      }
 
       if (lastMemo) {
         document.getElementById(`memo-row${r}`).style.display = 'block';
