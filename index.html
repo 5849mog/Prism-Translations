@@ -637,9 +637,9 @@ body {
 
       <div class="input-section">
         <div class="textarea-card">
-          <textarea id="sourceText" placeholder="在此输入需要多维思考的文本…（支持 Ctrl+Enter 快速翻译）" maxlength="8000"></textarea>
+          <textarea id="sourceText" placeholder="在此输入需要多维思考的文本…（支持 Ctrl+Enter 快速翻译）"></textarea>
           <div class="input-footer">
-            <span class="char-count"><span id="charNum">0</span> / 8000</span>
+            <span class="char-count"><span id="charNum">0</span> 字符</span>
             <div class="input-actions">
               <button class="input-mini-btn" id="pasteBtn" title="粘贴">粘贴</button>
               <button class="input-mini-btn" id="clearBtn">清空</button>
@@ -856,7 +856,7 @@ body {
 // ─────────────────────────────────────────
 // 语言列表（扩展至 22 种）
 // ─────────────────────────────────────────
-const LANGS = [
+const LANGS =[
   { code:'zh', name:'中文',     label:'ZH', flag:'🇨🇳' },
   { code:'en', name:'英语',     label:'EN', flag:'🇺🇸' },
   { code:'ja', name:'日语',     label:'JA', flag:'🇯🇵' },
@@ -904,7 +904,7 @@ const state = {
 // 历史记录管理
 // ─────────────────────────────────────────
 function getHistory() {
-  try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch { return[]; }
 }
 function saveHistory(history) {
   localStorage.setItem('prism_history', JSON.stringify(history.slice(0, 30)));
@@ -1190,17 +1190,48 @@ function showToast(msg, type = '') {
 }
 
 // ─────────────────────────────────────────
-// 复制 & 朗读
+// 复制 & 朗读 （修复 Copy Button 失效问题）
 // ─────────────────────────────────────────
 document.getElementById('copyBtn').addEventListener('click', () => {
   const text = document.getElementById('finalResult').textContent;
   if (!text) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copyBtn');
+
+  const btn = document.getElementById('copyBtn');
+  const onSuccess = () => {
     btn.classList.add('success');
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>已复制`;
-    setTimeout(() => { btn.classList.remove('success'); btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制`; }, 2000);
-  }).catch(() => showToast('复制失败，请手动选中文本'));
+    setTimeout(() => { 
+      btn.classList.remove('success'); 
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制`; 
+    }, 2000);
+  };
+  const onError = () => showToast('复制失败，请手动选中文本');
+
+  // Fallback 兼容 file:// 协议以及非 https 环境
+  const fallbackCopy = () => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      onSuccess();
+    } catch (err) {
+      onError();
+    } finally {
+      textArea.remove();
+    }
+  };
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 });
 
 let isSpeaking = false;
@@ -1264,7 +1295,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 });
 
 // ─────────────────────────────────────────
-// DeepSeek API 调用（带超时 & 重试）
+// DeepSeek API 调用（修复长文本 Stream 截断问题）
 // ─────────────────────────────────────────
 async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0) {
   if (!state.apiKey) throw new Error('NO_KEY');
@@ -1309,9 +1340,19 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n'); buf = lines.pop();
+    
+    // Fix 2: 修复由于 stream reader 意外结束导致缓冲区遗漏最后一块的问题
+    if (value) {
+      buf += decoder.decode(value, { stream: !done });
+    }
+    
+    let lines = buf.split('\n');
+    if (!done) {
+      buf = lines.pop(); // 尚未读完，将未凑成整行的字符串重新放入 buf 中
+    } else {
+      buf = ''; // 已结束，将处理所有剩余的数据
+    }
+    
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
@@ -1322,8 +1363,10 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
         if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
         if (delta.content) resultContent += delta.content;
         if (onChunk && (delta.reasoning_content || delta.content)) onChunk(resultContent, resultReasoning);
-      } catch {}
+      } catch (e) {}
     }
+    
+    if (done) break;
   }
   return resultContent;
 }
@@ -1419,17 +1462,28 @@ function promptAudit(src, tgt) {
 // 解析函数
 // ─────────────────────────────────────────
 function parseSynthOutput(raw) {
-  const memoMatch = raw.match(/【备忘录】([\s\S]+)/);
+  // Fix 3: 修复贪婪正则在用户的原文中含有"【备忘录】"时导致的严重全文截断问题
+  const memoIndex = raw.lastIndexOf('【备忘录】');
+  let translation = raw;
   let memo = '';
-  if (memoMatch) {
-    const m = memoMatch[1].trim();
+  
+  if (memoIndex !== -1) {
+    const m = raw.slice(memoIndex + 5).trim();
     const is = m.match(/遗留问题[：:]([\s\S]*?)(?=待优化片段|下轮策略|$)/)?.[1]?.trim() || '';
     const sg = m.match(/待优化片段[：:]([\s\S]*?)(?=下轮策略|遗留问题|$)/)?.[1]?.trim() || '';
     const st = m.match(/下轮策略[：:]([\s\S]*?)$/)?.[1]?.trim() || '';
-    const p = []; if(is) p.push(`遗留问题：${is}`); if(sg) p.push(`待优化片段：${sg}`); if(st) p.push(`下轮策略：${st}`);
+    const p =[]; if(is) p.push(`遗留问题：${is}`); if(sg) p.push(`待优化片段：${sg}`); if(st) p.push(`下轮策略：${st}`);
     memo = p.join('\n') || m;
+    translation = raw.slice(0, memoIndex).trim();
+  } else {
+    // 后备方案：以防 AI 忘写括号
+    const altMemoIndex = raw.lastIndexOf('\n备忘录：');
+    if (altMemoIndex !== -1) {
+      memo = raw.slice(altMemoIndex + 5).trim();
+      translation = raw.slice(0, altMemoIndex).trim();
+    }
   }
-  let translation = raw.replace(/【备忘录】[\s\S]*/, '').trim();
+  
   translation = translation.replace(LABEL_STRIP_RE, '');
   return { translation, memo };
 }
@@ -1584,7 +1638,7 @@ async function doTranslate() {
 
       // 阶二：交叉批判
       setStatus(`第 ${r + 1} 轮 · 阶二：四向交叉批判网络…`);
-      const [critA, critB, critC, critD] = await Promise.all([
+      const[critA, critB, critC, critD] = await Promise.all([
         callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') }, { role:'user', content: `原文：\n${text}\n\n版本X(B)：${resB}\n版本Y(C)：${resC}` }], (f,re) => updateUI(caEl, f, re), 0.4),
         callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '本土编辑', '领域专家', dynamicAgent.name) }, { role:'user', content: `原文：\n${text}\n\n版本X(C)：${resC}\n版本Y(D)：${resD}` }], (f,re) => updateUI(cbEl, f, re), 0.4),
         callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '领域专家', dynamicAgent.name, '语言学家') }, { role:'user', content: `原文：\n${text}\n\n版本X(D)：${resD}\n版本Y(A)：${resA}` }], (f,re) => updateUI(ccEl, f, re), 0.4),
