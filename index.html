@@ -382,6 +382,47 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .phase-progress-row { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--border-cream); }
 .phase-status-text { font-size: 12px; color: var(--stone); flex: 1; letter-spacing: 0.2px; }
 .phase-timer { font-family: var(--mono); font-size: 11px; color: var(--warm-silver); flex-shrink: 0; }
+
+/* 自适应模式徽章 */
+.adaptive-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9px; letter-spacing: 0.4px; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--r-full); flex-shrink: 0;
+  font-family: var(--mono); font-weight: 500;
+}
+.adaptive-badge.mode-refined  { background: #edf5f0; color: var(--success); border: 1px solid #b0cfc2; }
+.adaptive-badge.mode-standard { background: var(--implicit-bg); color: var(--implicit-ink); border: 1px solid #c8b8f0; }
+.adaptive-badge.mode-efficient{ background: #fdf5f2; color: var(--terracotta); border: 1px solid #eebfa6; }
+.adaptive-badge.mode-light    { background: var(--warm-sand); color: var(--charcoal); border: 1px solid var(--border-warm); }
+.adaptive-badge.mode-chunk    { background: #fff8e6; color: #b87333; border: 1px solid #e8c97a; }
+
+/* 分块进度卡片 */
+.chunk-progress-card {
+  background: var(--white); border: 1px solid var(--border-cream);
+  border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-sm);
+  margin-bottom: 18px;
+}
+.chunk-progress-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 18px; background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream);
+}
+.chunk-progress-title { font-family: var(--serif); font-size: 14px; font-weight: 500; color: var(--charcoal); flex: 1; }
+.chunk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 8px; padding: 16px 18px; }
+.chunk-pill {
+  aspect-ratio: 1; border-radius: var(--r-md); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-size: 10px; font-family: var(--mono);
+  background: var(--warm-sand); color: var(--stone); border: 1px solid var(--border-cream);
+  transition: all 0.3s; gap: 2px;
+}
+.chunk-pill.active { background: #fdf5f2; color: var(--terracotta); border-color: #eebfa6; animation: pulse-chunk 1s ease-in-out infinite; }
+.chunk-pill.done   { background: var(--success-bg); color: var(--success); border-color: #b0cfc2; }
+@keyframes pulse-chunk { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.chunk-pill-num  { font-size: 13px; font-weight: 600; line-height: 1; }
+.chunk-pill-label{ font-size: 8px; letter-spacing: 0.2px; }
+.chunk-result-area { padding: 0 18px 18px; }
+.chunk-result-label { font-size: 10px; color: var(--stone); letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 8px; }
+.chunk-result-text { font-family: var(--serif); font-size: 14px; line-height: 1.9; color: var(--near-black); white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto; }
 .progress-wrap { display: flex; align-items: center; gap: 10px; }
 .progress-pct { font-family: var(--mono); font-size: 11px; color: var(--stone); min-width: 32px; text-align: right; }
 .progress-track { width: 120px; height: 4px; background: var(--border-warm); border-radius: 4px; overflow: hidden; flex-shrink: 0; }
@@ -815,6 +856,7 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
           <div class="phase-strip">
             <div class="phase-progress-row">
               <span class="phase-status-text" id="phaseStatus">准备中…</span>
+              <span class="adaptive-badge" id="adaptiveBadge" style="display:none"></span>
               <span class="phase-timer" id="phaseTimer"></span>
               <div class="progress-wrap">
                 <span class="progress-pct" id="progressPct">0%</span>
@@ -1892,6 +1934,41 @@ function parseAuditOutput(raw) {
 }
 
 // ─────────────────────────────────────────
+// 引擎深度自适应
+// ─────────────────────────────────────────
+const ADAPTIVE_MODES = [
+  { key: 'refined',   label: '✦ 精炼',   maxLen: 500,   maxRounds: null, critique: true,  implicit: true  },
+  { key: 'standard',  label: '◈ 标准',   maxLen: 2000,  maxRounds: 2,    critique: true,  implicit: true  },
+  { key: 'efficient', label: '◇ 效率',   maxLen: 5000,  maxRounds: 1,    critique: false, implicit: true  },
+  { key: 'light',     label: '○ 轻量',   maxLen: 12000, maxRounds: 1,    critique: false, implicit: false },
+  { key: 'chunk',     label: '⬡ 分块',   maxLen: Infinity, maxRounds: 1, critique: false, implicit: false },
+];
+
+function resolveAdaptiveMode(textLen, userRounds) {
+  const mode = ADAPTIVE_MODES.find(m => textLen <= m.maxLen);
+  const rounds = mode.maxRounds === null ? userRounds : Math.min(userRounds, mode.maxRounds);
+  return { ...mode, rounds };
+}
+
+// 按段落边界切块，每块目标 targetLen 字，相邻块携带 overlap 字上下文
+function splitIntoChunks(text, targetLen = 1500, overlap = 150) {
+  const paras = text.split(/\n{2,}/);
+  const chunks = [];
+  let cur = '';
+  for (const para of paras) {
+    if (cur.length + para.length + 2 > targetLen && cur.length > 0) {
+      chunks.push(cur.trim());
+      // 取末尾 overlap 字作为下一块前缀上下文
+      cur = cur.slice(-overlap) + '\n\n' + para;
+    } else {
+      cur += (cur ? '\n\n' : '') + para;
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
+}
+
+// ─────────────────────────────────────────
 // 主翻译流程
 // ─────────────────────────────────────────
 async function doTranslate() {
@@ -1920,6 +1997,7 @@ async function doTranslate() {
   document.getElementById('roundsContainer').innerHTML = '';
   document.getElementById('auditContainer').innerHTML = '';
   document.getElementById('exportSection').style.display = 'none';
+  document.getElementById('adaptiveBadge').style.display = 'none';
   document.getElementById('sp0').textContent = '忠 —';
   document.getElementById('sp1').textContent = '流 —';
   document.getElementById('sp2').textContent = '地 —';
@@ -1929,11 +2007,9 @@ async function doTranslate() {
   enginePanel.classList.add('active');
   document.querySelector('.panel-right').scrollTo({ top: 0, behavior: 'smooth' });
 
-  // 阶梯：生成第四智能体 (1) + R轮*(ABCD(4)+E+Critiques(4)+Synth(1)=10) + Audit(1)
-  const stepsPerRound = 10;
-  const totalSteps = 1 + state.rounds * stepsPerRound + 1;
+  // 阶梯步数在模式解析后计算（下方 mode 变量已就位）
   let completedSteps = 0;
-
+  let totalSteps = 1; // 占位，mode 解析后更新
   const setProgress = n => {
     const pct = Math.round(n / totalSteps * 100);
     document.getElementById('progressFill').style.width = pct + '%';
@@ -1944,10 +2020,26 @@ async function doTranslate() {
   const src = state.srcLang.name, tgt = state.tgtLang.name;
   let lastSynthResult = '', lastMemo = '';
   let finalScores = null, finalRemark = '';
-  let lastPaths = { A: '', B: '', C: '', D: '', E: '' }; // 保存各路上一轮草稿
+  let lastPaths = { A: '', B: '', C: '', D: '', E: '' };
   startTimer();
 
+  // ── 自适应模式解析 ──
+  const mode = resolveAdaptiveMode(text.length, state.rounds);
+  const adaptiveBadgeEl = document.getElementById('adaptiveBadge');
+  adaptiveBadgeEl.textContent = mode.label;
+  adaptiveBadgeEl.className = `adaptive-badge mode-${mode.key}`;
+  adaptiveBadgeEl.style.display = '';
+
+  // 根据模式计算总步数
+  const stepsPerRound = 4 + (mode.implicit ? 1 : 0) + (mode.critique ? 4 : 0) + 1;
+  totalSteps = 1 + mode.rounds * stepsPerRound + 1;
+
   try {
+    // ── 分块模式走独立流程 ──
+    if (mode.key === 'chunk') {
+      await doTranslateChunked(text, src, tgt, setStatus, setProgress);
+      return;
+    }
     // 阶零：生成第四智能体
     setStatus('初始化：正在动态生成第四智能体…');
     const agentSec = document.getElementById('agentGenSection');
@@ -1974,7 +2066,7 @@ async function doTranslate() {
     completedSteps += 1; setProgress(completedSteps);
 
     // 迭代轮次
-    for (let r = 0; r < state.rounds; r++) {
+    for (let r = 0; r < mode.rounds; r++) {
       const roundEl = document.createElement('div');
       roundEl.className = 'round-card';
       roundEl.innerHTML = `
@@ -2070,29 +2162,57 @@ ${lastSynthResult}
       lastPaths.A = resA; lastPaths.B = resB; lastPaths.C = resC; lastPaths.D = resD;
       completedSteps += 4; setProgress(completedSteps);
 
-      // 阶二：隐义后处理 & 交叉批判网络
-      setStatus(`第 ${r + 1} 轮 · 阶二：隐义后处理 & 交叉批判网络…`);
-      peEl.innerHTML = '';
-      peEl.classList.add('streaming');
-
-      const buildMsgE = () => r === 0
-        ? `原文：\n${text}\n\nA路草稿：\n${resA}\nB路草稿：\n${resB}\nC路草稿：\n${resC}\nD路草稿：\n${resD}\n\n请进行隐义诊断与二次重构建议。`
-        : `原文：\n${text}\n\n本轮四路草稿已更新：\nA路：\n${resA}\nB路：\n${resB}\nC路：\n${resC}\nD路：\n${resD}\n\n【你上一轮的诊断记录】\n${lastPaths.E}\n\n【上轮综合最优译文】\n${lastSynthResult}\n\n请评估本轮的更新是否已妥善处理了隐义，并给出最新的诊断与建议。`;
-
+      // 阶二：隐义后处理 & 交叉批判网络（按模式条件执行）
       let resE = '', critA = '', critB = '', critC = '', critD = '';
-      await Promise.all([
-        callDeepSeek([{ role:'system', content: promptPathE_PostProcess(src, tgt) }, { role:'user', content: buildMsgE() }], (f,re) => updateUI(peEl, f, re), 0.75).then(res => resE = res),
-        callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') }, { role:'user', content: `原文：\n${text}\n\n版本X(B)：${resB}\n版本Y(C)：${resC}` }], (f,re) => updateUI(caEl, f, re), 0.4).then(res => critA = res),
-        callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '本土编辑', '领域专家', dynamicAgent.name) }, { role:'user', content: `原文：\n${text}\n\n版本X(C)：${resC}\n版本Y(D)：${resD}` }], (f,re) => updateUI(cbEl, f, re), 0.4).then(res => critB = res),
-        callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '领域专家', dynamicAgent.name, '语言学家') }, { role:'user', content: `原文：\n${text}\n\n版本X(D)：${resD}\n版本Y(A)：${resA}` }], (f,re) => updateUI(ccEl, f, re), 0.4).then(res => critC = res),
-        callDeepSeek([{ role:'system', content: promptCritique(src, tgt, dynamicAgent.name, '语言学家', '本土编辑') }, { role:'user', content: `原文：\n${text}\n\n版本X(A)：${resA}\n版本Y(B)：${resB}` }], (f,re) => updateUI(cdEl, f, re), 0.4).then(res => critD = res),
-      ]);[peEl,caEl,cbEl,ccEl,cdEl].forEach(el => el.classList.remove('streaming'));
-      lastPaths.E = resE;
-      completedSteps += 5; setProgress(completedSteps);
+
+      if (mode.implicit || mode.critique) {
+        const phase2Label = [mode.implicit && '隐义后处理', mode.critique && '交叉批判网络'].filter(Boolean).join(' & ');
+        setStatus(`第 ${r + 1} 轮 · 阶二：${phase2Label}…`);
+
+        const phase2Calls = [];
+
+        if (mode.implicit) {
+          peEl.innerHTML = '';
+          peEl.classList.add('streaming');
+          const buildMsgE = () => r === 0
+            ? `原文：\n${text}\n\nA路草稿：\n${resA}\nB路草稿：\n${resB}\nC路草稿：\n${resC}\nD路草稿：\n${resD}\n\n请进行隐义诊断与二次重构建议。`
+            : `原文：\n${text}\n\n本轮四路草稿已更新：\nA路：\n${resA}\nB路：\n${resB}\nC路：\n${resC}\nD路：\n${resD}\n\n【你上一轮的诊断记录】\n${lastPaths.E}\n\n【上轮综合最优译文】\n${lastSynthResult}\n\n请评估本轮的更新是否已妥善处理了隐义，并给出最新的诊断与建议。`;
+          phase2Calls.push(callDeepSeek([{ role:'system', content: promptPathE_PostProcess(src, tgt) }, { role:'user', content: buildMsgE() }], (f,re) => updateUI(peEl, f, re), 0.75).then(res => resE = res));
+        } else {
+          peEl.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">当前模式已跳过隐义层</span>';
+          peEl.classList.remove('streaming');
+        }
+
+        if (mode.critique) {
+          phase2Calls.push(
+            callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') }, { role:'user', content: `原文：\n${text}\n\n版本X(B)：${resB}\n版本Y(C)：${resC}` }], (f,re) => updateUI(caEl, f, re), 0.4).then(res => critA = res),
+            callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '本土编辑', '领域专家', dynamicAgent.name) }, { role:'user', content: `原文：\n${text}\n\n版本X(C)：${resC}\n版本Y(D)：${resD}` }], (f,re) => updateUI(cbEl, f, re), 0.4).then(res => critB = res),
+            callDeepSeek([{ role:'system', content: promptCritique(src, tgt, '领域专家', dynamicAgent.name, '语言学家') }, { role:'user', content: `原文：\n${text}\n\n版本X(D)：${resD}\n版本Y(A)：${resA}` }], (f,re) => updateUI(ccEl, f, re), 0.4).then(res => critC = res),
+            callDeepSeek([{ role:'system', content: promptCritique(src, tgt, dynamicAgent.name, '语言学家', '本土编辑') }, { role:'user', content: `原文：\n${text}\n\n版本X(A)：${resA}\n版本Y(B)：${resB}` }], (f,re) => updateUI(cdEl, f, re), 0.4).then(res => critD = res),
+          );
+        } else {
+          [caEl, cbEl, ccEl, cdEl].forEach(el => {
+            el.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">当前模式已跳过批判网络</span>';
+            el.classList.remove('streaming');
+          });
+        }
+
+        await Promise.all(phase2Calls);
+        [peEl, caEl, cbEl, ccEl, cdEl].forEach(el => el.classList.remove('streaming'));
+        lastPaths.E = resE;
+        completedSteps += (mode.implicit ? 1 : 0) + (mode.critique ? 4 : 0);
+        setProgress(completedSteps);
+      } else {
+        // 全跳过
+        [peEl, caEl, cbEl, ccEl, cdEl].forEach(el => {
+          el.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">当前模式已跳过</span>';
+          el.classList.remove('streaming');
+        });
+      }
 
       // 阶三：综合裁决
       setStatus(`第 ${r + 1} 轮 · 阶三：执行综合裁决…`);
-      const synthMsg = `原文：\n${text}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n\n【版本E（隐义处理建议）】：\n${resE}\n\n交叉批判：\nA→B/C：${critA}\nB→C/D：${critB}\nC→D/A：${critC}\nD→A/B：${critD}\n\n请综合以上所有信息，裁决并输出最终最优译文及备忘录。（注意：请直接输出纯净译文，绝对不要带任何前缀）`;
+      const synthMsg = `原文：\n${text}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n${resE ? `\n【版本E（隐义处理建议）】：\n${resE}\n` : ''}\n${critA ? `交叉批判：\nA→B/C：${critA}\nB→C/D：${critB}\nC→D/A：${critC}\nD→A/B：${critD}\n` : ''}\n请综合以上所有信息，裁决并输出最终最优译文及备忘录。（注意：请直接输出纯净译文，绝对不要带任何前缀）`;
 
       let rawSynth = '';
       await callDeepSeek([{ role:'system', content: promptSynth(src, tgt) }, { role:'user', content: synthMsg }], (full, reasoning) => {
@@ -2116,7 +2236,6 @@ ${lastSynthResult}
         document.getElementById(`memo${r}`).textContent = lastMemo;
       }
       
-      // 更新最终结果显示区（保持 精炼中 状态直到 Audit 完成）
       document.getElementById('finalResult').textContent = lastSynthResult;
       
       completedSteps += 1; setProgress(completedSteps);
@@ -2124,7 +2243,7 @@ ${lastSynthResult}
       document.getElementById(`rbadge${r}`).classList.add('done');
 
       // 完成后折叠旧轮次（非最后一轮）
-      if (r < state.rounds - 1) {
+      if (r < mode.rounds - 1) {
         const body = roundEl.querySelector('.round-body');
         const icon = roundEl.querySelector('.round-toggle-icon');
         body.style.maxHeight = body.scrollHeight + 'px';
@@ -2262,6 +2381,167 @@ ${lastSynthResult}
 }
 
 document.getElementById('translateBtn').addEventListener('click', doTranslate);
+
+// ─────────────────────────────────────────
+// 分块翻译流程（> 12000字）
+// ─────────────────────────────────────────
+async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
+  const chunks = splitIntoChunks(text, 1500, 150);
+  const total = chunks.length;
+
+  // 构建分块进度卡片
+  const card = document.createElement('div');
+  card.className = 'chunk-progress-card';
+  card.innerHTML = `
+    <div class="chunk-progress-header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span class="chunk-progress-title">分块翻译 · 共 ${total} 块</span>
+      <span class="round-badge" id="chunkBadge">进行中</span>
+    </div>
+    <div class="chunk-grid" id="chunkGrid"></div>
+    <div class="chunk-result-area">
+      <div class="chunk-result-label">实时拼接译文</div>
+      <div class="chunk-result-text" id="chunkResultText"></div>
+    </div>`;
+  document.getElementById('roundsContainer').appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const grid = document.getElementById('chunkGrid');
+  const pills = chunks.map((_, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'chunk-pill';
+    pill.innerHTML = `<span class="chunk-pill-num">${i + 1}</span><span class="chunk-pill-label">等待</span>`;
+    grid.appendChild(pill);
+    return pill;
+  });
+
+  const chunkResultEl = document.getElementById('chunkResultText');
+  const chunkResults = new Array(total).fill('');
+
+  // 先生成动态智能体（共用一次）
+  setStatus('初始化：生成翻译智能体…');
+  const agentSec = document.getElementById('agentGenSection');
+  agentSec.style.display = 'block';
+  const agentRaw = await callDeepSeek([
+    { role:'system', content: promptMetaAgent(src, tgt) },
+    { role:'user', content: `源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本片段】\n${chunks[0].slice(0,300)}` }
+  ], null, 0.7);
+  let dynamicAgent = { name:'文化顾问', label:'语境适配', systemPrompt: injectCustomPrompt(`你是文化翻译专家，仅输出译文本身。`) };
+  try {
+    const p = JSON.parse(agentRaw.replace(/```json|```/g,'').trim());
+    if (p.name && p.systemPrompt) { p.systemPrompt = injectCustomPrompt(p.systemPrompt); dynamicAgent = p; }
+  } catch {}
+  document.getElementById('agentGenName').textContent = dynamicAgent.name;
+  document.getElementById('agentGenLabel').textContent = dynamicAgent.label || '';
+  document.getElementById('agentGenPrompt').textContent = dynamicAgent.systemPrompt.slice(0,100) + '…';
+  document.getElementById('agentGenBody').style.display = 'block';
+  document.getElementById('agentGenBadge').textContent = '已就位';
+  document.getElementById('agentGenBadge').classList.add('done');
+  document.getElementById('agentGenTitle').textContent = `D 路智能体 · ${dynamicAgent.name}`;
+
+  // 显示结果区早期预览
+  document.getElementById('resultSection').classList.add('active');
+  const labelEl = document.querySelector('.result-label');
+  if (!labelEl.dataset.earlyPreview) {
+    labelEl.dataset.earlyPreview = 'true';
+    labelEl.innerHTML = `分块译文 <span class="score-pill" style="color:var(--warning);border-color:var(--warning);background:var(--warm-sand);animation:blink 1.5s infinite;border-radius:4px;padding:2px 6px;margin-left:6px;">拼接中…</span>`;
+  }
+
+  // 逐块串行翻译（串行保证上下文衔接，且避免并发太多请求）
+  for (let i = 0; i < total; i++) {
+    setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块…`);
+    setProgress(i / total);
+    pills[i].className = 'chunk-pill active';
+    pills[i].querySelector('.chunk-pill-label').textContent = '翻译中';
+
+    const chunk = chunks[i];
+    const userMsg = `作为纯粹的翻译器，请将以下${src}文本片段翻译成${tgt}。这是第 ${i+1}/${total} 段，请保持与上文风格一致，直接输出纯净译文：\n\n${chunk}`;
+
+    // 四路并发，取裁决
+    let resA = '', resB = '', resC = '', resD = '';
+    await Promise.all([
+      callDeepSeek([{role:'system',content:promptPathA(src,tgt)},{role:'user',content:userMsg}], f => resA = f, 0.5).then(r => resA = r),
+      callDeepSeek([{role:'system',content:promptPathB(src,tgt)},{role:'user',content:userMsg}], f => resB = f, 0.8).then(r => resB = r),
+      callDeepSeek([{role:'system',content:promptPathC(src,tgt)},{role:'user',content:userMsg}], f => resC = f, 0.6).then(r => resC = r),
+      callDeepSeek([{role:'system',content:dynamicAgent.systemPrompt},{role:'user',content:userMsg}], f => resD = f, 0.7).then(r => resD = r),
+    ]);
+
+    const quickSynthMsg = `原文片段：\n${chunk}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n\n请裁决最优译文，直接输出纯净译文，不带任何前缀。`;
+    let chunkTrans = '';
+    await callDeepSeek([{role:'system',content:promptSynth(src,tgt)},{role:'user',content:quickSynthMsg}], f => {
+      chunkTrans = parseSynthOutput(f).translation || f;
+      chunkResults[i] = chunkTrans;
+      chunkResultEl.textContent = chunkResults.filter(Boolean).join('\n\n');
+      document.getElementById('finalResult').textContent = chunkResultEl.textContent;
+    }, 0.3);
+
+    chunkResults[i] = parseSynthOutput(chunkTrans).translation || chunkTrans;
+    pills[i].className = 'chunk-pill done';
+    pills[i].querySelector('.chunk-pill-label').textContent = '完成';
+    setProgress((i + 1) / total);
+  }
+
+  const fullTranslation = chunkResults.join('\n\n');
+  document.getElementById('finalResult').textContent = fullTranslation;
+  document.getElementById('chunkBadge').textContent = '已完成';
+  document.getElementById('chunkBadge').classList.add('done');
+
+  // 恢复 label
+  labelEl.innerHTML = '最终裁决译文';
+  delete labelEl.dataset.earlyPreview;
+
+  // 质量终审（只取首块做代表性评分）
+  setStatus('阶四：进行质量终审与打分…');
+  const auditEl = document.createElement('div');
+  auditEl.className = 'audit-card';
+  auditEl.innerHTML = `
+    <div class="audit-header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span class="audit-title">V5 质量评审报告（代表性采样）</span>
+    </div>
+    <div class="audit-body">
+      <div class="score-row">
+        <div class="score-item" id="si0"><span class="score-num" id="s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div></div>
+        <div class="score-item" id="si1"><span class="score-num" id="s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div></div>
+        <div class="score-item" id="si2"><span class="score-num" id="s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div></div>
+      </div>
+      <div class="audit-remark streaming" id="auditRemark"></div>
+    </div>`;
+  document.getElementById('auditContainer').appendChild(auditEl);
+
+  let rawAudit = '';
+  await callDeepSeek([{role:'system',content:promptAudit(src,tgt)},{role:'user',content:`原文（首段）：\n${chunks[0].slice(0,800)}\n\n对应译文：\n${chunkResults[0]}`}], (full, reasoning) => {
+    rawAudit = full;
+    updateUI(document.getElementById('auditRemark'), parseAuditOutput(full).remark || '', reasoning);
+  }, 0.3);
+
+  document.getElementById('auditRemark').classList.remove('streaming');
+  const { scores, remark } = parseAuditOutput(rawAudit);
+  if (document.getElementById('auditRemark').hasAttribute('data-has-reasoning')) {
+    document.getElementById('auditRemark').querySelector('.content-text').textContent = remark;
+  } else {
+    document.getElementById('auditRemark').textContent = remark;
+  }
+
+  const scoreLabels = ['忠','流','地'];
+  if (scores) {
+    scores.forEach((s, i) => {
+      document.getElementById(`s${i}`).textContent = s;
+      if (s >= 9) { document.getElementById(`s${i}`).classList.add('excellent'); document.getElementById(`si${i}`).classList.add('excellent'); document.getElementById(`sb${i}`).classList.add('excellent'); }
+      setTimeout(() => { document.getElementById(`sb${i}`).style.width = (s*10)+'%'; document.getElementById(`sb${i}`).style.transition = 'width 0.9s cubic-bezier(0.2,1,0.2,1)'; }, i*180);
+      const spEl = document.getElementById(`sp${i}`); spEl.textContent = `${scoreLabels[i]} ${s}`; spEl.classList.add('loaded');
+    });
+  }
+
+  const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+  setStatus(`分块翻译完成 · 共 ${total} 块 · 耗时 ${elapsed < 60 ? elapsed+'s' : Math.floor(elapsed/60)+'m'+elapsed%60+'s'}`);
+  stopTimer();
+  setProgress(1);
+
+  document.getElementById('exportSection').style.display = 'block';
+  state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed };
+  addHistory({ src: text.slice(0, 200), tgt: fullTranslation.slice(0, 200), srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
+}
 init();
 </script>
 </body>
