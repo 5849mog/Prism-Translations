@@ -1693,9 +1693,7 @@ const API_ERROR_TIPS = {
 async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0) {
   if (!state.apiKey) throw new Error('NO_KEY');
 
-  // 使用全局 abortController（由 doTranslate 创建，doStop 触发）
   const signal = state.abortController ? state.abortController.signal : undefined;
-
   const payload = { model: state.model, messages, stream: true, temperature };
   if (state.thinkingMode === 'disabled') { payload.thinking = { type: 'disabled' }; }
   else if (state.thinkingMode === 'high') { payload.thinking = { type: 'enabled', budget_tokens: 2048 }; }
@@ -1703,7 +1701,6 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
 
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 120000);
-  // 合并两个 signal
   const combinedSignal = signal
     ? (() => { const ac = new AbortController(); signal.addEventListener('abort', () => ac.abort()); timeoutController.signal.addEventListener('abort', () => ac.abort()); return ac.signal; })()
     : timeoutController.signal;
@@ -1741,6 +1738,7 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let resultContent = '', resultReasoning = '', buf = '';
+  let lastScrollTime = 0; // 新增：滚动节流时间戳
 
   while (true) {
     const { done, value } = await reader.read();
@@ -1758,11 +1756,16 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
         if (delta.content) resultContent += delta.content;
         if (onChunk && (delta.reasoning_content || delta.content)) {
           onChunk(resultContent, resultReasoning);
-          // 功能 6：智能滚动跟随
-          const rightPanel = document.querySelector('.panel-right');
-          if (rightPanel) {
-            const distFromBottom = rightPanel.scrollHeight - rightPanel.scrollTop - rightPanel.clientHeight;
-            if (distFromBottom < 200) rightPanel.scrollTop = rightPanel.scrollHeight;
+          
+          // 性能优化：控制滚动频率，最多每 200 毫秒执行一次重排
+          const now = Date.now();
+          if (now - lastScrollTime > 200) {
+            const rightPanel = document.querySelector('.panel-right');
+            if (rightPanel) {
+              const distFromBottom = rightPanel.scrollHeight - rightPanel.scrollTop - rightPanel.clientHeight;
+              if (distFromBottom < 200) rightPanel.scrollTop = rightPanel.scrollHeight;
+            }
+            lastScrollTime = now;
           }
         }
       } catch (e) {}
@@ -1771,7 +1774,6 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
   }
   return resultContent;
 }
-
 // ─────────────────────────────────────────
 // System Prompts
 // ─────────────────────────────────────────
@@ -1950,16 +1952,15 @@ function resolveAdaptiveMode(textLen, userRounds) {
   return { ...mode, rounds };
 }
 
-// 按段落边界切块，每块目标 targetLen 字，相邻块携带 overlap 字上下文
-function splitIntoChunks(text, targetLen = 1500, overlap = 150) {
+// 按段落边界切块，取消硬重叠（防止AI重复翻译），改为在提示词中传递上文
+function splitIntoChunks(text, targetLen = 1500) {
   const paras = text.split(/\n{2,}/);
-  const chunks = [];
+  const chunks =[];
   let cur = '';
   for (const para of paras) {
     if (cur.length + para.length + 2 > targetLen && cur.length > 0) {
       chunks.push(cur.trim());
-      // 取末尾 overlap 字作为下一块前缀上下文
-      cur = cur.slice(-overlap) + '\n\n' + para;
+      cur = para; // 不再混入上文内容，直接从新段落开始
     } else {
       cur += (cur ? '\n\n' : '') + para;
     }
@@ -2386,10 +2387,9 @@ document.getElementById('translateBtn').addEventListener('click', doTranslate);
 // 分块翻译流程（> 12000字）
 // ─────────────────────────────────────────
 async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
-  const chunks = splitIntoChunks(text, 1500, 150);
+  const chunks = splitIntoChunks(text, 1500); 
   const total = chunks.length;
 
-  // 构建分块进度卡片
   const card = document.createElement('div');
   card.className = 'chunk-progress-card';
   card.innerHTML = `
@@ -2400,7 +2400,7 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
     </div>
     <div class="chunk-grid" id="chunkGrid"></div>
     <div class="chunk-result-area">
-      <div class="chunk-result-label">实时拼接译文</div>
+      <div class="chunk-result-label">实时分块译文 (流式更新优化)</div>
       <div class="chunk-result-text" id="chunkResultText"></div>
     </div>`;
   document.getElementById('roundsContainer').appendChild(card);
@@ -2416,9 +2416,18 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
   });
 
   const chunkResultEl = document.getElementById('chunkResultText');
+  chunkResultEl.innerHTML = ''; 
+  // 性能优化：为每个切块预先创建独立的 DOM 节点
+  const chunkNodes =[];
+  for (let i = 0; i < total; i++) {
+    const div = document.createElement('div');
+    div.style.marginBottom = "1.2em"; // 保证段落视觉间距
+    chunkResultEl.appendChild(div);
+    chunkNodes.push(div);
+  }
   const chunkResults = new Array(total).fill('');
 
-  // 先生成动态智能体（共用一次）
+  // 阶零：生成动态智能体
   setStatus('初始化：生成翻译智能体…');
   const agentSec = document.getElementById('agentGenSection');
   agentSec.style.display = 'block';
@@ -2439,7 +2448,6 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
   document.getElementById('agentGenBadge').classList.add('done');
   document.getElementById('agentGenTitle').textContent = `D 路智能体 · ${dynamicAgent.name}`;
 
-  // 显示结果区早期预览
   document.getElementById('resultSection').classList.add('active');
   const labelEl = document.querySelector('.result-label');
   if (!labelEl.dataset.earlyPreview) {
@@ -2447,7 +2455,9 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
     labelEl.innerHTML = `分块译文 <span class="score-pill" style="color:var(--warning);border-color:var(--warning);background:var(--warm-sand);animation:blink 1.5s infinite;border-radius:4px;padding:2px 6px;margin-left:6px;">拼接中…</span>`;
   }
 
-  // 逐块串行翻译（串行保证上下文衔接，且避免并发太多请求）
+  let prevTranslation = ""; // 用于携带上文语境，避免脱节
+
+  // 逐块串行翻译
   for (let i = 0; i < total; i++) {
     setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块…`);
     setProgress(i / total);
@@ -2455,42 +2465,54 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
     pills[i].querySelector('.chunk-pill-label').textContent = '翻译中';
 
     const chunk = chunks[i];
-    const userMsg = `作为纯粹的翻译器，请将以下${src}文本片段翻译成${tgt}。这是第 ${i+1}/${total} 段，请保持与上文风格一致，直接输出纯净译文：\n\n${chunk}`;
+    
+    // 强化分块 Prompt：强制要求输出为目标语言，绝不保留源语言
+    const userMsg = `作为纯粹的翻译器，请将下面的【待翻译片段】从【${src}】翻译成【${tgt}】。这是长文的第 ${i+1}/${total} 段。
+要求：
+1. 必须完全使用【${tgt}】输出，绝不允许原样照抄【${src}】原文！
+2. 保持与上文风格一致，直接输出纯净译文正文。
 
-    // 四路并发，取裁决
+${prevTranslation ? `【上文译文参考（仅供文脉连贯参考，不要翻译它）】\n${prevTranslation.slice(-400)}\n\n` : ''}【待翻译片段】\n${chunk}`;
+
     let resA = '', resB = '', resC = '', resD = '';
     await Promise.all([
-      callDeepSeek([{role:'system',content:promptPathA(src,tgt)},{role:'user',content:userMsg}], f => resA = f, 0.5).then(r => resA = r),
-      callDeepSeek([{role:'system',content:promptPathB(src,tgt)},{role:'user',content:userMsg}], f => resB = f, 0.8).then(r => resB = r),
-      callDeepSeek([{role:'system',content:promptPathC(src,tgt)},{role:'user',content:userMsg}], f => resC = f, 0.6).then(r => resC = r),
-      callDeepSeek([{role:'system',content:dynamicAgent.systemPrompt},{role:'user',content:userMsg}], f => resD = f, 0.7).then(r => resD = r),
+      callDeepSeek([{role:'system',content:promptPathA(src,tgt)},{role:'user',content:userMsg}], null, 0.5).then(r => resA = r),
+      callDeepSeek([{role:'system',content:promptPathB(src,tgt)},{role:'user',content:userMsg}], null, 0.8).then(r => resB = r),
+      callDeepSeek([{role:'system',content:promptPathC(src,tgt)},{role:'user',content:userMsg}], null, 0.6).then(r => resC = r),
+      callDeepSeek([{role:'system',content:dynamicAgent.systemPrompt},{role:'user',content:userMsg}], null, 0.7).then(r => resD = r),
     ]);
 
-    const quickSynthMsg = `原文片段：\n${chunk}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n\n请裁决最优译文，直接输出纯净译文，不带任何前缀。`;
+    // 强化合成裁决 Prompt
+    const chunkSynthSystem = `你是一个终极翻译裁决官。你的唯一任务是将输入的四路草稿合并优化，输出最终的纯净【${tgt}】译文。
+【极度警告】：必须输出【${tgt}】，绝对不能输出任何【${src}】源语言文本！不准带任何前缀！`;
+    const quickSynthMsg = `原文片段：\n${chunk}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n\n请裁决最优译文，直接输出纯净的【${tgt}】译文。`;
+
     let chunkTrans = '';
-    await callDeepSeek([{role:'system',content:promptSynth(src,tgt)},{role:'user',content:quickSynthMsg}], f => {
+    await callDeepSeek([{role:'system',content:chunkSynthSystem},{role:'user',content:quickSynthMsg}], f => {
       chunkTrans = parseSynthOutput(f).translation || f;
       chunkResults[i] = chunkTrans;
-      chunkResultEl.textContent = chunkResults.filter(Boolean).join('\n\n');
-      document.getElementById('finalResult').textContent = chunkResultEl.textContent;
+      // 性能终极优化：仅更新这一个小块的 DOM，不再拼接全文！
+      chunkNodes[i].textContent = chunkTrans; 
     }, 0.3);
 
     chunkResults[i] = parseSynthOutput(chunkTrans).translation || chunkTrans;
+    prevTranslation = chunkResults[i]; // 更新上下文记忆
+
     pills[i].className = 'chunk-pill done';
     pills[i].querySelector('.chunk-pill-label').textContent = '完成';
     setProgress((i + 1) / total);
   }
 
+  // 循环结束后，统一拼接全文送入最终展示区
   const fullTranslation = chunkResults.join('\n\n');
   document.getElementById('finalResult').textContent = fullTranslation;
   document.getElementById('chunkBadge').textContent = '已完成';
   document.getElementById('chunkBadge').classList.add('done');
 
-  // 恢复 label
   labelEl.innerHTML = '最终裁决译文';
   delete labelEl.dataset.earlyPreview;
 
-  // 质量终审（只取首块做代表性评分）
+  // 质量终审（首块抽样）
   setStatus('阶四：进行质量终审与打分…');
   const auditEl = document.createElement('div');
   auditEl.className = 'audit-card';
@@ -2523,7 +2545,7 @@ async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
     document.getElementById('auditRemark').textContent = remark;
   }
 
-  const scoreLabels = ['忠','流','地'];
+  const scoreLabels =['忠','流','地'];
   if (scores) {
     scores.forEach((s, i) => {
       document.getElementById(`s${i}`).textContent = s;
