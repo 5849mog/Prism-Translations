@@ -266,6 +266,67 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .word-stat span { color: var(--stone); }
 
 /* ════════════════════════════════════════
+   文件上传区
+════════════════════════════════════════ */
+.file-drop-zone {
+  margin: 0 20px 12px; border: 1.5px dashed var(--border-warm);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  background: var(--white); transition: all 0.18s; position: relative; overflow: hidden;
+}
+@media (min-width: 860px) { .file-drop-zone { margin: 0 24px 12px; } }
+.file-drop-zone:hover, .file-drop-zone.drag-over {
+  border-color: var(--terracotta); background: #fdf5f2;
+}
+.file-drop-icon { color: var(--stone); flex-shrink: 0; transition: color 0.18s; }
+.file-drop-zone:hover .file-drop-icon, .file-drop-zone.drag-over .file-drop-icon { color: var(--terracotta); }
+.file-drop-text { font-size: 12px; color: var(--stone); line-height: 1.4; }
+.file-drop-text strong { color: var(--charcoal); font-weight: 500; display: block; margin-bottom: 1px; }
+.file-drop-badge { margin-left: auto; font-size: 9px; color: var(--warm-silver); background: var(--warm-sand); padding: 2px 7px; border-radius: var(--r-full); letter-spacing: 0.3px; flex-shrink: 0; }
+#fileInput { display: none; }
+.file-loaded-bar {
+  display: none; margin: 0 20px 12px; padding: 9px 14px;
+  background: var(--success-bg); border: 1px solid #b0cfc2; border-radius: var(--r-lg);
+  font-size: 12px; color: var(--success); align-items: center; gap: 8px;
+}
+@media (min-width: 860px) { .file-loaded-bar { margin: 0 24px 12px; } }
+.file-loaded-bar.visible { display: flex; }
+.file-loaded-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-clear-btn { background: none; border: none; color: var(--stone); cursor: pointer; font-size: 11px; padding: 0 2px; flex-shrink: 0; transition: color 0.15s; }
+.file-clear-btn:hover { color: var(--error); }
+
+/* ════════════════════════════════════════
+   停止按钮 & 自动检测 chip
+════════════════════════════════════════ */
+.stop-btn {
+  width: 100%; padding: 15px 24px; background: #7a2a2a; color: var(--ivory);
+  border: none; border-radius: var(--r-lg); font-size: 14px; font-weight: 500;
+  cursor: pointer; letter-spacing: 0.5px; display: none; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.2s; font-family: var(--sans);
+}
+.stop-btn.visible { display: flex; }
+.stop-btn:hover { background: #922a2a; transform: translateY(-1px); }
+.lang-detect-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
+  color: var(--terracotta); background: #fdf5f2; border: 1px solid #eebfa6;
+  padding: 2px 8px; border-radius: var(--r-full); margin-left: 8px;
+  cursor: pointer; transition: all 0.15s; vertical-align: middle;
+  animation: fadeIn 0.25s ease;
+}
+.lang-detect-chip:hover { background: #f9ede7; }
+
+/* ════════════════════════════════════════
+   API 错误细化样式
+════════════════════════════════════════ */
+.error-detail {
+  font-size: 11px; color: var(--error); background: #fdf0ef;
+  border: 1px solid #f0b8b4; border-radius: var(--r-md);
+  padding: 8px 12px; margin-top: 6px; line-height: 1.5;
+  display: none;
+}
+.error-detail.visible { display: block; }
+
+/* ════════════════════════════════════════
    翻译按钮
 ════════════════════════════════════════ */
 .translate-wrap { padding: 14px 20px 20px; flex-shrink: 0; }
@@ -652,6 +713,22 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
       <!-- 可滚动内容区 -->
       <div class="left-content">
         <div class="input-section">
+          <!-- 文件上传区 -->
+          <div class="file-drop-zone" id="fileDropZone">
+            <svg class="file-drop-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="file-drop-text">
+              <strong>拖入或点击上传文件</strong>
+              支持 .txt · .md · .pdf · .docx
+            </div>
+            <span class="file-drop-badge">文件导入</span>
+            <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"/>
+          </div>
+          <div class="file-loaded-bar" id="fileLoadedBar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="file-loaded-name" id="fileLoadedName"></span>
+            <button class="file-clear-btn" id="fileClearBtn" title="移除文件">&#10005; 移除</button>
+          </div>
+
           <div class="textarea-card">
             <textarea id="sourceText" placeholder="在此输入需要翻译的文本…（Ctrl+Enter 快速启动）"></textarea>
             <div class="input-footer">
@@ -673,6 +750,10 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
           <button class="translate-btn" id="translateBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             启动五阶翻译引擎
+          </button>
+          <button class="stop-btn" id="stopBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            停止翻译
           </button>
         </div>
 
@@ -718,6 +799,10 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
           <button class="translate-btn" id="translateBtnDesktop">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             启动五阶翻译引擎
+          </button>
+          <button class="stop-btn" id="stopBtnDesktop">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            停止翻译
           </button>
         </div>
       </div>
@@ -964,13 +1049,184 @@ const state = {
   pickingFor: null,
   startTime: null,
   timerInterval: null,
-  // 翻译结果存储（用于导出）
   lastTranslation: null,
+  abortController: null, // 用于中断翻译
 };
 
 // ─────────────────────────────────────────
-// 历史记录管理
+// 功能 1：文件上传（txt / md / pdf / docx）
 // ─────────────────────────────────────────
+function loadFileText(text, filename) {
+  document.getElementById('sourceText').value = text;
+  updateWordStats();
+  document.getElementById('fileLoadedName').textContent = filename;
+  document.getElementById('fileLoadedBar').classList.add('visible');
+  detectAndApplyLang(text);
+  showToast(`已加载：${filename}`, 'success');
+}
+
+async function handleFileSelect(file) {
+  if (!file) return;
+  const name = file.name;
+  const ext = name.split('.').pop().toLowerCase();
+  showToast('正在解析文件…');
+
+  try {
+    if (ext === 'txt' || ext === 'md') {
+      const text = await file.text();
+      loadFileText(text, name);
+    } else if (ext === 'pdf') {
+      // 用 FileReader 读取 ArrayBuffer 后简单提取文本（无 pdfjs 时 fallback 提示）
+      const arrayBuffer = await file.arrayBuffer();
+      // 尝试简单字符提取（适合纯文本 PDF）
+      const bytes = new Uint8Array(arrayBuffer);
+      let raw = '';
+      for (let i = 0; i < bytes.length; i++) {
+        const c = bytes[i];
+        if (c >= 32 && c < 127) raw += String.fromCharCode(c);
+        else if (c === 10 || c === 13) raw += '\n';
+      }
+      // 粗提取括号内字符串（PDF text streams 用 (text) 格式）
+      const matches = raw.match(/\(([^)]{1,300})\)/g);
+      if (matches && matches.length > 5) {
+        const extracted = matches.map(m => m.slice(1,-1)).join(' ').replace(/\s+/g,' ').trim();
+        if (extracted.length > 20) { loadFileText(extracted, name); return; }
+      }
+      showToast('PDF 解析有限，建议复制文本后粘贴', 'error');
+    } else if (ext === 'docx') {
+      // 用 ZIP 解析提取 word/document.xml 中的文本
+      const arrayBuffer = await file.arrayBuffer();
+      const zipBytes = new Uint8Array(arrayBuffer);
+      // 搜索 word/document.xml 内容
+      const xmlMarker = new TextEncoder().encode('word/document.xml');
+      let xmlStart = -1;
+      for (let i = 0; i < zipBytes.length - xmlMarker.length; i++) {
+        if (zipBytes[i] === xmlMarker[0]) {
+          let match = true;
+          for (let j = 1; j < xmlMarker.length; j++) {
+            if (zipBytes[i+j] !== xmlMarker[j]) { match = false; break; }
+          }
+          if (match) { xmlStart = i; break; }
+        }
+      }
+      if (xmlStart !== -1) {
+        const rawStr = new TextDecoder('utf-8', {fatal:false}).decode(zipBytes.slice(xmlStart));
+        const xmlContent = rawStr.slice(rawStr.indexOf('<?xml') > -1 ? rawStr.indexOf('<?xml') : 0, 500000);
+        const text = xmlContent.replace(/<w:br[^/]*/g, '\n').replace(/<w:p[ >]/g, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&apos;/g,"'").replace(/&quot;/g,'"').replace(/\n{3,}/g,'\n\n').trim();
+        if (text.length > 10) { loadFileText(text, name); return; }
+      }
+      showToast('docx 解析失败，请复制文本后粘贴', 'error');
+    } else {
+      showToast('不支持该文件格式');
+    }
+  } catch(e) {
+    showToast('文件读取失败：' + e.message, 'error');
+  }
+}
+
+const fileDropZone = document.getElementById('fileDropZone');
+const fileInput = document.getElementById('fileInput');
+
+fileDropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); });
+
+fileDropZone.addEventListener('dragover', e => { e.preventDefault(); fileDropZone.classList.add('drag-over'); });
+fileDropZone.addEventListener('dragleave', () => fileDropZone.classList.remove('drag-over'));
+fileDropZone.addEventListener('drop', e => {
+  e.preventDefault(); fileDropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFileSelect(file);
+});
+
+document.getElementById('fileClearBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('fileLoadedBar').classList.remove('visible');
+  fileInput.value = '';
+  showToast('已移除文件');
+});
+
+// ─────────────────────────────────────────
+// 功能 4：自动语言检测（启发式）
+// ─────────────────────────────────────────
+const LANG_DETECT_PATTERNS = [
+  { code:'zh', pattern: /[\u4e00-\u9fff]/, threshold: 0.15 },
+  { code:'ja', pattern: /[\u3040-\u30ff]/, threshold: 0.1 },
+  { code:'ko', pattern: /[\uac00-\ud7af]/, threshold: 0.1 },
+  { code:'ar', pattern: /[\u0600-\u06ff]/, threshold: 0.1 },
+  { code:'ru', pattern: /[\u0400-\u04ff]/, threshold: 0.1 },
+  { code:'hi', pattern: /[\u0900-\u097f]/, threshold: 0.1 },
+  { code:'fa', pattern: /[\u0600-\u06ff\u0750-\u077f]/, threshold: 0.1 },
+  { code:'th', pattern: /[\u0e00-\u0e7f]/, threshold: 0.1 },
+  { code:'vi', pattern: /[àáâãèéêìíòóôõùúýăđơư]/i, threshold: 0.05 },
+];
+
+function detectLang(text) {
+  if (!text || text.length < 8) return null;
+  const sample = text.slice(0, 500);
+  for (const { code, pattern, threshold } of LANG_DETECT_PATTERNS) {
+    const matches = (sample.match(new RegExp(pattern.source, 'g')) || []).length;
+    if (matches / sample.length >= threshold) {
+      return LANGS.find(l => l.code === code) || null;
+    }
+  }
+  // 默认判定英文（拉丁字母为主）
+  const latinCount = (sample.match(/[a-zA-Z]/g) || []).length;
+  if (latinCount / sample.length > 0.5) return LANGS.find(l => l.code === 'en');
+  return null;
+}
+
+function detectAndApplyLang(text) {
+  const detected = detectLang(text);
+  if (!detected) return;
+  if (detected.code === state.srcLang.code) return; // 已经一致
+  // 显示检测提示 chip
+  const charCountEl = document.querySelector('.char-count');
+  const existingChip = document.getElementById('detectChip');
+  if (existingChip) existingChip.remove();
+  const chip = document.createElement('span');
+  chip.id = 'detectChip';
+  chip.className = 'lang-detect-chip';
+  chip.title = '点击应用检测语言';
+  chip.innerHTML = `${detected.flag} 检测到 ${detected.name}`;
+  chip.addEventListener('click', () => {
+    state.srcLang = detected;
+    updateLangDisplay();
+    chip.remove();
+    showToast(`源语言已设为 ${detected.name}`, 'success');
+  });
+  charCountEl.appendChild(chip);
+}
+
+document.getElementById('sourceText').addEventListener('input', function() {
+  updateWordStats();
+  if (this.value.length > 20) detectAndApplyLang(this.value);
+});
+
+// ─────────────────────────────────────────
+// 功能 2：翻译中断（Stop）
+// ─────────────────────────────────────────
+function showStopBtn() {
+  document.getElementById('stopBtn').classList.add('visible');
+  const d = document.getElementById('stopBtnDesktop');
+  if (d) d.classList.add('visible');
+}
+function hideStopBtn() {
+  document.getElementById('stopBtn').classList.remove('visible');
+  const d = document.getElementById('stopBtnDesktop');
+  if (d) d.classList.remove('visible');
+}
+
+function doStop() {
+  if (!state.running) return;
+  if (state.abortController) state.abortController.abort();
+  showToast('翻译已中断');
+}
+document.getElementById('stopBtn').addEventListener('click', doStop);
+// 桌面端停止按钮（动态绑定）
+document.addEventListener('click', e => { if (e.target.closest('#stopBtnDesktop')) doStop(); });
+
+// ─────────────────────────────────────────
+// 历史记录管理
 function getHistory() {
   try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch { return[]; }
 }
@@ -1001,10 +1257,12 @@ function renderHistoryList() {
       <div class="history-item-meta">
         <div class="history-langs">${item.srcCode} → ${item.tgtCode}</div>
         <div class="history-time">${item.time}</div>
+        ${item.scores ? `<div style="margin-top:4px;display:flex;gap:3px;">${['忠','流','地'].map((l,i)=>`<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`).join('')}</div>` : ''}
       </div>
       <div class="history-item-content">
         <div class="history-src">${escHtml(item.src.slice(0,60))}${item.src.length>60?'…':''}</div>
         <div class="history-tgt">${escHtml(item.tgt.slice(0,60))}${item.tgt.length>60?'…':''}</div>
+        ${item.remark ? `<div style="font-size:10px;color:var(--stone);margin-top:4px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escHtml(item.remark.slice(0,80))}${item.remark.length>80?'…':''}</div>` : ''}
       </div>
       <div class="history-actions">
         <button class="history-use-btn" data-id="${item.id}">使用</button>
@@ -1119,7 +1377,6 @@ function updateWordStats() {
   }
 }
 
-document.getElementById('sourceText').addEventListener('input', updateWordStats);
 document.getElementById('sourceText').addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doTranslate(); }
 });
@@ -1378,18 +1635,36 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 });
 
 // ─────────────────────────────────────────
-// DeepSeek API 调用（修复长文本 Stream 截断问题）
+// 功能 5：API 错误细分
+// ─────────────────────────────────────────
+const API_ERROR_TIPS = {
+  401: '❌ API 密钥无效或已过期，请在设置中重新填写。',
+  402: '💳 账户余额不足，请前往 DeepSeek 平台充值后重试。',
+  429: '⏳ 请求过于频繁（限流），请稍候片刻后再试。',
+  500: '🔧 DeepSeek 服务器内部错误，请稍后重试。',
+  503: '🔧 DeepSeek 服务暂时不可用，请稍后重试。',
+};
+
+// ─────────────────────────────────────────
+// DeepSeek API 调用（接入 AbortController）
 // ─────────────────────────────────────────
 async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0) {
   if (!state.apiKey) throw new Error('NO_KEY');
-  
+
+  // 使用全局 abortController（由 doTranslate 创建，doStop 触发）
+  const signal = state.abortController ? state.abortController.signal : undefined;
+
   const payload = { model: state.model, messages, stream: true, temperature };
   if (state.thinkingMode === 'disabled') { payload.thinking = { type: 'disabled' }; }
   else if (state.thinkingMode === 'high') { payload.thinking = { type: 'enabled', budget_tokens: 2048 }; }
   else if (state.thinkingMode === 'max') { payload.thinking = { type: 'enabled', budget_tokens: 4096 }; }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 120000);
+  // 合并两个 signal
+  const combinedSignal = signal
+    ? (() => { const ac = new AbortController(); signal.addEventListener('abort', () => ac.abort()); timeoutController.signal.addEventListener('abort', () => ac.abort()); return ac.signal; })()
+    : timeoutController.signal;
 
   let resp;
   try {
@@ -1397,21 +1672,25 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal: combinedSignal,
     });
   } catch (e) {
     clearTimeout(timeoutId);
-    if (e.name === 'AbortError') throw new Error('请求超时，请重试');
+    if (e.name === 'AbortError') {
+      if (signal && signal.aborted) throw new Error('USER_ABORT');
+      throw new Error('请求超时，请重试');
+    }
     if (retryCount < 1) { await new Promise(r => setTimeout(r, 1500)); return callDeepSeek(messages, onChunk, temperature, retryCount + 1); }
-    throw new Error('网络请求失败');
+    throw new Error('网络请求失败，请检查网络连接');
   }
   clearTimeout(timeoutId);
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    const msg = err.error?.message || `HTTP ${resp.status}`;
+    const tip = API_ERROR_TIPS[resp.status];
+    const msg = tip || err.error?.message || `HTTP ${resp.status}`;
     if (resp.status === 429 && retryCount < 2) {
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 3000 * (retryCount + 1)));
       return callDeepSeek(messages, onChunk, temperature, retryCount + 1);
     }
     throw new Error(msg);
@@ -1423,19 +1702,9 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
 
   while (true) {
     const { done, value } = await reader.read();
-    
-    // Fix 2: 修复由于 stream reader 意外结束导致缓冲区遗漏最后一块的问题
-    if (value) {
-      buf += decoder.decode(value, { stream: !done });
-    }
-    
+    if (value) buf += decoder.decode(value, { stream: !done });
     let lines = buf.split('\n');
-    if (!done) {
-      buf = lines.pop(); // 尚未读完，将未凑成整行的字符串重新放入 buf 中
-    } else {
-      buf = ''; // 已结束，将处理所有剩余的数据
-    }
-    
+    if (!done) { buf = lines.pop(); } else { buf = ''; }
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
@@ -1445,10 +1714,17 @@ async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0
         const delta = parsed.choices?.[0]?.delta || {};
         if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
         if (delta.content) resultContent += delta.content;
-        if (onChunk && (delta.reasoning_content || delta.content)) onChunk(resultContent, resultReasoning);
+        if (onChunk && (delta.reasoning_content || delta.content)) {
+          onChunk(resultContent, resultReasoning);
+          // 功能 6：智能滚动跟随
+          const rightPanel = document.querySelector('.panel-right');
+          if (rightPanel) {
+            const distFromBottom = rightPanel.scrollHeight - rightPanel.scrollTop - rightPanel.clientHeight;
+            if (distFromBottom < 200) rightPanel.scrollTop = rightPanel.scrollHeight;
+          }
+        }
       } catch (e) {}
     }
-    
     if (done) break;
   }
   return resultContent;
@@ -1625,12 +1901,14 @@ async function doTranslate() {
   if (state.running) return;
 
   state.running = true;
+  state.abortController = new AbortController();
   const btn = document.getElementById('translateBtn');
   const btnD = document.getElementById('translateBtnDesktop');
   const spinnerHTML = `<span class="spinner">◌</span>&nbsp;引擎全功率运行中…`;
   btn.disabled = true;
   btn.innerHTML = spinnerHTML;
   if (btnD) { btnD.disabled = true; btnD.innerHTML = spinnerHTML; }
+  showStopBtn();
 
   // 重置 UI
   document.getElementById('resultSection').classList.remove('active');
@@ -1947,7 +2225,7 @@ ${lastSynthResult}
     };
 
     // 加入历史
-    addHistory({ src: text, tgt: lastSynthResult, srcCode: state.srcLang.code, tgtCode: state.tgtLang.code });
+    addHistory({ src: text, tgt: lastSynthResult, srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark: finalRemark });
 
     if (window.innerWidth >= 860) {
       setTimeout(() => {
@@ -1961,8 +2239,9 @@ ${lastSynthResult}
   } catch (err) {
     stopTimer();
     if (err.message === 'NO_KEY') { showToast('请先填写 API 密钥'); openDrawer(); }
+    else if (err.message === 'USER_ABORT') { setStatus('翻译已中断'); showToast('翻译已手动停止'); }
     else { showToast(`错误：${err.message}`, 'error'); console.error(err); }
-    setStatus('引擎运行异常，请重试');
+    setStatus(err.message === 'USER_ABORT' ? '翻译已中断' : '引擎运行异常，请重试');
     
     // 异常恢复
     const finalLabelEl = document.querySelector('.result-label');
@@ -1972,6 +2251,8 @@ ${lastSynthResult}
     }
   } finally {
     state.running = false;
+    state.abortController = null;
+    hideStopBtn();
     const restoreHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>重新启动翻译引擎`;
     btn.disabled = false;
     btn.innerHTML = restoreHTML;
