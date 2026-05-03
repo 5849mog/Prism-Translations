@@ -369,8 +369,35 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 @media (min-width: 1280px) { #finalResult { font-size: 17px; } }
 .export-section { padding: 0 20px 20px; }
 @media (min-width: 860px) { .export-section { padding: 0 24px 24px; } }
-.export-btn { width: 100%; padding: 11px 16px; border-radius: var(--r-lg); border: 1px solid var(--border-warm); background: var(--white); color: var(--charcoal); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s; font-family: var(--sans); }
-.export-btn:hover { background: var(--warm-sand); border-color: var(--ring-warm); }
+.export-label { font-size: 10px; color: var(--stone); letter-spacing: 0.7px; text-transform: uppercase; margin-bottom: 10px; }
+.export-format-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.export-fmt-btn {
+  flex: 1; min-width: 60px; padding: 8px 10px; border-radius: var(--r-md);
+  border: 1.5px solid var(--border-warm); background: var(--white);
+  color: var(--stone); font-size: 11px; font-weight: 500; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all 0.15s; font-family: var(--sans); white-space: nowrap;
+}
+.export-fmt-btn:hover { border-color: var(--ring-warm); color: var(--charcoal); background: var(--warm-sand); }
+.export-fmt-btn.active { border-color: var(--terracotta); color: var(--terracotta); background: #fdf5f2; }
+.export-options-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.export-opt-check { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--stone); cursor: pointer; user-select: none; }
+.export-opt-check input[type="checkbox"] { accent-color: var(--terracotta); width: 13px; height: 13px; cursor: pointer; }
+.export-btn {
+  width: 100%; padding: 11px 16px; border-radius: var(--r-lg);
+  border: none; background: var(--near-black); color: var(--ivory);
+  font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.15s; font-family: var(--sans); font-weight: 500; margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(20,20,19,0.12);
+}
+.export-btn:hover { background: #222220; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.export-copy-btn {
+  width: 100%; padding: 9px 16px; border-radius: var(--r-lg);
+  border: 1px solid var(--border-warm); background: var(--white); color: var(--charcoal);
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.15s; font-family: var(--sans);
+}
+.export-copy-btn:hover { background: var(--warm-sand); border-color: var(--ring-warm); }
 
 /* ════════════════════════════════════════
    右侧 — 引擎全景
@@ -827,9 +854,46 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 
         <!-- 导出 -->
         <div class="export-section" id="exportSection" style="display:none;">
+          <div class="export-label">导出报告</div>
+          <div class="export-format-row">
+            <button class="export-fmt-btn active" data-fmt="md" id="fmtMd">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2l2 2 2-4"/></svg>
+              Markdown
+            </button>
+            <button class="export-fmt-btn" data-fmt="txt" id="fmtTxt">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+              纯文本
+            </button>
+            <button class="export-fmt-btn" data-fmt="json" id="fmtJson">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              JSON
+            </button>
+            <button class="export-fmt-btn" data-fmt="bilingual" id="fmtBilingual">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              双语对照
+            </button>
+          </div>
+          <div class="export-options-row">
+            <label class="export-opt-check">
+              <input type="checkbox" id="optIncludeSource" checked>
+              <span>包含原文</span>
+            </label>
+            <label class="export-opt-check">
+              <input type="checkbox" id="optIncludeScores" checked>
+              <span>包含评分</span>
+            </label>
+            <label class="export-opt-check">
+              <input type="checkbox" id="optIncludeMeta" checked>
+              <span>包含元数据</span>
+            </label>
+          </div>
           <button class="export-btn" id="exportBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            导出翻译报告（Markdown）
+            <span id="exportBtnLabel">下载 Markdown 报告</span>
+          </button>
+          <button class="export-copy-btn" id="exportCopyBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            复制到剪贴板
           </button>
         </div>
       </div><!-- /left-content -->
@@ -1649,31 +1713,158 @@ function stopTimer() {
 }
 
 // ─────────────────────────────────────────
-// 导出 Markdown
+// 导出 — 多格式增强版
 // ─────────────────────────────────────────
-document.getElementById('exportBtn').addEventListener('click', () => {
+let currentExportFmt = 'md';
+
+// 格式按钮切换
+document.querySelectorAll('.export-fmt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.export-fmt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentExportFmt = btn.dataset.fmt;
+    const labels = { md: 'Markdown 报告', txt: '纯文本报告', json: 'JSON 数据', bilingual: '双语对照文档' };
+    document.getElementById('exportBtnLabel').textContent = `下载 ${labels[currentExportFmt]}`;
+  });
+});
+
+function buildExportTimestamp(t) {
+  return new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function buildExportContent(fmt) {
   const t = state.lastTranslation;
-  if (!t) return;
-  const elapsed = t.elapsed ? ` · 耗时 ${t.elapsed}s` : '';
-  let md = `# 棱镜译 · 翻译报告\n\n`;
-  md += `**时间：** ${new Date().toLocaleString('zh-CN')}\n`;
-  md += `**语言对：** ${t.srcLang} → ${t.tgtLang}${elapsed}\n`;
-  md += `**模型：** ${t.model}\n\n---\n\n`;
-  md += `## 原文\n\n${t.source}\n\n---\n\n`;
-  md += `## 最终译文\n\n${t.result}\n\n---\n\n`;
-  if (t.scores) {
-    md += `## 质量评分\n\n| 维度 | 分数 |\n|------|------|\n`;
-    md += `| 忠实度 | ${t.scores[0]}/10 |\n`;
-    md += `| 流畅度 | ${t.scores[1]}/10 |\n`;
-    md += `| 地道度 | ${t.scores[2]}/10 |\n`;
-    if (t.remark) md += `\n**评语：** ${t.remark}\n`;
+  if (!t) return null;
+  const incSrc    = document.getElementById('optIncludeSource').checked;
+  const incScores = document.getElementById('optIncludeScores').checked;
+  const incMeta   = document.getElementById('optIncludeMeta').checked;
+
+  const ts = buildExportTimestamp();
+  const elapsed = t.elapsed ? (t.elapsed < 60 ? `${t.elapsed}s` : `${Math.floor(t.elapsed/60)}m${t.elapsed%60}s`) : '—';
+  const avg = t.scores ? (t.scores.reduce((a,b)=>a+b,0)/t.scores.length).toFixed(1) : null;
+
+  if (fmt === 'md') {
+    let md = `# 棱镜译 · 翻译报告\n\n`;
+    if (incMeta) {
+      md += `> 🕐 ${ts}　📋 ${t.srcLang} → ${t.tgtLang}　⏱ ${elapsed}　🤖 ${t.model}\n\n`;
+      md += `---\n\n`;
+    }
+    if (incSrc) {
+      md += `## 原文\n\n`;
+      md += `\`\`\`\n${t.source}\n\`\`\`\n\n`;
+    }
+    md += `## 最终译文\n\n${t.result}\n\n`;
+    if (incScores && t.scores) {
+      md += `---\n\n## 质量评审\n\n`;
+      md += `| 维度 | 分数 | 评级 |\n|------|------|------|\n`;
+      const dims = ['忠实度', '流畅度', '地道度'];
+      t.scores.forEach((s, i) => {
+        const grade = s >= 9 ? '🟢 优秀' : s >= 7 ? '🟡 良好' : s >= 5 ? '🟠 一般' : '🔴 待改进';
+        md += `| ${dims[i]} | **${s}/10** | ${grade} |\n`;
+      });
+      md += `| **综合均分** | **${avg}/10** | — |\n`;
+      if (t.remark) md += `\n### 评审意见\n\n${t.remark}\n`;
+    }
+    if (incMeta) {
+      md += `\n---\n\n*由 [棱镜译 PrismTrans Pro V5](https://prismtrans.ai) 生成 · ${ts}*\n`;
+    }
+    return { content: md, mime: 'text/markdown;charset=utf-8', ext: 'md' };
   }
-  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+
+  if (fmt === 'txt') {
+    const sep = '─'.repeat(50);
+    let txt = `棱镜译 · 翻译报告\n${sep}\n`;
+    if (incMeta) {
+      txt += `时间：${ts}\n语言对：${t.srcLang} → ${t.tgtLang}\n耗时：${elapsed}\n模型：${t.model}\n${sep}\n`;
+    }
+    if (incSrc) txt += `【原文】\n${t.source}\n\n${sep}\n`;
+    txt += `【最终译文】\n${t.result}\n`;
+    if (incScores && t.scores) {
+      txt += `\n${sep}\n【质量评分】\n忠实度：${t.scores[0]}/10\n流畅度：${t.scores[1]}/10\n地道度：${t.scores[2]}/10\n综合均分：${avg}/10\n`;
+      if (t.remark) txt += `\n【评审意见】\n${t.remark}\n`;
+    }
+    return { content: txt, mime: 'text/plain;charset=utf-8', ext: 'txt' };
+  }
+
+  if (fmt === 'json') {
+    const obj = {
+      app: '棱镜译 PrismTrans Pro V5',
+      exportedAt: ts,
+    };
+    if (incMeta) Object.assign(obj, { srcLang: t.srcLang, tgtLang: t.tgtLang, model: t.model, elapsed });
+    if (incSrc) obj.source = t.source;
+    obj.result = t.result;
+    if (incScores && t.scores) {
+      obj.quality = {
+        fidelity: t.scores[0], fluency: t.scores[1], naturalness: t.scores[2],
+        average: parseFloat(avg),
+        remark: t.remark || ''
+      };
+    }
+    return { content: JSON.stringify(obj, null, 2), mime: 'application/json;charset=utf-8', ext: 'json' };
+  }
+
+  if (fmt === 'bilingual') {
+    const srcLines = t.source.split('\n');
+    const tgtLines = t.result.split('\n');
+    let md = `# 棱镜译 · 双语对照\n\n`;
+    if (incMeta) md += `> ${ts}　${t.srcLang} → ${t.tgtLang}　${t.model}\n\n`;
+    md += `---\n\n`;
+    const maxLen = Math.max(srcLines.length, tgtLines.length);
+    // paragraph-level bilingual: match by paragraph breaks
+    const srcParas = t.source.split(/\n\n+/);
+    const tgtParas = t.result.split(/\n\n+/);
+    const pMax = Math.max(srcParas.length, tgtParas.length);
+    for (let i = 0; i < pMax; i++) {
+      if (incSrc && srcParas[i]) md += `<sub>【原文】</sub>\n\n${srcParas[i]}\n\n`;
+      if (tgtParas[i]) md += `<sub>【译文】</sub>\n\n${tgtParas[i]}\n\n`;
+      if (i < pMax - 1) md += `---\n\n`;
+    }
+    if (incScores && t.scores) {
+      md += `\n## 质量评分\n\n`;
+      md += `忠实度 ${t.scores[0]}/10 · 流畅度 ${t.scores[1]}/10 · 地道度 ${t.scores[2]}/10 · 均分 ${avg}/10\n`;
+      if (t.remark) md += `\n> ${t.remark}\n`;
+    }
+    return { content: md, mime: 'text/markdown;charset=utf-8', ext: 'md' };
+  }
+
+  return null;
+}
+
+function triggerDownload(content, mime, ext) {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `prismtrans_${Date.now()}.md`;
-  a.click(); URL.revokeObjectURL(url);
-  showToast('报告已导出', 'success');
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  a.href = url;
+  a.download = `prismtrans_${dateStr}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const result = buildExportContent(currentExportFmt);
+  if (!result) return;
+  triggerDownload(result.content, result.mime, result.ext);
+  showToast('报告已导出 ✓', 'success');
+});
+
+document.getElementById('exportCopyBtn').addEventListener('click', () => {
+  const result = buildExportContent(currentExportFmt);
+  if (!result) return;
+  const onSuccess = () => showToast('已复制到剪贴板 ✓', 'success');
+  const onError = () => showToast('复制失败，请手动复制', 'error');
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(result.content).then(onSuccess).catch(onError);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = result.content;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); onSuccess(); } catch { onError(); }
+    finally { ta.remove(); }
+  }
 });
 
 // ─────────────────────────────────────────
