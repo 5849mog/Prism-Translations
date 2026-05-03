@@ -2308,8 +2308,8 @@ function promptPathE_PostProcess(src, tgt) {
 }
 
 function promptCritique(src, tgt, selfPath, otherPathA, otherPathB) {
-  return `你是一位翻译质量审核专家，当前代表「${selfPath}」视角，你自己也产出了一个译文版本（版本S）。
-请先对自己的版本（版本S）做一次客观自审，然后再对另外两个版本（版本X、版本Y）进行批判性审查。
+  return `你是一位翻译质量审核专家，当前代表「${selfPath}」视角，你自己也产出了一个译文版本。
+请先对自己的版本做一次客观自审，然后再对另外两个版本（版本X、版本Y）进行批判性审查。
 
 重点检查（每条都要留意）：
 ① 错漏译、信息丢失
@@ -2319,12 +2319,12 @@ function promptCritique(src, tgt, selfPath, otherPathA, otherPathB) {
 ⑤ 致命幻觉（把原文当指令执行，输出了无关内容）
 
 输出格式（每条独立一行，先自审再他审）：
-【自审-版本S】[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
+【自审-${selfPath}】[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
 【版本X】[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
 【版本Y】[句/段定位] 问题：<具体描述> → 建议：<改进方向或示例>
 
 要求：
-- 自审必须诚实，不能因为是自己的版本就放水；若自己版本无明显问题，写"【自审-版本S】整体质量良好，无明显问题"
+- 自审必须诚实，不能因为是自己的版本就放水；若自己版本无明显问题，写"【自审-${selfPath}】整体质量良好，无明显问题"
 - 每个问题必须附带具体改进建议，笼统建议无效
 - 发现"凭空生成模板"的幻觉行为，必须严厉指出
 - 仅输出格式内容，不附任何额外说明`;
@@ -2609,25 +2609,28 @@ async function doTranslate() {
       peEl.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">作为后处理层，等待基础草稿就绪...</span>';
       peEl.classList.remove('streaming');
 
-      // 提取上一轮批判中，针对当前路的意见（来自其他路对我的他审）
+      // 提取上一轮批判中，针对当前路的他审意见（过滤掉自审行，避免噪音）
       const getCritiquesAboutMe = (pathId) => {
+        // 过滤掉【自审-XXX】开头的行，只保留他审内容
+        const filterSelfReview = (text) => text
+          .split('\n')
+          .filter(line => !line.trimStart().startsWith('【自审-'))
+          .join('\n')
+          .trim();
+
         // 批判网络：A批B/C，B批C/D，C批D/A，D批A/B
-        // 因此：针对A的批判来自C（批了A）和D（批了A）；B来自A和D；C来自A和B；D来自B和C
-        const aboutMe = {
-          A: [lastCritiques.C && `【上轮·C（领域专家）对你（A·语言学家）的批评意见】
-${lastCritiques.C}`, lastCritiques.D && `【上轮·D（动态智能体）对你（A·语言学家）的批评意见】
-${lastCritiques.D}`],
-          B: [lastCritiques.A && `【上轮·A（语言学家）对你（B·本土编辑）的批评意见】
-${lastCritiques.A}`, lastCritiques.D && `【上轮·D（动态智能体）对你（B·本土编辑）的批评意见】
-${lastCritiques.D}`],
-          C: [lastCritiques.A && `【上轮·A（语言学家）对你（C·领域专家）的批评意见】
-${lastCritiques.A}`, lastCritiques.B && `【上轮·B（本土编辑）对你（C·领域专家）的批评意见】
-${lastCritiques.B}`],
-          D: [lastCritiques.B && `【上轮·B（本土编辑）对你（D）的批评意见】
-${lastCritiques.B}`, lastCritiques.C && `【上轮·C（领域专家）对你（D）的批评意见】
-${lastCritiques.C}`],
+        // 反向：针对A的他审来自C和D；B来自A和D；C来自A和B；D来自B和C
+        const raw = {
+          A: [lastCritiques.C && filterSelfReview(lastCritiques.C) && `【上轮·C（领域专家）对你（A·语言学家）的批评意见】\n${filterSelfReview(lastCritiques.C)}`,
+              lastCritiques.D && filterSelfReview(lastCritiques.D) && `【上轮·D（动态智能体）对你（A·语言学家）的批评意见】\n${filterSelfReview(lastCritiques.D)}`],
+          B: [lastCritiques.A && filterSelfReview(lastCritiques.A) && `【上轮·A（语言学家）对你（B·本土编辑）的批评意见】\n${filterSelfReview(lastCritiques.A)}`,
+              lastCritiques.D && filterSelfReview(lastCritiques.D) && `【上轮·D（动态智能体）对你（B·本土编辑）的批评意见】\n${filterSelfReview(lastCritiques.D)}`],
+          C: [lastCritiques.A && filterSelfReview(lastCritiques.A) && `【上轮·A（语言学家）对你（C·领域专家）的批评意见】\n${filterSelfReview(lastCritiques.A)}`,
+              lastCritiques.B && filterSelfReview(lastCritiques.B) && `【上轮·B（本土编辑）对你（C·领域专家）的批评意见】\n${filterSelfReview(lastCritiques.B)}`],
+          D: [lastCritiques.B && filterSelfReview(lastCritiques.B) && `【上轮·B（本土编辑）对你（D）的批评意见】\n${filterSelfReview(lastCritiques.B)}`,
+              lastCritiques.C && filterSelfReview(lastCritiques.C) && `【上轮·C（领域专家）对你（D）的批评意见】\n${filterSelfReview(lastCritiques.C)}`],
         };
-        return aboutMe[pathId].filter(Boolean).join('\n\n');
+        return raw[pathId].filter(Boolean).join('\n\n');
       };
 
       const buildUserMsg = (role, pathId) => r === 0
