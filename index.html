@@ -3280,29 +3280,29 @@ delete labelEl.dataset.earlyPreview;
 setStatus(‘阶四：进行质量终审与打分…’);
 const auditEl = document.createElement(‘div’);
 auditEl.className = ‘audit-card’;
-auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告（代表性采样）</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="si0"><span class="score-num" id="s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div></div> <div class="score-item" id="si1"><span class="score-num" id="s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div></div> <div class="score-item" id="si2"><span class="score-num" id="s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="auditRemark"></div> </div>`;
+auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告（代表性采样）</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="chunk_si0"><span class="score-num" id="chunk_s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb0" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si1"><span class="score-num" id="chunk_s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb1" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si2"><span class="score-num" id="chunk_s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="chunk_auditRemark"></div> </div>`;
 document.getElementById(‘auditContainer’).appendChild(auditEl);
 
 let rawAudit = ‘’;
 await callDeepSeek([{role:‘system’,content:promptAudit(src,tgt)},{role:‘user’,content:`原文（首段）：\n${chunks[0].slice(0,800)}\n\n对应译文：\n${chunkResults[0]}`}], (full, reasoning) => {
 rawAudit = full;
-updateUI(document.getElementById(‘auditRemark’), parseAuditOutput(full).remark || ‘’, reasoning);
+updateUI(document.getElementById(‘chunk_auditRemark’), parseAuditOutput(full).remark || ‘’, reasoning);
 }, 0.3);
 
-document.getElementById(‘auditRemark’).classList.remove(‘streaming’);
+document.getElementById(‘chunk_auditRemark’).classList.remove(‘streaming’);
 const { scores, remark } = parseAuditOutput(rawAudit);
-if (document.getElementById(‘auditRemark’).hasAttribute(‘data-has-reasoning’)) {
-document.getElementById(‘auditRemark’).querySelector(’.content-text’).textContent = remark;
+if (document.getElementById(‘chunk_auditRemark’).hasAttribute(‘data-has-reasoning’)) {
+document.getElementById(‘chunk_auditRemark’).querySelector(’.content-text’).textContent = remark;
 } else {
-document.getElementById(‘auditRemark’).textContent = remark;
+document.getElementById(‘chunk_auditRemark’).textContent = remark;
 }
 
 const scoreLabels =[‘忠’,‘流’,‘地’];
 if (scores) {
 scores.forEach((s, i) => {
-document.getElementById(`s${i}`).textContent = s;
-if (s >= 9) { document.getElementById(`s${i}`).classList.add(‘excellent’); document.getElementById(`si${i}`).classList.add(‘excellent’); document.getElementById(`sb${i}`).classList.add(‘excellent’); }
-setTimeout(() => { document.getElementById(`sb${i}`).style.width = (s*10)+’%’; document.getElementById(`sb${i}`).style.transition = ‘width 0.9s cubic-bezier(0.2,1,0.2,1)’; }, i*180);
+document.getElementById(`chunk_s${i}`).textContent = s;
+if (s >= 9) { document.getElementById(`chunk_s${i}`).classList.add(‘excellent’); document.getElementById(`chunk_si${i}`).classList.add(‘excellent’); document.getElementById(`chunk_sb${i}`).classList.add(‘excellent’); }
+setTimeout(() => { document.getElementById(`chunk_sb${i}`).style.width = (s*10)+’%’; document.getElementById(`chunk_sb${i}`).style.transition = ‘width 0.9s cubic-bezier(0.2,1,0.2,1)’; }, i*180);
 const spEl = document.getElementById(`sp${i}`); spEl.textContent = `${scoreLabels[i]} ${s}`; spEl.classList.add(‘loaded’);
 });
 }
