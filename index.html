@@ -2713,7 +2713,7 @@ const agentRaw = await callDeepSeek([
 
 let dynamicAgent = { name: '文化顾问', label: '语境适配', systemPrompt: injectCustomPrompt(`你是文化翻译专家，专注文化意象与地道表达的置换。仅输出译文本身，绝不带任何标题或前缀。`) };
 try {
-  const parsed = JSON.parse(agentRaw.replace(new RegExp('`'.repeat(3) + 'json|' + '`'.repeat(3), 'g'), '').trim());
+  const parsed = JSON.parse(agentRaw.replace(new RegExp('\x60\x60\x60json|\x60\x60\x60', 'g'), '').trim());
   if (parsed.name && parsed.systemPrompt) { parsed.systemPrompt = injectCustomPrompt(parsed.systemPrompt); dynamicAgent = parsed; }
 } catch {}
 
@@ -3192,7 +3192,7 @@ const agentRaw = await callDeepSeek([
 ], null, 0.7);
 let dynamicAgent = { name:‘文化顾问’, label:‘语境适配’, systemPrompt: injectCustomPrompt(`你是文化翻译专家，仅输出译文本身。`) };
 try {
-const p = JSON.parse(agentRaw.replace(new RegExp(’`'.repeat(3) + 'json|' + '`’.repeat(3), ‘g’), ‘’).trim());
+const p = JSON.parse(agentRaw.replace(new RegExp(’\x60\x60\x60json|\x60\x60\x60’, ‘g’), ‘’).trim());
 if (p.name && p.systemPrompt) { p.systemPrompt = injectCustomPrompt(p.systemPrompt); dynamicAgent = p; }
 } catch {}
 document.getElementById(‘agentGenName’).textContent = dynamicAgent.name;
