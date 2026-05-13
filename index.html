@@ -72,6 +72,9 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .panel-right { display: flex; flex-direction: column; }
 /* 移动端隐藏桌面端底栏，桌面端隐藏移动端翻译按钮 */
 #leftFooterDesktop { display: none; }
+/* 示例按钮 hover */
+#demoBtn:hover { background: var(--terracotta); color: white; box-shadow: var(--shadow-coral); transform: translateY(-1px); }
+#demoBtn:active { transform: translateY(0); }
 @media (min-width: 860px) {
   #translateWrapMobile { display: none; }
   #leftFooterDesktop { display: block; }
@@ -566,6 +569,17 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
   .path-item, .critique-item { border-bottom: none !important; border-right: 1px solid var(--border-cream) !important; padding: 16px 18px; }
   .critique-item { padding: 14px 18px; }
   .path-item:last-child, .critique-item:last-child { border-right: none !important; }
+}
+
+/* ════════════════════════════════════════
+   宽屏 3×2 网格（≥1280px）
+════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  .paths-row { grid-template-columns: repeat(3, 1fr); }
+  .path-item { border-bottom: 1px solid var(--border-cream) !important; }
+  .path-item:nth-child(odd) { border-right: 1px solid var(--border-cream) !important; }
+  .path-item:nth-child(3n) { border-right: none !important; }
+  .path-item:nth-child(4), .path-item:nth-child(5), .path-item:nth-child(6) { border-bottom: none !important; }
 }
 
 .path-label, .critique-label { font-size: 10px; color: var(--stone); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
@@ -1067,6 +1081,14 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
         </div>
       </div>
     </div>
+    <!-- 一键体验 -->
+    <div style="margin-top:20px;width:100%;max-width:300px;">
+      <button id="demoBtn" style="width:100%;padding:12px 16px;border-radius:var(--r-lg);border:1.5px solid var(--terracotta);background:transparent;color:var(--terracotta);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;font-family:var(--sans);letter-spacing:0.3px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        运行示例体验
+      </button>
+      <div style="font-size:10px;color:var(--warm-silver);text-align:center;margin-top:6px;letter-spacing:0.2px;">预填多语言复杂文本，一键展示完整流程</div>
+    </div>
     <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动</div>
   </div>
 </div>
@@ -1125,18 +1147,19 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
       </div>
       <div class="select-wrap">
         <select id="providerSelect">
-          <option value="deepseek">DeepSeek（推荐）</option>
-          <option value="openai">OpenAI</option>
-          <option value="claude">Anthropic Claude</option>
+          <option value="deepseek">DeepSeek（性价比推荐）</option>
+          <option value="gemini">Google Gemini（翻译质量冠军 · 免费额度）</option>
+          <option value="openai">OpenAI（均衡通用）</option>
+          <option value="claude">Anthropic Claude（长文本专业）</option>
         </select>
       </div>
     </div>
   </div>
 
   <div class="setting-section">
-    <div class="setting-section-label">DeepSeek API 密钥</div>
+    <div class="setting-section-label" id="apiKeyLabel">API 密钥</div>
     <div class="key-field">
-      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false"/>
+      <input type="password" id="apiKeyInput" placeholder="在此输入 API 密钥" autocomplete="off" spellcheck="false"/>
       <div class="key-eye" id="keyToggle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
@@ -1160,20 +1183,22 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
   </div>
 
   <div class="setting-section">
-    <div class="setting-section-label">DeepSeek 模型配置</div>
+    <div class="setting-section-label">模型配置</div>
     <div class="setting-row stacked">
       <div>
         <div class="setting-name">核心模型</div>
-        <div class="setting-desc">Pro 性能最强，Flash 速度极快且极具性价比。</div>
+        <div class="setting-desc" id="modelSelectDesc">根据服务商自动筛选可用模型</div>
       </div>
       <div class="select-wrap">
         <select id="modelSelect">
-          <option value="deepseek-v4-flash">DeepSeek V4 Flash（快速 · 极具性价比）</option>
-          <option value="deepseek-v4-pro">DeepSeek V4 Pro（性能最强）</option>
-          <option value="gpt-4o">GPT-4o</option>
-          <option value="gpt-4o-mini">GPT-4o Mini（快速）</option>
-          <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5（轻量）</option>
+          <option value="deepseek-v4-flash" data-provider="deepseek">DeepSeek V4 Flash（快速 · 极具性价比）</option>
+          <option value="deepseek-v4-pro" data-provider="deepseek">DeepSeek V4 Pro（性能最强）</option>
+          <option value="gemini-2.5-flash" data-provider="gemini">Gemini 2.5 Flash（翻译冠军 · 免费额度）</option>
+          <option value="gemini-2.5-pro" data-provider="gemini">Gemini 2.5 Pro（推理最强）</option>
+          <option value="gpt-4.1" data-provider="openai">GPT-4.1（均衡通用）</option>
+          <option value="gpt-4.1-mini" data-provider="openai">GPT-4.1 Mini（快速轻量）</option>
+          <option value="claude-sonnet-4-6" data-provider="claude">Claude Sonnet 4.6（长文本专业）</option>
+          <option value="claude-haiku-4-5" data-provider="claude">Claude Haiku 4.5（轻量快速）</option>
         </select>
       </div>
     </div>
