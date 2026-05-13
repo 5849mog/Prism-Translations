@@ -59,65 +59,211 @@ detectAndApplyLang(text);
 showToast(`已加载：${filename}`, 'success');
 }
 
+// ═════════════════════════════════════════
+// 文件解析引擎 v3 — CDN 增强版
+// PDF→pdf.js  DOCX→mammoth  XLSX→SheetJS  ZIP→JSZip
+// ═════════════════════════════════════════
+
+// ── CDN 配置（按需加载，不影响首屏）──
+const CDN_LIBS = {
+  jszip:   'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+  mammoth: 'https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js',
+  xlsx:    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  pdfjs:   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'
+};
+const _cdnCache = {};
+async function loadCdn(name) {
+  if (_cdnCache[name]) return _cdnCache[name];
+  if (window[name === 'jszip' ? 'JSZip' : name === 'mammoth' ? 'mammoth' : name === 'xlsx' ? 'XLSX' : 'pdfjsLib']) {
+    _cdnCache[name] = true; return;
+  }
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = CDN_LIBS[name];
+    s.onload = () => { _cdnCache[name] = true; resolve(); };
+    s.onerror = () => reject(new Error(name + ' 加载失败'));
+    document.head.appendChild(s);
+  });
+}
+
+// ── 编码检测（txt / md）──
+function detectEncoding(bytes) {
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return { enc: 'utf-8', skip: 3 };
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return { enc: 'utf-16le', skip: 2 };
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) return { enc: 'utf-16be', skip: 2 };
+  // UTF-8 有效性检查
+  try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return { enc: 'utf-8', skip: 0 }; }
+  catch(_) { return { enc: 'gbk', skip: 0 }; }
+}
+function decodeBytes(bytes) {
+  const { enc, skip } = detectEncoding(bytes);
+  return new TextDecoder(enc, { fatal: false }).decode(bytes.slice(skip));
+}
+
+// ── 大文件安全读取 ──
+function readFileChunked(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file.size <= maxSize ? file : file.slice(0, maxSize));
+  });
+}
+
+// ── HTML / CSV / RTF 原生解析 ──
+function parseHtml(text) {
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  doc.querySelectorAll('script, style, nav, header, footer, aside').forEach(el => el.remove());
+  return (doc.body?.innerText || '').replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
+}
+function parseCsv(text) {
+  return text.split(/\r?\n/).map(line => {
+    if (!line.trim()) return '';
+    const cells = []; let cell = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { if (inQ && line[i+1] === '"') { cell += '"'; i++; } else { inQ = !inQ; } }
+      else if (ch === ',' && !inQ) { cells.push(cell.trim()); cell = ''; }
+      else { cell += ch; }
+    }
+    cells.push(cell.trim());
+    return cells.join('\t');
+  }).filter(Boolean).join('\n');
+}
+function parseRtf(bytes) {
+  const raw = decodeBytes(bytes);
+  return raw.replace(/\\pard|\\par|\\tab|\\line/g, '\n').replace(/\\[a-z]+\d*\s?/gi, '')
+    .replace(/\\([{}\\])/g, '$1').replace(/\\'([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\u(-?\d+)\s*\?/g, (_, c) => String.fromCharCode(+c)).replace(/[{}]/g, '')
+    .replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// ── 各格式 CDN 解析器 ──
+
+// PDF → pdf.js
+async function parsePdfWithCdn(arrayBuffer) {
+  await loadCdn('pdfjs');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = false; // 不使用 worker，避免额外加载
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    pages.push(tc.items.map(it => it.str).join(' '));
+  }
+  return pages.join('\n\n');
+}
+
+// DOCX → mammoth.js
+async function parseDocxWithCdn(arrayBuffer) {
+  await loadCdn('mammoth');
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+// XLSX → SheetJS
+async function parseXlsxWithCdn(arrayBuffer) {
+  await loadCdn('xlsx');
+  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_csv(ws).replace(/,/g, '\t');
+}
+
+// PPTX / ODT / EPUB → JSZip + XML 文本提取
+async function parseZipXmlWithCdn(arrayBuffer, fileFilter) {
+  await loadCdn('jszip');
+  const zip = await JSZip.loadAsync(new Uint8Array(arrayBuffer));
+  let text = '';
+  const targets = [];
+  zip.forEach((path, obj) => { if (fileFilter(path)) targets.push(path); });
+  for (const path of targets) {
+    const xml = await zip.file(path).async('string');
+    // 移除 XML 标签，提取文本
+    const clean = xml.replace(/<\/[^>]+>/g, '\n')   // 结束标签 → 换行
+                     .replace(/<[^/][^>]*>/g, '')      // 开始标签 → 空
+                     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                     .replace(/&apos;/g, "'").replace(/&quot;/g, '"')
+                     .replace(/\n{3,}/g, '\n\n').trim();
+    if (clean.length > 3) text += (text ? '\n\n' : '') + clean;
+  }
+  return text;
+}
+
+// ── 主入口 ──
 async function handleFileSelect(file) {
-if (!file) return;
-const name = file.name;
-const ext = name.split('.').pop().toLowerCase();
-showToast('正在解析文件...');
-
-try {
-if (ext === 'txt' || ext === 'md') {
-const text = await file.text();
-loadFileText(text, name);
-} else if (ext === 'pdf') {
-// 用 FileReader 读取 ArrayBuffer 后简单提取文本（无 pdfjs 时 fallback 提示）
-const arrayBuffer = await file.arrayBuffer();
-// 尝试简单字符提取（适合纯文本 PDF）
-const bytes = new Uint8Array(arrayBuffer);
-let raw = '';
-for (let i = 0; i < bytes.length; i++) {
-const c = bytes[i];
-if (c >= 32 && c < 127) raw += String.fromCharCode(c);
-else if (c === 10 || c === 13) raw += '\n';
+  if (!file) return;
+  const name = file.name, ext = name.split('.').pop().toLowerCase();
+  const MAX = 10 * 1024 * 1024;
+  if (file.size > MAX) showToast('文件超过 10MB，将只读取前 10MB', 'warning');
+  showToast('正在加载解析库…');
+  try {
+    switch (ext) {
+      case 'txt': case 'md': {
+        const buf = await readFileChunked(file, MAX);
+        loadFileText(decodeBytes(new Uint8Array(buf)), name); break;
+      }
+      case 'pdf': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parsePdfWithCdn(buf);
+        if (text && text.length > 10) loadFileText(text, name);
+        else showToast('PDF 无文本层或为扫描版，建议复制文本后粘贴', 'error');
+        break;
+      }
+      case 'docx': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parseDocxWithCdn(buf);
+        if (text && text.length > 5) loadFileText(text, name);
+        else showToast('docx 解析失败', 'error');
+        break;
+      }
+      case 'xlsx': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parseXlsxWithCdn(buf);
+        if (text && text.length > 3) loadFileText(text, name);
+        else showToast('xlsx 解析失败', 'error');
+        break;
+      }
+      case 'pptx': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parseZipXmlWithCdn(buf,
+          p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
+        if (text && text.length > 10) loadFileText('--- 幻灯片分隔 ---\n\n' + text, name);
+        else showToast('pptx 解析失败', 'error');
+        break;
+      }
+      case 'odt': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parseZipXmlWithCdn(buf, p => p === 'content.xml');
+        if (text && text.length > 10) loadFileText(text, name);
+        else showToast('odt 解析失败', 'error');
+        break;
+      }
+      case 'epub': {
+        const buf = await readFileChunked(file, MAX);
+        const text = await parseZipXmlWithCdn(buf, p => /\.(xhtml|html|xml)$/.test(p) && p.includes('chapter'));
+        if (text && text.length > 20) loadFileText(text, name);
+        else showToast('epub 解析失败', 'error');
+        break;
+      }
+      case 'rtf': {
+        const buf = await readFileChunked(file, MAX);
+        const text = parseRtf(new Uint8Array(buf));
+        if (text.length > 10) loadFileText(text, name);
+        else showToast('rtf 解析失败', 'error');
+        break;
+      }
+      case 'html': case 'htm': {
+        const text = await file.text();
+        loadFileText(parseHtml(text), name); break;
+      }
+      case 'csv': {
+        const text = await file.text();
+        loadFileText(parseCsv(text), name); break;
+      }
+      default: showToast('不支持的格式：.' + ext);
+    }
+  } catch (e) { showToast('文件解析失败：' + (e.message || '未知错误'), 'error'); }
 }
-// 粗提取括号内字符串（PDF text streams 用 (text) 格式）
-const matches = raw.match(/(([^)]{1,300}))/g);
-if (matches && matches.length > 5) {
-const extracted = matches.map(m => m.slice(1,-1)).join(' ').replace(/\s+/g,' ').trim();
-if (extracted.length > 20) { loadFileText(extracted, name); return; }
-}
-showToast('PDF 解析有限，建议复制文本后粘贴', 'error');
-} else if (ext === 'docx') {
-// 用 ZIP 解析提取 word/document.xml 中的文本
-const arrayBuffer = await file.arrayBuffer();
-const zipBytes = new Uint8Array(arrayBuffer);
-// 搜索 word/document.xml 内容
-const xmlMarker = new TextEncoder().encode('word/document.xml');
-let xmlStart = -1;
-for (let i = 0; i < zipBytes.length - xmlMarker.length; i++) {
-if (zipBytes[i] === xmlMarker[0]) {
-let match = true;
-for (let j = 1; j < xmlMarker.length; j++) {
-if (zipBytes[i+j] !== xmlMarker[j]) { match = false; break; }
-}
-if (match) { xmlStart = i; break; }
-}
-}
-if (xmlStart !== -1) {
-const rawStr = new TextDecoder('utf-8', {fatal:false}).decode(zipBytes.slice(xmlStart));
-const xmlContent = rawStr.slice(rawStr.indexOf('<?xml') > -1 ? rawStr.indexOf('<?xml') : 0, 500000);
-const text = xmlContent.replace(/<w:br[^/]*/g, '\n').replace(/<w:p[ >]/g, '\n').replace(/<[^>]+>/g, '').replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/'/g,"'").replace(/"/g,'"').replace(/\n{3,}/g,'\n\n').trim();
-if (text.length > 10) { loadFileText(text, name); return; }
-}
-showToast('docx 解析失败，请复制文本后粘贴', 'error');
-} else {
-showToast('不支持该文件格式');
-}
-} catch(e) {
-showToast('文件读取失败：' + e.message, 'error');
-}
-}
-
 const fileDropZone = document.getElementById('fileDropZone');
 const fileInput = document.getElementById('fileInput');
 
@@ -222,7 +368,7 @@ document.addEventListener('click', e => { if (e.target.closest('#stopBtnDesktop'
 // ─────────────────────────────────────────
 // 历史记录管理
 function getHistory() {
-try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch { return[]; }
+try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch(_) { return[]; }
 }
 function saveHistory(history) {
 localStorage.setItem('prism_history', JSON.stringify(history.slice(0, 30)));
@@ -369,7 +515,7 @@ const text = await navigator.clipboard.readText();
 document.getElementById('sourceText').value = text;
 updateWordStats();
 showToast('已粘贴', 'success');
-} catch { showToast('无法访问剪贴板'); }
+} catch(_) { showToast('无法访问剪贴板'); }
 });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -1065,7 +1211,7 @@ ta.value = result.content;
 ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
 document.body.appendChild(ta);
 ta.focus(); ta.select();
-try { document.execCommand('copy'); onSuccess(); } catch { onError(); }
+try { document.execCommand('copy'); onSuccess(); } catch(_) { onError(); }
 finally { ta.remove(); }
 }
 });
@@ -1586,7 +1732,7 @@ let dynamicAgent = { name: '文化顾问', label: '语境适配', systemPrompt: 
 try {
   const parsed = JSON.parse(agentRaw.replace(new RegExp('\x60\x60\x60json|\x60\x60\x60', 'g'), '').trim());
   if (parsed.name && parsed.systemPrompt) { parsed.systemPrompt = injectCustomPrompt(parsed.systemPrompt); dynamicAgent = parsed; }
-} catch {}
+} catch(_) {}
 
 document.getElementById('agentGenName').textContent = dynamicAgent.name;
 document.getElementById('agentGenLabel').textContent = dynamicAgent.label || '';
@@ -2066,7 +2212,7 @@ let dynamicAgent = { name:'文化顾问', label:'语境适配', systemPrompt: in
 try {
 const p = JSON.parse(agentRaw.replace(new RegExp('\x60\x60\x60json|\x60\x60\x60', 'g'), '').trim());
 if (p.name && p.systemPrompt) { p.systemPrompt = injectCustomPrompt(p.systemPrompt); dynamicAgent = p; }
-} catch {}
+} catch(_) {}
 document.getElementById('agentGenName').textContent = dynamicAgent.name;
 document.getElementById('agentGenLabel').textContent = dynamicAgent.label || '';
 document.getElementById('agentGenPrompt').textContent = dynamicAgent.systemPrompt.slice(0,100) + '...';
