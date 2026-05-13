@@ -112,10 +112,18 @@ D 路是 PrismTrans 的**独特设计**。在每次翻译开始前，系统会�
 
 ## 核心特性
 
-### 多 Provider 支持
-- **DeepSeek** (默认) — 深度思考模式可选 disabled / high / max
-- **OpenAI** — GPT-4o 系列
-- **Claude** — Anthropic Sonnet 系列
+### 多 Provider 支持（2026 最新）
+
+基于 Alconost 2025-2026 翻译质量基准测试（3,800+ 次评测）：
+
+| 排名 | Provider | 翻译质量指数 | 推荐模型 | 特点 |
+|:----:|:---------|:------------:|:---------|:-----|
+| 1 | **Google Gemini** | AQI 77.7 | `gemini-2.5-flash` | 翻译质量冠军，Flash 系列**免费额度充足** |
+| 2 | **Anthropic Claude** | AQI 75.6 | `claude-sonnet-4-6` | 长文本专注能力极强，Hybrid-Reasoning 双模切换 |
+| 3 | **OpenAI GPT** | AQI 73.1 | `gpt-4.1` / `gpt-5.5` | 通用能力均衡，1M 超长上下文 |
+| 5 | **DeepSeek** | AQI 71.5 | `deepseek-v4-flash` (默认) | 性价比之王，深度思考模式可控 |
+
+> **选型建议**：追求翻译质量首选 Gemini Flash（免费）；长文专业翻译选 Claude Sonnet；日常综合使用 DeepSeek 性价比最优。GPT 4.1 系列凭借 1M 上下文在超长文档翻译中表现突出。
 
 ### 22 种语言
 中文、英语、日语、韩语、法语、德语、西班牙语、俄语、阿拉伯语、葡萄牙语、意大利语、泰语、越南语、荷兰语、土耳其语、波兰语、乌克兰语、瑞典语、印度尼西亚语、印地语、波斯语、马来语
