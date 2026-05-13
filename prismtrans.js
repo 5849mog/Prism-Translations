@@ -488,6 +488,163 @@ showToast('设置已保存', 'success');
 closeDrawer();
 });
 
+// ─────────────────────────────────────────
+// 优化 1：Provider-模型联动过滤
+// ─────────────────────────────────────────
+const PROVIDER_MODELS = {
+  deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+  openai: ['gpt-4.1', 'gpt-4.1-mini'],
+  claude: ['claude-sonnet-4-6', 'claude-haiku-4-5']
+};
+function updateModelOptions() {
+  const provider = document.getElementById('providerSelect').value;
+  const modelSelect = document.getElementById('modelSelect');
+  const allowedModels = PROVIDER_MODELS[provider] || [];
+  let hasVisible = false;
+  let firstVisible = null;
+  for (let i = 0; i < modelSelect.options.length; i++) {
+    const opt = modelSelect.options[i];
+    const optProvider = opt.dataset.provider;
+    const show = optProvider === provider;
+    opt.style.display = show ? '' : 'none';
+    opt.disabled = !show;
+    if (show) { hasVisible = true; if (!firstVisible) firstVisible = opt; }
+  }
+  // 如果当前选中的模型不在当前 provider 下，自动切换到该 provider 的第一个模型
+  const currentVal = modelSelect.value;
+  const currentOpt = modelSelect.querySelector(`option[value="${currentVal}"]`);
+  if (!currentOpt || currentOpt.dataset.provider !== provider) {
+    if (firstVisible) modelSelect.value = firstVisible.value;
+  }
+  // 更新 API 密钥标签
+  const keyLabel = document.getElementById('apiKeyLabel');
+  if (keyLabel) {
+    const names = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'OpenAI', claude: 'Claude' };
+    keyLabel.textContent = names[provider] + ' API 密钥';
+  }
+  // 更新模型描述
+  const modelDesc = document.getElementById('modelSelectDesc');
+  if (modelDesc) {
+    const descs = {
+      deepseek: 'DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强',
+      gemini: 'Gemini 2.5 系列 — Flash 翻译冠军且免费，Pro 推理最强',
+      openai: 'GPT-4.1 系列 — 均衡通用，1M 超长上下文',
+      claude: 'Claude 系列 — Sonnet 长文本专业，Haiku 轻量快速'
+    };
+    modelDesc.textContent = descs[provider] || '';
+  }
+  // 同步 thinkingMode 可见性（仅 DeepSeek 支持）
+  const thinkRow = document.getElementById('thinkingSelect')?.closest('.setting-row.stacked');
+  if (thinkRow) thinkRow.style.display = provider === 'deepseek' ? '' : 'none';
+}
+document.getElementById('providerSelect').addEventListener('change', () => {
+  updateModelOptions();
+  autoSaveSettings();
+});
+// 初始化联动
+updateModelOptions();
+
+// ─────────────────────────────────────────
+// 优化 3：设置自动保存（debounce）
+// ─────────────────────────────────────────
+let autoSaveTimer = null;
+function autoSaveSettings() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    state.apiKey = key;
+    state.model = document.getElementById('modelSelect').value;
+    state.thinkingMode = document.getElementById('thinkingSelect').value;
+    state.customPrompt = document.getElementById('customPromptInput').value.trim();
+    state.provider = document.getElementById('providerSelect').value;
+    state.glossary = document.getElementById('glossaryInput').value.trim();
+    localStorage.setItem('prism_key', key);
+    localStorage.setItem('prism_rounds', state.rounds);
+    localStorage.setItem('prism_model', state.model);
+    localStorage.setItem('prism_thinking', state.thinkingMode);
+    localStorage.setItem('prism_custom_prompt', state.customPrompt);
+    localStorage.setItem('prism_provider', state.provider);
+    localStorage.setItem('prism_glossary', state.glossary);
+    // 同步模型芯片
+    const chip = document.getElementById('modelChip');
+    if (chip) chip.textContent = state.model;
+  }, 400);
+}
+// 给所有设置输入项绑定自动保存
+['apiKeyInput', 'modelSelect', 'thinkingSelect', 'customPromptInput', 'glossaryInput'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', autoSaveSettings);
+});
+// API 密钥输入使用 input 事件（实时保存）
+document.getElementById('apiKeyInput')?.addEventListener('input', autoSaveSettings);
+// 轮次按钮点击后自动保存
+document.getElementById('roundsMinus')?.addEventListener('click', () => { setTimeout(autoSaveSettings, 50); });
+document.getElementById('roundsPlus')?.addEventListener('click', () => { setTimeout(autoSaveSettings, 50); });
+// Escape 键关闭抽屉
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ─────────────────────────────────────────
+// 优化 2：文本自动缓存 + 按钮状态联动
+// ─────────────────────────────────────────
+const TEXT_CACHE_KEY = 'prism_text_cache';
+function updateTranslateBtnState() {
+  const hasText = document.getElementById('sourceText').value.trim().length > 0;
+  const hasKey = !!state.apiKey;
+  const btns = [document.getElementById('translateBtn'), document.getElementById('translateBtnDesktop')];
+  btns.forEach(btn => {
+    if (!btn) return;
+    if (!hasText || !hasKey) {
+      btn.disabled = true;
+      if (!hasKey) btn.title = '请先填写 API 密钥';
+      else if (!hasText) btn.title = '请输入待翻译文本';
+    } else {
+      btn.disabled = false;
+      btn.title = '';
+    }
+  });
+}
+// 输入时自动缓存 + 更新按钮状态
+document.getElementById('sourceText').addEventListener('input', function() {
+  sessionStorage.setItem(TEXT_CACHE_KEY, this.value);
+  updateTranslateBtnState();
+});
+// 页面加载时恢复缓存文本
+(function restoreTextCache() {
+  const cached = sessionStorage.getItem(TEXT_CACHE_KEY);
+  if (cached && cached.trim()) {
+    const el = document.getElementById('sourceText');
+    if (el && !el.value.trim()) {
+      el.value = cached;
+      updateWordStats();
+      updateTranslateBtnState();
+    }
+  }
+})();
+// API 密钥变化时更新按钮状态
+document.getElementById('apiKeyInput')?.addEventListener('input', updateTranslateBtnState);
+// 初始化按钮状态
+updateTranslateBtnState();
+// 翻译成功后清除缓存（在 doTranslate 成功后的 finally 中）
+function clearTextCache() { sessionStorage.removeItem(TEXT_CACHE_KEY); }
+
+// ─────────────────────────────────────────
+// 优化 4：一键示例体验
+// ─────────────────────────────────────────
+const DEMO_TEXT = `在世界人工智能大会的开幕式上，百度创始人李彦宏发表了题为《智能体时代》的主旨演讲。他指出，大语言模型已经从"炫技"阶段迈入"应用"阶段，而智能体（Agent）将成为连接用户与服务的核心枢纽。
+
+"未来的互联网将不再是你去搜索信息，而是智能体主动为你完成任务。"李彦宏以医疗健康领域为例，阐述了 AI 智能体如何帮助患者完成从症状描述、医院推荐到挂号预约的全流程服务。他强调，这一转变需要解决三大挑战：数据隐私保护、多模态交互能力、以及可解释性。
+
+演讲尾声，他引用了一句古希腊哲言："认识你自己。"并补充道，"而在 AI 时代，我们更需要让 AI 认识每一个独特的你。"`;
+document.getElementById('demoBtn')?.addEventListener('click', () => {
+  document.getElementById('sourceText').value = DEMO_TEXT;
+  updateWordStats();
+  updateTranslateBtnState();
+  sessionStorage.setItem(TEXT_CACHE_KEY, DEMO_TEXT);
+  showToast('示例文本已加载，点击启动翻译体验完整流程', 'success');
+  document.getElementById('sourceText').focus();
+});
+
 // ── 桌面端翻译按钮同步 ──
 const translateBtnDesktop = document.getElementById('translateBtnDesktop');
 if (translateBtnDesktop) {
@@ -1857,6 +2014,7 @@ btn.disabled = false;
 btn.innerHTML = restoreHTML;
 const btnD2 = document.getElementById('translateBtnDesktop');
 if (btnD2) { btnD2.disabled = false; btnD2.innerHTML = restoreHTML; }
+clearTextCache(); // 翻译成功后清除缓存
 }
 }
 
