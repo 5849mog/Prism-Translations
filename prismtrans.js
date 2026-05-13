@@ -53,6 +53,8 @@ abortController: null, // 用于中断翻译
 function loadFileText(text, filename) {
 document.getElementById('sourceText').value = text;
 updateWordStats();
+updateTranslateBtnState();
+sessionStorage.setItem(TEXT_CACHE_KEY, text);
 document.getElementById('fileLoadedName').textContent = filename;
 document.getElementById('fileLoadedBar').classList.add('visible');
 detectAndApplyLang(text);
@@ -514,6 +516,8 @@ try {
 const text = await navigator.clipboard.readText();
 document.getElementById('sourceText').value = text;
 updateWordStats();
+updateTranslateBtnState();
+sessionStorage.setItem(TEXT_CACHE_KEY, text);
 showToast('已粘贴', 'success');
 } catch(_) { showToast('无法访问剪贴板'); }
 });
@@ -630,6 +634,8 @@ localStorage.setItem('prism_glossary', state.glossary);
 // 同步模型芯片
 const chip = document.getElementById('modelChip');
 if (chip) chip.textContent = state.model;
+// 保存后刷新按钮状态（API密钥可能刚填入）
+updateTranslateBtnState();
 showToast('设置已保存', 'success');
 closeDrawer();
 });
@@ -715,6 +721,8 @@ function autoSaveSettings() {
     // 同步模型芯片
     const chip = document.getElementById('modelChip');
     if (chip) chip.textContent = state.model;
+    // 自动保存后刷新按钮状态
+    updateTranslateBtnState();
   }, 400);
 }
 // 给所有设置输入项绑定自动保存
