@@ -814,48 +814,64 @@ toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
 // ─────────────────────────────────────────
-// 复制 & 朗读 （修复 Copy Button 失效问题）
+// 统一剪贴板复制函数（三策略兜底）
 // ─────────────────────────────────────────
-document.getElementById('copyBtn').addEventListener('click', () => {
-const text = document.getElementById('finalResult').textContent;
-if (!text) return;
-
-const btn = document.getElementById('copyBtn');
-const onSuccess = () => {
-btn.classList.add('success');
-btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>已复制`;
-setTimeout(() => {
-btn.classList.remove('success');
-btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制`;
-}, 2000);
-};
-const onError = () => showToast('复制失败，请手动选中文本');
-
-// Fallback 兼容 file:// 协议以及非 https 环境
-const fallbackCopy = () => {
-const textArea = document.createElement("textarea");
-textArea.value = text;
-textArea.style.position = "fixed";
-textArea.style.left = "-999999px";
-textArea.style.top = "-999999px";
-document.body.appendChild(textArea);
-textArea.focus();
-textArea.select();
-try {
-document.execCommand('copy');
-onSuccess();
-} catch (err) {
-onError();
-} finally {
-textArea.remove();
+async function copyToClipboard(text) {
+  if (!text) return { success: false, error: '无内容' };
+  // 策略1: Clipboard API（现代浏览器）
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return { success: true };
+    }
+  } catch(_) { /* 继续策略2 */ }
+  // 策略2: execCommand('copy')（兼容性兜底）
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) return { success: true };
+  } catch(_) { /* 继续策略3 */ }
+  // 策略3: 选中 + execCommand（确保焦点在文档内）
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;';
+    document.body.appendChild(ta);
+    const range = document.createRange();
+    range.selectNodeContents(ta);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    ta.remove();
+    if (ok) return { success: true };
+  } catch(_) { /* 全部失败 */ }
+  return { success: false, error: '剪贴板不可用' };
 }
-};
 
-if (navigator.clipboard && window.isSecureContext) {
-navigator.clipboard.writeText(text).then(onSuccess).catch(fallbackCopy);
-} else {
-fallbackCopy();
-}
+// ─────────────────────────────────────────
+// 复制 & 朗读
+// ─────────────────────────────────────────
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = document.getElementById('finalResult').textContent;
+  if (!text) return;
+  const btn = document.getElementById('copyBtn');
+  const result = await copyToClipboard(text);
+  if (result.success) {
+    btn.classList.add('success');
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>已复制`;
+    setTimeout(() => { btn.classList.remove('success');
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制`;
+    }, 2000);
+  } else {
+    showToast('复制失败，请手动选中文本');
+  }
 });
 
 let isSpeaking = false;
@@ -1183,8 +1199,9 @@ document.getElementById('previewCharCount').textContent = `${result.content.leng
 
 const prevCopy = document.getElementById('previewCopyBtn');
 const prevDl = document.getElementById('previewDownloadBtn');
-prevCopy.onclick = () => {
-navigator.clipboard?.writeText(result.content).then(() => showToast('已复制 ✓', 'success')).catch(() => showToast('复制失败', 'error'));
+prevCopy.onclick = async () => {
+  const r = await copyToClipboard(result.content);
+  showToast(r.success ? '已复制 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
 };
 prevDl.onclick = () => { triggerDownload(result.content, result.mime, result.ext); showToast('已下载 ✓', 'success'); };
 
@@ -1198,22 +1215,11 @@ triggerDownload(result.content, result.mime, result.ext);
 showToast('报告已导出 ✓', 'success');
 });
 
-document.getElementById('exportCopyBtn').addEventListener('click', () => {
-const result = buildExportContent(currentExportFmt);
-if (!result) return;
-const onSuccess = () => showToast('已复制到剪贴板 ✓', 'success');
-const onError = () => showToast('复制失败，请手动复制', 'error');
-if (navigator.clipboard && window.isSecureContext) {
-navigator.clipboard.writeText(result.content).then(onSuccess).catch(onError);
-} else {
-const ta = document.createElement('textarea');
-ta.value = result.content;
-ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
-document.body.appendChild(ta);
-ta.focus(); ta.select();
-try { document.execCommand('copy'); onSuccess(); } catch(_) { onError(); }
-finally { ta.remove(); }
-}
+document.getElementById('exportCopyBtn').addEventListener('click', async () => {
+  const result = buildExportContent(currentExportFmt);
+  if (!result) return;
+  const r = await copyToClipboard(result.content);
+  showToast(r.success ? '已复制到剪贴板 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
 });
 
 document.getElementById('exportPreviewBtn').addEventListener('click', () => {
