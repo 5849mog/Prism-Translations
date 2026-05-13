@@ -923,10 +923,11 @@ openPreviewModal(result);
 // ─────────────────────────────────────────
 const API_ERROR_TIPS = {
 401: '❌ API 密钥无效或已过期，请在设置中重新填写。',
-402: '💳 账户余额不足，请前往 DeepSeek 平台充值后重试。',
+402: '💳 账户余额不足，请前往对应平台充值后重试。',
+403: '🚫 无权访问该模型，请检查 API 密钥权限或模型可用性。',
 429: '⏳ 请求过于频繁（限流），请稍候片刻后再试。',
-500: '🔧 DeepSeek 服务器内部错误，请稍后重试。',
-503: '🔧 DeepSeek 服务暂时不可用，请稍后重试。',
+500: '🔧 服务器内部错误，请稍后重试。',
+503: '🔧 服务暂时不可用，请稍后重试。',
 };
 
 // ─────────────────────────────────────────
@@ -935,12 +936,16 @@ const API_ERROR_TIPS = {
 // ─────────────────────────────────────────
 // Provider 配置
 // ─────────────────────────────────────────
+// Provider 配置 (2026 最新)
+// ─────────────────────────────────────────
 function getProviderConfig() {
 const p = state.provider || 'deepseek';
 if (p === 'openai') {
-return { url: 'https://api.openai.com/v1/chat/completions', model: state.model || 'gpt-4o', authHeader: `Bearer ${state.apiKey}` };
+return { url: 'https://api.openai.com/v1/chat/completions', model: state.model || 'gpt-4.1', authHeader: `Bearer ${state.apiKey}` };
 } else if (p === 'claude') {
 return { url: 'https://api.anthropic.com/v1/messages', model: state.model || 'claude-sonnet-4-6', authHeader: null, isAnthropic: true };
+} else if (p === 'gemini') {
+return { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: state.model || 'gemini-2.5-flash', authHeader: `Bearer ${state.apiKey}` };
 } else {
 return { url: 'https://api.deepseek.com/v1/chat/completions', model: state.model || 'deepseek-v4-flash', authHeader: `Bearer ${state.apiKey}` };
 }
