@@ -2387,6 +2387,7 @@ await Promise.all([
 
 // 块内批判（简化为两路互审）
 setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块 · 批判审查...`);
+pills[i].querySelector('.chunk-pill-label').textContent = '批判中';
 let critiqueA = '', critiqueB = '';
 await Promise.all([
   callDeepSeek([{role:'system',content:`你是严格的翻译审查官。审查以下两版译文的准确性、流畅度和术语一致性。只列出问题和改进建议。`},{role:'user',content:`原文：\n${chunk}\n\n译文A：\n${resA}\n\n译文B：\n${resB}`}], null, 0.3).then(r => critiqueA = r),
@@ -2414,6 +2415,13 @@ if (i === 0) {
   if (extracted.length > 0) {
     termTable = extracted;
     showToast(`已锁定 ${extracted.length} 个关键术语`, 'success');
+    // 视觉展示：在 chunk-progress-card 中显示术语锁定区
+    const termPanel = document.createElement('div');
+    termPanel.id = 'termLockPanel';
+    termPanel.style.cssText = 'margin-top:10px;padding:8px 12px;background:var(--warm-sand);border:1px solid var(--border-cream);border-radius:var(--r-md);font-size:11px;color:var(--dark-text);';
+    termPanel.innerHTML = `<div style="font-weight:500;margin-bottom:4px;color:var(--terracotta);display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>已锁定术语（全文强制一致）</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${extracted.map(t => `<span style="padding:2px 6px;background:rgba(201,100,66,0.08);border-radius:4px;border:1px solid var(--border-cream);font-size:10px;">${t}</span>`).join('')}</div>`;
+    const cardEl = document.querySelector('.chunk-progress-card');
+    if (cardEl) cardEl.insertBefore(termPanel, document.getElementById('chunkGrid'));
   }
 }
 
@@ -2425,9 +2433,20 @@ setProgress((i + 1) / total);
 // 块间一致性审计
 setStatus('后处理：检查块间一致性...');
 const consistencyIssues = auditChunkConsistency(chunkResults);
+
+// 一致性审计结果可视化
+const auditPanel = document.createElement('div');
+auditPanel.style.cssText = 'margin-bottom:12px;padding:8px 12px;border-radius:var(--r-md);font-size:11px;';
 if (consistencyIssues.length > 0) {
   showToast(`发现 ${consistencyIssues.length} 处衔接问题，自动修复中...`, 'warning');
+  auditPanel.style.cssText += 'background:rgba(201,100,66,0.06);border:1px solid rgba(201,100,66,0.15);color:var(--terracotta);';
+  auditPanel.innerHTML = `<div style="font-weight:500;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>衔接修复报告 · ${consistencyIssues.length} 处问题已自动处理</div><div style="font-size:10px;color:var(--warm-silver);line-height:1.6;">${consistencyIssues.map(iss => `· ${iss.at}："${iss.text.slice(0,40)}${iss.text.length>40?'...':''}" → 已去重`).join('<br>')}</div>`;
+} else {
+  auditPanel.style.cssText += 'background:var(--warm-sand);border:1px solid var(--border-cream);color:var(--muted-text);';
+  auditPanel.innerHTML = `<div style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>衔接检查通过 · 未发现重复或断裂</div>`;
 }
+const resultArea = document.querySelector('.chunk-result-area');
+if (resultArea) resultArea.insertBefore(auditPanel, resultArea.firstChild);
 
 // 智能合并（含去重修复）
 const fullTranslation = mergeChunksSmart(chunkResults, consistencyIssues);
