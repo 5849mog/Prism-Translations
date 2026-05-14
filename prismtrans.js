@@ -1687,6 +1687,25 @@ function splitParaBySentences(para, targetLen) {
 }
 
 // ── 2. 术语提取（从首块译文中提取）──
+// ── 分块翻译 Prompt 构建 ──
+function promptChunkTranslation(src, tgt, context, chunk, i, total) {
+  let prompt = `请将以下${src}文本翻译为${tgt}。这是长文第${i+1}/${total}段。\n\n要求：\n1. 必须完全使用${tgt}输出，严禁保留${src}原文\n2. 直接输出纯净译文正文，不要任何标题/前缀/注释\n3. 保持与上文风格、术语完全一致`;
+  if (context && context.trim()) {
+    prompt += `\n\n${context}`;
+  }
+  prompt += `\n\n【待翻译文本】\n${chunk}`;
+  return prompt;
+}
+
+// ── 分块合成 Prompt 构建 ──
+function promptChunkSynthesis(src, tgt, termTable) {
+  let base = `你是终极翻译裁决官。将四路草稿合并为最优的${tgt}译文。\n\n规则：\n1. 必须输出纯净的${tgt}译文，禁止任何前缀/标题/注释\n2. 选择最准确、最流畅、最地道的表达\n3. 消除四路之间的冲突和重复\n4. 确保语体风格一致\n5. 如果某路明显偏离，果断舍弃`;
+  if (termTable && termTable.length > 0) {
+    base += `\n6. 以下术语已全文锁定，必须严格使用：\n${termTable.map(t => `- ${t}`).join('\n')}`;
+  }
+  return injectCustomPrompt(base);
+}
+
 function extractKeyTerms(text) {
   const terms = [];
   const caps = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,4}\b/g);
