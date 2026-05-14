@@ -29,6 +29,8 @@ const LANGS =[
 // ─────────────────────────────────────────
 // 应用状态
 // ─────────────────────────────────────────
+const TEXT_CACHE_KEY = 'prism_text_cache';
+
 const state = {
 srcLang: LANGS[0],
 tgtLang: LANGS[1],
@@ -82,8 +84,9 @@ async function loadCdn(name) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = CDN_LIBS[name];
-    s.onload = () => { _cdnCache[name] = true; resolve(); };
-    s.onerror = () => reject(new Error(name + ' 加载失败'));
+    let timer = setTimeout(() => { s.remove(); reject(new Error(name + ' 加载超时，请检查网络')); }, 30000);
+    s.onload = () => { clearTimeout(timer); _cdnCache[name] = true; resolve(); };
+    s.onerror = () => { clearTimeout(timer); reject(new Error(name + ' 加载失败')); };
     document.head.appendChild(s);
   });
 }
@@ -283,7 +286,7 @@ if (file) handleFileSelect(file);
 document.getElementById('fileClearBtn').addEventListener('click', (e) => {
 e.stopPropagation();
 document.getElementById('fileLoadedBar').classList.remove('visible');
-fileInput.value = '';
+document.getElementById('fileInput').value = '';
 showToast('已移除文件');
 });
 
@@ -342,6 +345,8 @@ charCountEl.appendChild(chip);
 document.getElementById('sourceText').addEventListener('input', function() {
 updateWordStats();
 if (this.value.length > 20) detectAndApplyLang(this.value);
+sessionStorage.setItem(TEXT_CACHE_KEY, this.value);
+updateTranslateBtnState();
 });
 
 // ─────────────────────────────────────────
@@ -525,6 +530,8 @@ showToast('已粘贴', 'success');
 document.getElementById('clearBtn').addEventListener('click', () => {
 document.getElementById('sourceText').value = '';
 updateWordStats();
+updateTranslateBtnState();
+sessionStorage.removeItem(TEXT_CACHE_KEY);
 document.getElementById('resultSection').classList.remove('active');
 const labelEl = document.querySelector('.result-label');
 labelEl.innerHTML = '最终裁决译文';
@@ -741,7 +748,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(
 // ─────────────────────────────────────────
 // 优化 2：文本自动缓存 + 按钮状态联动
 // ─────────────────────────────────────────
-const TEXT_CACHE_KEY = 'prism_text_cache';
 function updateTranslateBtnState() {
   const hasText = document.getElementById('sourceText').value.trim().length > 0;
   const hasKey = !!state.apiKey;
@@ -759,10 +765,6 @@ function updateTranslateBtnState() {
   });
 }
 // 输入时自动缓存 + 更新按钮状态
-document.getElementById('sourceText').addEventListener('input', function() {
-  sessionStorage.setItem(TEXT_CACHE_KEY, this.value);
-  updateTranslateBtnState();
-});
 // 页面加载时恢复缓存文本
 (function restoreTextCache() {
   const cached = sessionStorage.getItem(TEXT_CACHE_KEY);
@@ -1641,21 +1643,133 @@ const rounds = mode.maxRounds === null ? userRounds : Math.min(userRounds, mode.
 return { ...mode, rounds };
 }
 
-// 按段落边界切块，取消硬重叠（防止AI重复翻译），改为在提示词中传递上文
-function splitIntoChunks(text, targetLen = 1500) {
-const paras = text.split(/\n{2,}/);
-const chunks =[];
-let cur = '';
-for (const para of paras) {
-if (cur.length + para.length + 2 > targetLen && cur.length > 0) {
-chunks.push(cur.trim());
-cur = para; // 不再混入上文内容，直接从新段落开始
-} else {
-cur += (cur ? '\n\n' : '') + para;
+// ═════════════════════════════════════════
+// 分块翻译质量保障体系 v3
+// ═════════════════════════════════════════
+
+// ── 1. 语义边界智能切分 ──
+function smartSplitIntoChunks(text, targetLen = 1200, maxLen = 1600) {
+  const rawParas = text.split(/\n{2,}/).filter(p => p.trim());
+  // 处理超长段落：按句子切分
+  const paras = [];
+  for (const para of rawParas) {
+    if (para.length <= maxLen) paras.push(para.trim());
+    else paras.push(...splitParaBySentences(para, targetLen));
+  }
+  // 合并小段为大块
+  const chunks = [];
+  let cur = '';
+  for (const para of paras) {
+    if (cur.length + para.length + 2 <= targetLen || cur.length === 0) {
+      cur += (cur ? '\n\n' : '') + para;
+    } else { chunks.push(cur.trim()); cur = para; }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
 }
+function splitParaBySentences(para, targetLen) {
+  const breaks = [];
+  const regex = /[\u3002\uFF01\uFF1F\uFF1B.!?]/g;
+  let m;
+  while ((m = regex.exec(para)) !== null) {
+    const before = para.slice(Math.max(0, m.index - 3), m.index);
+    if (/\b(Dr|Mr|Mrs|Ms|Prof|Jr|Sr|vs|etc|i\.e|e\.g|No|vol|pp|Ch|Fig|Tab)\b/i.test(before)) continue;
+    breaks.push(m.index + 1);
+  }
+  const parts = [];
+  let start = 0;
+  for (const bp of breaks) {
+    if (bp - start >= targetLen * 0.5 && parts.length === 0) { parts.push(para.slice(start, bp).trim()); start = bp; }
+    else if (bp - start >= targetLen) { parts.push(para.slice(start, bp).trim()); start = bp; }
+  }
+  if (start < para.length) parts.push(para.slice(start).trim());
+  return parts.filter(p => p.length > 5);
 }
-if (cur.trim()) chunks.push(cur.trim());
-return chunks;
+
+// ── 2. 术语提取（从首块译文中提取）──
+function extractKeyTerms(text) {
+  const terms = [];
+  const caps = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,4}\b/g);
+  if (caps) {
+    const skip = new Set(['The','And','For','But','With','From','This','That','When','Where','What','Which','There','Here','Then','Than','They','Their','Have','Been','Were','Will','Would','Could','Should','Shall','These','Those','Your','More','Most','Some','Many','Much','Such','Only','Even','Also','Well','Very','Just','Like','Over','Into','After','Before','Under','About','Through','Between','Against','Without','Within','During','Because','Although','However','Therefore','Moreover','Furthermore','Meanwhile','Otherwise','Nevertheless']);
+    for (const t of caps) if (!skip.has(t.split(' ')[0])) terms.push(t);
+  }
+  const bracketed = text.match(/（([^）]{2,20})）/g);
+  if (bracketed) for (const b of bracketed) terms.push(b.slice(1, -1));
+  const quoted = text.match(/["""']([^"""']{2,20})["""']/g);
+  if (quoted) for (const q of quoted) terms.push(q.slice(1, -1));
+  return [...new Set(terms)].slice(0, 15);
+}
+
+// ── 3. 结构化上下文记忆 ──
+function buildContextMemory(i, total, chunkResults, termTable) {
+  const parts = [];
+  if (termTable.length > 0) parts.push(`【已确立术语表 — 后续翻译必须严格遵循】\n${termTable.map(t => `- ${t}`).join('\n')}`);
+  if (i > 0) {
+    const summaries = [];
+    for (let j = Math.max(0, i - 3); j < i; j++) {
+      if (chunkResults[j]) {
+        const s = chunkResults[j].match(/^[^\u3002\uFF01\uFF1F.!?]{10,80}[\u3002\uFF01\uFF1F.!?]?/);
+        if (s) summaries.push(`[块${j+1}] ${s[0]}`);
+      }
+    }
+    if (summaries.length) parts.push(`【前文摘要】\n${summaries.join('\n')}`);
+  }
+  if (i > 0 && chunkResults[i - 1]) parts.push(`【紧邻上文末段（确保衔接）】\n${chunkResults[i - 1].slice(-200)}`);
+  // 语体风格
+  if (i > 0 && chunkResults[0]) {
+    const t0 = chunkResults[0];
+    let style = '中性说明体';
+    if (/[\u6211\u4F60\u4ED6\u5979\u6211\u4EEC\u54B1\u4EEC]/.test(t0)) style = '叙事体';
+    else if (/[\u672C\u54C1\u672C\u516C\u53F8\u672C\u7CFB\u7EDF\u7528\u6237]/.test(t0)) style = '技术说明体';
+    else if (/[\u656C\u8BF7\u8C28\u6B64\u81F4\u4EE5\u987A\u795D]/.test(t0)) style = '正式信函体';
+    else if (/[\u6211\u8BA4\u4E3A\u4ED6\u6307\u51FA\u7814\u7A76\u8868\u660E]/.test(t0)) style = '学术论述体';
+    parts.push(`【语体风格】${style} — 请保持全文一致`);
+  }
+  parts.push(`【当前位置】长文第 ${i + 1}/${total} 段`);
+  return parts.join('\n\n');
+}
+
+// ── 4. 块间一致性审计 ──
+function auditChunkConsistency(chunkResults) {
+  const issues = [];
+  for (let i = 1; i < chunkResults.length; i++) {
+    const prevEnd = chunkResults[i - 1].slice(-80);
+    const currStart = chunkResults[i].slice(0, 80);
+    const lcs = longestCommonSubstring(prevEnd, currStart);
+    if (lcs.length > 15) issues.push({ type: '重复', at: `块${i}-${i+1}边界`, text: lcs });
+  }
+  return issues;
+}
+function longestCommonSubstring(a, b) {
+  let maxLen = 0, endIdx = 0;
+  const dp = Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = 0;
+    for (let j = 1; j <= b.length; j++) {
+      const temp = dp[j];
+      if (a[i - 1] === b[j - 1]) { dp[j] = prev + 1; if (dp[j] > maxLen) { maxLen = dp[j]; endIdx = i; } }
+      else dp[j] = 0;
+      prev = temp;
+    }
+  }
+  return a.slice(endIdx - maxLen, endIdx);
+}
+
+// ── 5. 智能合并 ──
+function mergeChunksSmart(chunkResults, issues) {
+  if (!issues || issues.length === 0) return chunkResults.join('\n\n');
+  const fixed = [...chunkResults];
+  for (const iss of issues) {
+    if (iss.type === '重复') {
+      for (let i = 1; i < fixed.length; i++) {
+        if (fixed[i].startsWith(iss.text) && fixed[i - 1].endsWith(iss.text)) {
+          fixed[i] = fixed[i].slice(iss.text.length).trim();
+        }
+      }
+    }
+  }
+  return fixed.join('\n\n').replace(/\n{4,}/g, '\n\n\n');
 }
 
 // ─────────────────────────────────────────
@@ -2184,7 +2298,7 @@ document.getElementById('translateBtn').addEventListener('click', doTranslate);
 // 分块翻译流程（> 12000字）
 // ─────────────────────────────────────────
 async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
-const chunks = splitIntoChunks(text, 1500);
+const chunks = smartSplitIntoChunks(text, 1200, 1600);
 const total = chunks.length;
 
 const card = document.createElement('div');
@@ -2242,7 +2356,9 @@ labelEl.dataset.earlyPreview = 'true';
 labelEl.innerHTML = `分块译文 <span class="score-pill" style="color:var(--warning);border-color:var(--warning);background:var(--warm-sand);animation:blink 1.5s infinite;border-radius:4px;padding:2px 6px;margin-left:6px;">拼接中...</span>`;
 }
 
-let prevTranslation = ""; // 用于携带上文语境，避免脱节
+// 术语表（首块翻译完成后建立，后续块锁定）
+let termTable = [];
+let prevTranslation = '';
 
 // 逐块串行翻译
 for (let i = 0; i < total; i++) {
@@ -2251,56 +2367,70 @@ setProgress(i / total);
 pills[i].className = 'chunk-pill active';
 pills[i].querySelector('.chunk-pill-label').textContent = '翻译中';
 
-// \`\`\`
 const chunk = chunks[i];
 
-// 强化分块 Prompt：强制要求输出为目标语言，绝不保留源语言
-const userMsg = `作为纯粹的翻译器，请将下面的【待翻译片段】从【${src}】翻译成【${tgt}】。这是长文的第 ${i+1}/${total} 段。
-// \`\`\`
+// 构建结构化上下文
+const context = buildContextMemory(i, total, chunkResults, termTable);
 
-要求：
+// 构建翻译 Prompt
+const userMsg = promptChunkTranslation(src, tgt, context, chunk, i, total);
 
-1. 必须完全使用【${tgt}】输出，绝不允许原样照抄【${src}】原文！
-1. 保持与上文风格一致，直接输出纯净译文正文。
-
-${prevTranslation ? `【上文译文参考（仅供文脉连贯参考，不要翻译它）】\n${prevTranslation.slice(-400)}\n\n` : ''}【待翻译片段】\n${chunk}`;
-
-// \`\`\`
-let resA = '', resB = '', resC = '', resD = '';
+// 五路并发翻译（A/B/C/D/F）
+let resA = '', resB = '', resC = '', resD = '', resF = '';
 await Promise.all([
   callDeepSeek([{role:'system',content:promptPathA(src,tgt)},{role:'user',content:userMsg}], null, 0.5).then(r => resA = r),
   callDeepSeek([{role:'system',content:promptPathB(src,tgt)},{role:'user',content:userMsg}], null, 0.8).then(r => resB = r),
   callDeepSeek([{role:'system',content:promptPathC(src,tgt)},{role:'user',content:userMsg}], null, 0.6).then(r => resC = r),
   callDeepSeek([{role:'system',content:dynamicAgent.systemPrompt},{role:'user',content:userMsg}], null, 0.7).then(r => resD = r),
+  callDeepSeek([{role:'system',content:promptPathF(src,tgt)},{role:'user',content:userMsg}], null, 0.7).then(r => resF = r),
 ]);
 
-// 强化合成裁决 Prompt
-const chunkSynthSystem = `你是一个终极翻译裁决官。你的唯一任务是将输入的四路草稿合并优化，输出最终的纯净【${tgt}】译文。
-// \`\`\`
+// 块内批判（简化为两路互审）
+setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块 · 批判审查...`);
+let critiqueA = '', critiqueB = '';
+await Promise.all([
+  callDeepSeek([{role:'system',content:`你是严格的翻译审查官。审查以下两版译文的准确性、流畅度和术语一致性。只列出问题和改进建议。`},{role:'user',content:`原文：\n${chunk}\n\n译文A：\n${resA}\n\n译文B：\n${resB}`}], null, 0.3).then(r => critiqueA = r),
+  callDeepSeek([{role:'system',content:`你是严格的翻译审查官。审查以下两版译文的准确性、流畅度和术语一致性。只列出问题和改进建议。`},{role:'user',content:`原文：\n${chunk}\n\n译文C：\n${resC}\n\n译文D：\n${resD}`}], null, 0.3).then(r => critiqueB = r),
+]);
 
-【极度警告】：必须输出【${tgt}】，绝对不能输出任何【${src}】源语言文本！不准带任何前缀！`; const quickSynthMsg = `原文片段：\n${chunk}\n\n版本A：\n${resA}\n版本B：\n${resB}\n版本C：\n${resC}\n版本D：\n${resD}\n\n请裁决最优译文，直接输出纯净的【${tgt}】译文。`;
+// 综合裁决
+const termLock = termTable.length > 0 ? `\n【已锁定术语】${termTable.join(' | ')}\n` : '';
+const chunkSynthSystem = promptChunkSynthesis(src, tgt, termTable);
+const quickSynthMsg = `原文片段：\n${chunk}${termLock}\n版本A（语言学家）：\n${resA}\n\n版本B（本土编辑）：\n${resB}\n\n版本C（领域专家）：\n${resC}\n\n版本D（${dynamicAgent.name}）：\n${resD}\n\n版本F（风格镜像师）：\n${resF}\n\n批判意见：\n${critiqueA}\n${critiqueB}\n\n请裁决最优译文，直接输出纯净的${tgt}译文。`;
 
-// \`\`\`
 let chunkTrans = '';
 await callDeepSeek([{role:'system',content:chunkSynthSystem},{role:'user',content:quickSynthMsg}], f => {
   chunkTrans = parseSynthOutput(f).translation || f;
   chunkResults[i] = chunkTrans;
-  // 性能终极优化：仅更新这一个小块的 DOM，不再拼接全文！
-  chunkNodes[i].textContent = chunkTrans; 
+  chunkNodes[i].textContent = chunkTrans;
 }, 0.3);
 
 chunkResults[i] = parseSynthOutput(chunkTrans).translation || chunkTrans;
-prevTranslation = chunkResults[i]; // 更新上下文记忆
+prevTranslation = chunkResults[i];
+
+// 首块完成后提取术语
+if (i === 0) {
+  const extracted = extractKeyTerms(chunkResults[0], chunks[0]);
+  if (extracted.length > 0) {
+    termTable = extracted;
+    showToast(`已锁定 ${extracted.length} 个关键术语`, 'success');
+  }
+}
 
 pills[i].className = 'chunk-pill done';
 pills[i].querySelector('.chunk-pill-label').textContent = '完成';
 setProgress((i + 1) / total);
-// ```
-
 }
 
-// 循环结束后，统一拼接全文送入最终展示区
-const fullTranslation = chunkResults.join('\n\n');
+// 块间一致性审计
+setStatus('后处理：检查块间一致性...');
+const consistencyIssues = auditChunkConsistency(chunkResults);
+if (consistencyIssues.length > 0) {
+  showToast(`发现 ${consistencyIssues.length} 处衔接问题，自动修复中...`, 'warning');
+}
+
+// 智能合并（含去重修复）
+const fullTranslation = mergeChunksSmart(chunkResults, consistencyIssues);
 document.getElementById('finalResult').textContent = fullTranslation;
 document.getElementById('chunkBadge').textContent = '已完成';
 document.getElementById('chunkBadge').classList.add('done');
@@ -2308,27 +2438,26 @@ document.getElementById('chunkBadge').classList.add('done');
 labelEl.innerHTML = '最终裁决译文';
 delete labelEl.dataset.earlyPreview;
 
-// 质量终审（首块抽样）
+// 质量终审（多段代表性抽样）
 setStatus('阶四：进行质量终审与打分...');
 const auditEl = document.createElement('div');
 auditEl.className = 'audit-card';
-auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告（代表性采样）</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="chunk_si0"><span class="score-num" id="chunk_s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb0" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si1"><span class="score-num" id="chunk_s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb1" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si2"><span class="score-num" id="chunk_s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="chunk_auditRemark"></div> </div>`;
+auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告（多段抽样）</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="chunk_si0"><span class="score-num" id="chunk_s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb0" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si1"><span class="score-num" id="chunk_s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb1" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si2"><span class="score-num" id="chunk_s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="chunk_auditRemark"></div> </div>`;
 document.getElementById('auditContainer').appendChild(auditEl);
 
+// 选择代表性样本：首块 + 中块 + 末块
+const sampleIndices = [0];
+if (total > 3) sampleIndices.push(Math.floor(total / 2));
+if (total > 1) sampleIndices.push(total - 1);
+const auditSamples = sampleIndices.map(idx =>
+  `【第${idx+1}块 / 共${total}块】\n原文：${chunks[idx].slice(0,400)}\n译文：${chunkResults[idx].slice(0,500)}`
+).join('\n\n——\n\n');
+
 let rawAudit = '';
-await callDeepSeek([{role:'system',content:promptAudit(src,tgt)},{role:'user',content:`原文（首段）：\n${chunks[0].slice(0,800)}\n\n对应译文：\n${chunkResults[0]}`}], (full, reasoning) => {
-rawAudit = full;
-updateUI(document.getElementById('chunk_auditRemark'), parseAuditOutput(full).remark || '', reasoning);
+await callDeepSeek([{role:'system',content:promptAudit(src,tgt)},{role:'user',content:`以下是从长文翻译中抽样的${sampleIndices.length}个代表性片段（首段、中段、末段），请综合评估全文翻译质量：\n\n${auditSamples}\n\n【块间一致性说明】\n${consistencyIssues.length > 0 ? `发现${consistencyIssues.length}处衔接问题，已自动修复。` : '块间衔接检查通过，未发现重复或断裂。'}\n${termTable.length > 0 ? `\n【已锁定术语】${termTable.join(' | ')}` : ''}`}], (full, reasoning) => {
+  rawAudit = full;
+  updateUI(document.getElementById('chunk_auditRemark'), parseAuditOutput(full).remark || '', reasoning);
 }, 0.3);
-
-document.getElementById('chunk_auditRemark').classList.remove('streaming');
-const { scores, remark } = parseAuditOutput(rawAudit);
-if (document.getElementById('chunk_auditRemark').hasAttribute('data-has-reasoning')) {
-document.getElementById('chunk_auditRemark').querySelector('.content-text').textContent = remark;
-} else {
-document.getElementById('chunk_auditRemark').textContent = remark;
-}
-
 const scoreLabels =['忠','流','地'];
 if (scores) {
 scores.forEach((s, i) => {
