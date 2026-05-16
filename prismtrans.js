@@ -1379,7 +1379,8 @@ lastScrollTime = now;
 }
 if (done) break;
 }
-return resultContent;
+// 防护：API 有时只返回 reasoning_content 不返回 content，此时用 reasoning 兜底
+return resultContent || resultReasoning;
 }
 
 // Claude (Anthropic) 专用调用（非流式简化版）
@@ -2161,13 +2162,16 @@ updateUI(synthEl, full, reasoning);
 
 synthEl.classList.remove('streaming');
 const parsed = parseSynthOutput(rawSynth);
-lastSynthResult = parsed.translation;
+// 若 API 只返 reasoning 不返 content，parsed.translation 为空，用 rawSynth 兜底
+lastSynthResult = parsed.translation || rawSynth;
 lastMemo = parsed.memo;
 
+// 若解析出的译文为空但原始输出有内容（API 只返 reasoning 不返 content），直接显示原始输出
+const displayText = lastSynthResult || rawSynth;
 if (synthEl.hasAttribute('data-has-reasoning')) {
-synthEl.querySelector('.content-text').textContent = lastSynthResult;
+synthEl.querySelector('.content-text').textContent = displayText;
 } else {
-synthEl.textContent = lastSynthResult;
+synthEl.textContent = displayText;
 }
 
 if (lastMemo) {
@@ -2568,4 +2572,5 @@ document.getElementById('exportSection').style.display = 'block';
 state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed, usageTokens: { ...state.usageTokens } };
 addHistory({ src: text.slice(0, 200), tgt: fullTranslation.slice(0, 200), srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
 }
-init();
+
+init(); 
