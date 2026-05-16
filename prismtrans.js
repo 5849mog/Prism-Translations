@@ -2367,7 +2367,8 @@ clearTextCache(); // 翻译成功后清除缓存
 document.getElementById('translateBtn').addEventListener('click', doTranslate);
 
 // ─────────────────────────────────────────
-// 分块翻译流程（> 12000字）
+// ─────────────────────────────────────────
+// 分块翻译流程 v2（极速版：每块1次API，总调用量减少约7倍）
 // ─────────────────────────────────────────
 async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
 const chunks = smartSplitIntoChunks(text, 1200, 1600);
@@ -2375,7 +2376,7 @@ const total = chunks.length;
 
 const card = document.createElement('div');
 card.className = 'chunk-progress-card';
-card.innerHTML = ` <div class="chunk-progress-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span class="chunk-progress-title">分块翻译 · 共 ${total} 块</span> <span class="round-badge" id="chunkBadge">进行中</span> </div> <div class="chunk-grid" id="chunkGrid"></div> <div class="chunk-result-area"> <div class="chunk-result-label">实时分块译文 (流式更新优化)</div> <div class="chunk-result-text" id="chunkResultText"></div> </div>`;
+card.innerHTML = ` <div class="chunk-progress-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span class="chunk-progress-title">分块翻译 · 共 ${total} 块</span> <span class="round-badge" id="chunkBadge">进行中</span> </div> <div class="chunk-grid" id="chunkGrid"></div> <div class="chunk-result-area"> <div class="chunk-result-label">实时分块译文</div> <div class="chunk-result-text" id="chunkResultText"></div> </div>`;
 document.getElementById('roundsContainer').appendChild(card);
 card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -2390,112 +2391,64 @@ return pill;
 
 const chunkResultEl = document.getElementById('chunkResultText');
 chunkResultEl.innerHTML = '';
-// 性能优化：为每个切块预先创建独立的 DOM 节点
-const chunkNodes =[];
+const chunkNodes = [];
 for (let i = 0; i < total; i++) {
 const div = document.createElement('div');
-div.style.marginBottom = "1.2em"; // 保证段落视觉间距
+div.style.marginBottom = '1.2em';
 chunkResultEl.appendChild(div);
 chunkNodes.push(div);
 }
 const chunkResults = new Array(total).fill('');
 
-// 阶零：生成动态智能体
-setStatus('初始化：生成翻译智能体...');
-const agentSec = document.getElementById('agentGenSection');
-agentSec.style.display = 'block';
-const agentRaw = await callDeepSeek([
-{ role:'system', content: promptMetaAgent(src, tgt) },
-{ role:'user', content: `源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本片段】\n${chunks[0].slice(0,300)}` }
-], null, 0.7);
-let dynamicAgent = { name:'文化顾问', label:'语境适配', systemPrompt: injectCustomPrompt(`你是文化翻译专家，仅输出译文本身。`) };
-try {
-const p = JSON.parse(agentRaw.replace(new RegExp('\x60\x60\x60json|\x60\x60\x60', 'g'), '').trim());
-if (p.name && p.systemPrompt) { p.systemPrompt = injectCustomPrompt(p.systemPrompt); dynamicAgent = p; }
-} catch(_) {}
-document.getElementById('agentGenName').textContent = dynamicAgent.name;
-document.getElementById('agentGenLabel').textContent = dynamicAgent.label || '';
-document.getElementById('agentGenPrompt').textContent = dynamicAgent.systemPrompt.slice(0,100) + '...';
-document.getElementById('agentGenBody').style.display = 'block';
-document.getElementById('agentGenBadge').textContent = '已就位';
-document.getElementById('agentGenBadge').classList.add('done');
-document.getElementById('agentGenTitle').textContent = `D 路智能体 · ${dynamicAgent.name}`;
-
-document.getElementById('resultSection').classList.add('active');
-const labelEl = document.querySelector('.result-label');
-if (!labelEl.dataset.earlyPreview) {
-labelEl.dataset.earlyPreview = 'true';
-labelEl.innerHTML = `分块译文 <span class="score-pill" style="color:var(--warning);border-color:var(--warning);background:var(--warm-sand);animation:blink 1.5s infinite;border-radius:4px;padding:2px 6px;margin-left:6px;">拼接中...</span>`;
-}
-
-// 术语表（首块翻译完成后建立，后续块锁定）
+// 术语表（首块完成后建立）
 let termTable = [];
-let prevTranslation = '';
 
-// 逐块串行翻译
+// 逐块串行翻译（每块只发1次API，含上下文+术语锁定）
 for (let i = 0; i < total; i++) {
-setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块...`);
+if (state.abortController && state.abortController.signal.aborted) throw new Error('USER_ABORT');
+setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块`);
 setProgress(i / total);
 pills[i].className = 'chunk-pill active';
 pills[i].querySelector('.chunk-pill-label').textContent = '翻译中';
 
 const chunk = chunks[i];
-
-// 构建结构化上下文
 const context = buildContextMemory(i, total, chunkResults, termTable);
 
-// 构建翻译 Prompt
-const userMsg = promptChunkTranslation(src, tgt, context, chunk, i, total);
+// 单路直接翻译（极速模式：不再做五路+批判+裁决，一次到位）
+const sysPrompt = `你是一位资深翻译专家。请将${src}文本精准翻译为${tgt}。
+要求：忠实原文、语言流畅、地道自然。必须直接输出译文正文，不要带任何前缀标签或分析过程。`;
 
-// 五路并发翻译（A/B/C/D/F）
-let resA = '', resB = '', resC = '', resD = '', resF = '';
-await Promise.all([
-callDeepSeek([{role:'system',content:promptPathA(src,tgt)},{role:'user',content:userMsg}], null, 0.5).then(r => resA = r),
-callDeepSeek([{role:'system',content:promptPathB(src,tgt)},{role:'user',content:userMsg}], null, 0.8).then(r => resB = r),
-callDeepSeek([{role:'system',content:promptPathC(src,tgt)},{role:'user',content:userMsg}], null, 0.6).then(r => resC = r),
-callDeepSeek([{role:'system',content:dynamicAgent.systemPrompt},{role:'user',content:userMsg}], null, 0.7).then(r => resD = r),
-callDeepSeek([{role:'system',content:promptPathF(src,tgt)},{role:'user',content:userMsg}], null, 0.7).then(r => resF = r),
-]);
+const ctxParts = [];
+if (context.prevContext) ctxParts.push(`【前接译文】\n${context.prevContext}`);
+if (context.termList && context.termList.length > 0) ctxParts.push(`【术语锁定（必须全文一致使用）】\n${context.termList.join('\n')}`);
+if (context.summary) ctxParts.push(`【全文概要】\n${context.summary}`);
+ctxParts.push(`【待翻译片段（第${i+1}/${total}块）】\n${chunk}`);
 
-// 块内批判（简化为两路互审）
-setStatus(`分块翻译 · 第 ${i + 1} / ${total} 块 · 批判审查...`);
-pills[i].querySelector('.chunk-pill-label').textContent = '批判中';
-let critiqueA = '', critiqueB = '';
-await Promise.all([
-callDeepSeek([{role:'system',content:`你是严格的翻译审查官。审查以下两版译文的准确性、流畅度和术语一致性。只列出问题和改进建议。`},{role:'user',content:`原文：\n${chunk}\n\n译文A：\n${resA}\n\n译文B：\n${resB}`}], null, 0.3).then(r => critiqueA = r),
-callDeepSeek([{role:'system',content:`你是严格的翻译审查官。审查以下两版译文的准确性、流畅度和术语一致性。只列出问题和改进建议。`},{role:'user',content:`原文：\n${chunk}\n\n译文C：\n${resC}\n\n译文D：\n${resD}`}], null, 0.3).then(r => critiqueB = r),
-]);
+let chunkTrans = '';
+await callDeepSeek([
+{ role: 'system', content: sysPrompt },
+{ role: 'user', content: ctxParts.join('\n\n') }
+], (full) => {
+chunkTrans = full;
+// 流式实时更新到对应节点
+chunkNodes[i].textContent = chunkTrans;
+}, 0.4);
 
-// 综合裁决
-const termLock = termTable.length > 0 ? `\n【已锁定术语】${termTable.join(' | ')}\n` : '';
-const chunkSynthSystem = promptChunkSynthesis(src, tgt, termTable);
-const quickSynthMsg = `原文片段：\n${chunk}${termLock}\n版本A（语言学家）：\n${resA}\n\n版本B（本土编辑）：\n${resB}\n\n版本C（领域专家）：\n${resC}\n\n版本D（${dynamicAgent.name}）：\n${resD}\n\n版本F（风格镜像师）：\n${resF}\n\n批判意见：\n${critiqueA}\n${critiqueB}\n\n请裁决最优译文，直接输出纯净的${tgt}译文。`;
-
-// 流式过程中不更新DOM（避免模型回溯草稿导致显示错乱），只累积到变量
-let rawChunkTrans = '';
-await callDeepSeek([{role:'system',content:chunkSynthSystem},{role:'user',content:quickSynthMsg}], f => {
-rawChunkTrans = f;
-}, 0.3);
-
-// 流式完成后，一次性解析并显示最终内容
-chunkTrans = parseSynthOutput(rawChunkTrans).translation || rawChunkTrans;
-// 后处理：去除模型回溯导致的重复痕迹
-chunkTrans = cleanStreamingArtifacts(chunkTrans);
+// 去除可能的前缀标签
+chunkTrans = chunkTrans.replace(LABEL_STRIP_RE, '').trim();
 chunkResults[i] = chunkTrans;
 chunkNodes[i].textContent = chunkTrans;
-prevTranslation = chunkResults[i];
 
-// 首块完成后提取术语
+// 首块完成后提取关键术语
 if (i === 0) {
 const extracted = extractKeyTerms(chunkResults[0], chunks[0]);
 if (extracted.length > 0) {
 termTable = extracted;
 showToast(`已锁定 ${extracted.length} 个关键术语`, 'success');
-// 视觉展示：在 chunk-progress-card 中显示术语锁定区
 const termPanel = document.createElement('div');
 termPanel.id = 'termLockPanel';
 termPanel.style.cssText = 'margin-top:10px;padding:8px 12px;background:var(--warm-sand);border:1px solid var(--border-cream);border-radius:var(--r-md);font-size:11px;color:var(--dark-text);';
-termPanel.innerHTML = `<div style="font-weight:500;margin-bottom:4px;color:var(--terracotta);display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>已锁定术语（全文强制一致）</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${extracted.map(t => `<span style="padding:2px 6px;background:rgba(201,100,66,0.08);border-radius:4px;border:1px solid var(--border-cream);font-size:10px;">${t}</span>`).join('')}</div>`;
+termPanel.innerHTML = `<div style="font-weight:500;margin-bottom:4px;color:var(--terracotta);display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>已锁定术语（全文强制一致）</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${extracted.map(t => `<span style="padding:2px 6px;background:rgba(201,100,66,0.08);border-radius:4px;border:1px solid var(--border-cream);font-size:10px;">${escHtml(t)}</span>`).join('')}</div>`;
 const cardEl = document.querySelector('.chunk-progress-card');
 if (cardEl) cardEl.insertBefore(termPanel, document.getElementById('chunkGrid'));
 }
@@ -2506,54 +2459,42 @@ pills[i].querySelector('.chunk-pill-label').textContent = '完成';
 setProgress((i + 1) / total);
 }
 
-// 块间一致性审计
-setStatus('后处理：检查块间一致性...');
-const consistencyIssues = auditChunkConsistency(chunkResults);
-
-// 一致性审计结果可视化
-const auditPanel = document.createElement('div');
-auditPanel.style.cssText = 'margin-bottom:12px;padding:8px 12px;border-radius:var(--r-md);font-size:11px;';
-if (consistencyIssues.length > 0) {
-showToast(`发现 ${consistencyIssues.length} 处衔接问题，自动修复中...`, 'warning');
-auditPanel.style.cssText += 'background:rgba(201,100,66,0.06);border:1px solid rgba(201,100,66,0.15);color:var(--terracotta);';
-auditPanel.innerHTML = `<div style="font-weight:500;margin-bottom:4px;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>衔接修复报告 · ${consistencyIssues.length} 处问题已自动处理</div><div style="font-size:10px;color:var(--warm-silver);line-height:1.6;">${consistencyIssues.map(iss => `· ${iss.at}："${iss.text.slice(0,40)}${iss.text.length>40?'...':''}" → 已去重`).join('<br>')}</div>`;
-} else {
-auditPanel.style.cssText += 'background:var(--warm-sand);border:1px solid var(--border-cream);color:var(--muted-text);';
-auditPanel.innerHTML = `<div style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>衔接检查通过 · 未发现重复或断裂</div>`;
-}
-const resultArea = document.querySelector('.chunk-result-area');
-if (resultArea) resultArea.insertBefore(auditPanel, resultArea.firstChild);
-
-// 智能合并（含去重修复）
-const fullTranslation = mergeChunksSmart(chunkResults, consistencyIssues);
+// 显示最终结果
+const fullTranslation = chunkResults.join('\n\n');
 document.getElementById('finalResult').textContent = fullTranslation;
 document.getElementById('chunkBadge').textContent = '已完成';
 document.getElementById('chunkBadge').classList.add('done');
 
+const labelEl = document.querySelector('.result-label');
 labelEl.innerHTML = '最终裁决译文';
 delete labelEl.dataset.earlyPreview;
 
-// 质量终审（多段代表性抽样）
-setStatus('阶四：进行质量终审与打分...');
+// 质量终审
+setStatus('质量终审中...');
 const auditEl = document.createElement('div');
 auditEl.className = 'audit-card';
-auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告（多段抽样）</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="chunk_si0"><span class="score-num" id="chunk_s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb0" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si1"><span class="score-num" id="chunk_s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb1" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si2"><span class="score-num" id="chunk_s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="chunk_auditRemark"></div> </div>`;
+auditEl.innerHTML = ` <div class="audit-header"> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c96442" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span class="audit-title">V6 质量评审报告</span> </div> <div class="audit-body"> <div class="score-row"> <div class="score-item" id="chunk_si0"><span class="score-num" id="chunk_s0">—</span><span class="score-label">忠实度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb0" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si1"><span class="score-num" id="chunk_s1">—</span><span class="score-label">流畅度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb1" style="width:0%"></div></div></div> <div class="score-item" id="chunk_si2"><span class="score-num" id="chunk_s2">—</span><span class="score-label">地道度</span><div class="score-bar-wrap"><div class="score-bar" id="chunk_sb2" style="width:0%"></div></div></div> </div> <div class="audit-remark streaming" id="chunk_auditRemark"></div> </div>`;
 document.getElementById('auditContainer').appendChild(auditEl);
 
-// 选择代表性样本：首块 + 中块 + 末块
 const sampleIndices = [0];
 if (total > 3) sampleIndices.push(Math.floor(total / 2));
 if (total > 1) sampleIndices.push(total - 1);
 const auditSamples = sampleIndices.map(idx =>
-`【第${idx+1}块 / 共${total}块】\n原文：${chunks[idx].slice(0,400)}\n译文：${chunkResults[idx].slice(0,500)}`
+`【第${idx+1}块】\n原文：${chunks[idx].slice(0,400)}\n译文：${chunkResults[idx].slice(0,500)}`
 ).join('\n\n——\n\n');
 
 let rawAudit = '';
-await callDeepSeek([{role:'system',content:promptAudit(src,tgt)},{role:'user',content:`以下是从长文翻译中抽样的${sampleIndices.length}个代表性片段（首段、中段、末段），请综合评估全文翻译质量：\n\n${auditSamples}\n\n【块间一致性说明】\n${consistencyIssues.length > 0 ? `发现${consistencyIssues.length}处衔接问题，已自动修复。`: '块间衔接检查通过，未发现重复或断裂。'}\n${termTable.length > 0 ?`\n【已锁定术语】${termTable.join(' | ')}` : ''}`}], (full, reasoning) => {
+const { scores, remark } = await callDeepSeek([
+{ role: 'system', content: promptAudit(src, tgt) },
+{ role: 'user', content: `以下是从长文翻译中抽样的${sampleIndices.length}个代表性片段，请综合评估全文翻译质量：\n\n${auditSamples}${termTable.length > 0 ? '\n\n【已锁定术语】' + termTable.join(' | ') : ''}` }
+], (full, reasoning) => {
 rawAudit = full;
-updateUI(document.getElementById('chunk_auditRemark'), parseAuditOutput(full).remark || '', reasoning);
-}, 0.3);
-const scoreLabels =['忠','流','地'];
+const parsed = parseAuditOutput(full);
+updateUI(document.getElementById('chunk_auditRemark'), parsed.remark || '', reasoning);
+}, 0.3).then(full => parseAuditOutput(full));
+
+// 显示评分
+const scoreLabels = ['忠', '流', '地'];
 if (scores) {
 scores.forEach((s, i) => {
 document.getElementById(`chunk_s${i}`).textContent = s;
@@ -2562,6 +2503,8 @@ setTimeout(() => { document.getElementById(`chunk_sb${i}`).style.width = (s*10)+
 const spEl = document.getElementById(`sp${i}`); spEl.textContent = `${scoreLabels[i]} ${s}`; spEl.classList.add('loaded');
 });
 }
+
+document.getElementById('chunk_auditRemark').classList.remove('streaming');
 
 const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
 setStatus(`分块翻译完成 · 共 ${total} 块 · 耗时 ${elapsed < 60 ? elapsed+'s' : Math.floor(elapsed/60)+'m'+elapsed%60+'s'}`);
