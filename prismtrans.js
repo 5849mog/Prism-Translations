@@ -48,6 +48,7 @@ timerInterval: null,
 lastTranslation: null,
 abortController: null,
 usageTokens: { prompt: 0, completion: 0, total: 0 },
+currentRoundUsage: { prompt: 0, completion: 0, total: 0 },
 };
 
 // ─────────────────────────────────────────
@@ -1005,7 +1006,10 @@ md += `### 🤖 动态智能体（Path D）\n\n`;
 md += `**名称：** ${t.dynamicAgent.name}　**能力标签：** ${t.dynamicAgent.label}\n\n`;
 }
 t.roundData.forEach(rd => {
-md += `### 第 ${rd.round} 轮迭代\n\n`;
+md += `### 第 ${rd.round} 轮迭代
+	> **Token 消耗：** ${rd.usageTokens?.total ? `输入 ${rd.usageTokens.prompt?.toLocaleString() || '?'} / 输出 ${rd.usageTokens.completion?.toLocaleString() || '?'} / 总计 ${rd.usageTokens.total.toLocaleString()}` : '统计中…'}\n\n> **Token 消耗：** ${rd.usageTokens?.total ? `输入 ${rd.usageTokens.prompt?.toLocaleString() || '?'} / 输出 ${rd.usageTokens.completion?.toLocaleString() || '?'} / 总计 ${rd.usageTokens.total.toLocaleString()}` : '统计中…'}
+
+`;
 
 // ```
   md += `#### 阶一：五路并发草稿\n\n`;
@@ -1096,7 +1100,11 @@ txt += `\n`;
 
 if (opts.incProcess && t.roundData?.length) {
 t.roundData.forEach(rd => {
-txt += `${sep1}\n第 ${rd.round} 轮推演过程\n${sep1}\n\n`;
+	txt += `${sep1}\n第 ${rd.round} 轮推演过程\n${sep1}\n`;
+	if (rd.usageTokens?.total) {
+		txt += `Token：输入 ${rd.usageTokens.prompt?.toLocaleString() || '?'} / 输出 ${rd.usageTokens.completion?.toLocaleString() || '?'} / 总计 ${rd.usageTokens.total.toLocaleString()}\n`;
+	}
+	txt += `\n`;
 const paths = [
 ['A · 语言学家', rd.paths.A],
 ['B · 本土编辑', rd.paths.B],
@@ -1345,12 +1353,15 @@ const data = line.slice(6).trim();
 if (data === '[DONE]') continue;
 try {
 const parsed = JSON.parse(data);
-	// 捕获真实 token 消耗（DeepSeek：只在最终 chunk 返回，直接赋值不累加）
+	// 捕获真实 token 消耗（DeepSeek：只在最终 chunk 返回）
 	if (parsed.usage && parsed.usage.total_tokens != null) {
 		const u = parsed.usage;
-		state.usageTokens.prompt = u.prompt_tokens || 0;
-		state.usageTokens.completion = u.completion_tokens || 0;
-		state.usageTokens.total = u.total_tokens || 0;
+		state.usageTokens.prompt += (u.prompt_tokens || 0);
+		state.usageTokens.completion += (u.completion_tokens || 0);
+		state.usageTokens.total += (u.total_tokens || 0);
+		state.currentRoundUsage.prompt += (u.prompt_tokens || 0);
+		state.currentRoundUsage.completion += (u.completion_tokens || 0);
+		state.currentRoundUsage.total += (u.total_tokens || 0);
 	}
 const delta = parsed.choices?.[0]?.delta || {};
 if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
@@ -1427,7 +1438,11 @@ const parsed = JSON.parse(data);
 	// 捕获 Claude 真实 token 消耗
 	if (parsed.type === 'message_delta' && parsed.usage) {
 		const u = parsed.usage;
-		if (u.output_tokens) state.usageTokens.completion += u.output_tokens;
+		if (u.output_tokens) {
+			state.usageTokens.completion += u.output_tokens;
+			state.currentRoundUsage.completion += u.output_tokens;
+			state.currentRoundUsage.total += u.output_tokens;
+		}
 	}
 if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
 resultContent += parsed.delta.text;
@@ -2285,6 +2300,7 @@ document.getElementById('exportSection').style.display = 'block';
 // 保存用于导出 & 历史（包含完整推演数据）
 const roundData = [];
 for (let ri = 0; ri < mode.rounds; ri++) {
+  state.currentRoundUsage = { prompt: 0, completion: 0, total: 0 };
   roundData.push({
     round: ri + 1,
     paths: {
@@ -2304,6 +2320,7 @@ for (let ri = 0; ri < mode.rounds; ri++) {
     },
     synthesis: document.getElementById(`synth${ri}`)?.textContent?.trim() || '',
     memo: document.getElementById(`memo${ri}`)?.textContent?.trim() || '',
+    usageTokens: { ...state.currentRoundUsage },
   });
 }
 state.lastTranslation = {
