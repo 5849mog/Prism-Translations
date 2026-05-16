@@ -1285,6 +1285,8 @@ return callClaude(messages, onChunk, temperature, retryCount);
 }
 
 const payload = { model: cfg.model, messages, stream: true, temperature };
+// 流式模式下请求 API 返回 usage 统计（OpenAI 兼容格式）
+if (!cfg.isAnthropic) payload.stream_options = { include_usage: true };
 if (state.provider === 'deepseek') {
 if (state.thinkingMode === 'disabled') { payload.thinking = { type: 'disabled' }; }
 else if (state.thinkingMode === 'high') { payload.thinking = { type: 'enabled', budget_tokens: 2048 }; }
@@ -1343,12 +1345,12 @@ const data = line.slice(6).trim();
 if (data === '[DONE]') continue;
 try {
 const parsed = JSON.parse(data);
-	// 捕获真实 token 消耗（流式响应最后一条消息包含 usage）
-	if (parsed.usage) {
+	// 捕获真实 token 消耗（DeepSeek：只在最终 chunk 返回，直接赋值不累加）
+	if (parsed.usage && parsed.usage.total_tokens != null) {
 		const u = parsed.usage;
-		if (u.prompt_tokens) state.usageTokens.prompt += u.prompt_tokens;
-		if (u.completion_tokens) state.usageTokens.completion += u.completion_tokens;
-		if (u.total_tokens) state.usageTokens.total += u.total_tokens;
+		state.usageTokens.prompt = u.prompt_tokens || 0;
+		state.usageTokens.completion = u.completion_tokens || 0;
+		state.usageTokens.total = u.total_tokens || 0;
 	}
 const delta = parsed.choices?.[0]?.delta || {};
 if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
