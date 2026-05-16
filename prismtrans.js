@@ -46,7 +46,8 @@ pickingFor: null,
 startTime: null,
 timerInterval: null,
 lastTranslation: null,
-abortController: null, // 用于中断翻译
+abortController: null,
+usageTokens: { prompt: 0, completion: 0, total: 0 },
 };
 
 // ─────────────────────────────────────────
@@ -971,7 +972,8 @@ md += `## 📋 基本信息\n\n`;
 md += `| 项目 | 内容 |\n|------|------|\n`;
 md += `| 导出时间 | ${ts} |\n`;
 md += `| 语言对 | ${t.srcLang} → ${t.tgtLang} |\n`;
-md += `| 翻译模型 | \`${t.model}\` |\n`; md += `| 引擎模式 | ${modeNames[t.mode] || t.mode || '—'} |\n`; md += `| 迭代轮次 | ${t.rounds || 1} 轮 |\n`; if (t.dynamicAgent?.name) md += `| 动态智能体 D | ${t.dynamicAgent.name}（${t.dynamicAgent.label}）|\n`; if (t.thinkingMode && t.thinkingMode !== 'disabled') md += `| 深度思考 | ${t.thinkingMode === 'high' ? '已启用（2K tokens）' : '已启用（4K tokens）'} |\n`; md += `| 耗时 | ${elapsed} |\n`; md += `| 原文字符数 | ${t.charCount || t.source?.length || '—'} 字符 |\n`; if (t.customPrompt) md += `| 自定义指令 | \`${t.customPrompt.slice(0,80)}${t.customPrompt.length>80?'...':''}\` |\n`; md += `\n`;
+md += `| 翻译模型 | \`${t.model}\` |\n`; md += `| 引擎模式 | ${modeNames[t.mode] || t.mode || '—'} |\n`; md += `| 迭代轮次 | ${t.rounds || 1} 轮 |\n`; if (t.dynamicAgent?.name) md += `| 动态智能体 D | ${t.dynamicAgent.name}（${t.dynamicAgent.label}）|\n`; if (t.thinkingMode && t.thinkingMode !== 'disabled') md += `| 深度思考 | ${t.thinkingMode === 'high' ? '已启用（预算 2K）' : '已启用（预算 4K）'} |\n`; md += `| 耗时 | ${elapsed} |\n`; md += `| 原文字符数 | ${t.charCount || t.source?.length || '—'} 字符 |\n`; if (t.customPrompt) md += `| 自定义指令 | \`${t.customPrompt.slice(0,80)}${t.customPrompt.length>80?'...':''}\` |\n`; md += `\n`;
+md += `| API Token 消耗 | ${t.usageTokens?.total ? `${t.usageTokens.total.toLocaleString()}（输入 ${t.usageTokens.prompt?.toLocaleString() || '?'} / 输出 ${t.usageTokens.completion?.toLocaleString() || '?'}）` : '统计中…'} |\n`;
 }
 
 // 原文
@@ -1070,6 +1072,7 @@ txt += `迭代轮次：${t.rounds || 1} 轮\n`;
 if (t.dynamicAgent?.name) txt += `动态智能体：${t.dynamicAgent.name}（${t.dynamicAgent.label}）\n`;
 txt += `耗时：${fmtElapsed(t.elapsed)}\n`;
 txt += `原文长度：${t.charCount || t.source?.length || '—'} 字符\n`;
+txt += `API Token 消耗：${t.usageTokens?.total ? `${t.usageTokens.total.toLocaleString()}（输入 ${t.usageTokens.prompt?.toLocaleString() || '?'} / 输出 ${t.usageTokens.completion?.toLocaleString() || '?'}）` : '统计中…'}\n`;
 if (t.customPrompt) txt += `自定义指令：${t.customPrompt.slice(0,100)}\n`;
 txt += `\n`;
 }
@@ -1340,6 +1343,13 @@ const data = line.slice(6).trim();
 if (data === '[DONE]') continue;
 try {
 const parsed = JSON.parse(data);
+	// 捕获真实 token 消耗（流式响应最后一条消息包含 usage）
+	if (parsed.usage) {
+		const u = parsed.usage;
+		if (u.prompt_tokens) state.usageTokens.prompt += u.prompt_tokens;
+		if (u.completion_tokens) state.usageTokens.completion += u.completion_tokens;
+		if (u.total_tokens) state.usageTokens.total += u.total_tokens;
+	}
 const delta = parsed.choices?.[0]?.delta || {};
 if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
 if (delta.content) resultContent += delta.content;
@@ -1412,6 +1422,11 @@ const data = line.slice(6).trim();
 if (data === '[DONE]' || data === '') continue;
 try {
 const parsed = JSON.parse(data);
+	// 捕获 Claude 真实 token 消耗
+	if (parsed.type === 'message_delta' && parsed.usage) {
+		const u = parsed.usage;
+		if (u.output_tokens) state.usageTokens.completion += u.output_tokens;
+	}
 if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
 resultContent += parsed.delta.text;
 if (onChunk) {
@@ -1687,6 +1702,39 @@ function splitParaBySentences(para, targetLen) {
 }
 
 // ── 2. 术语提取（从首块译文中提取）──
+// ── 流式回溯草稿清理 ──
+// DeepSeek V4 等模型在流式输出时会自我修正回溯，导致累计内容包含重复草稿痕迹
+function cleanStreamingArtifacts(text) {
+  if (!text || text.length < 10) return text;
+  let cleaned = text;
+  // 策略1: 检测相邻短重复（3-15字符）
+  for (let len = 15; len >= 3; len--) {
+    for (let i = 0; i + len * 2 <= cleaned.length; i++) {
+      const a = cleaned.slice(i, i + len);
+      const b = cleaned.slice(i + len, i + len * 2);
+      if (a === b && a.trim() && !/^\s*$/.test(a)) {
+        cleaned = cleaned.slice(0, i + len) + cleaned.slice(i + len * 2);
+        i = Math.max(-1, i - len - 1);
+      }
+    }
+  }
+  // 策略2: 检测前段与后段的重复（模型回溯重写整个段落）
+  for (let prefixLen = 20; prefixLen <= 80 && prefixLen * 2 <= cleaned.length; prefixLen++) {
+    const prefix = cleaned.slice(0, prefixLen);
+    for (let pos = prefixLen + 5; pos + prefixLen <= cleaned.length; pos++) {
+      if (cleaned.slice(pos, pos + prefixLen) === prefix) {
+        // 找到重复前缀，检查中间内容是否像草稿
+        const middle = cleaned.slice(prefixLen, pos);
+        if (middle.length < prefixLen * 3 && middle.length > 3) {
+          cleaned = cleaned.slice(0, prefixLen) + cleaned.slice(pos);
+          return cleanStreamingArtifacts(cleaned);
+        }
+      }
+    }
+  }
+  return cleaned;
+}
+
 // ── 分块翻译 Prompt 构建 ──
 function promptChunkTranslation(src, tgt, context, chunk, i, total) {
   let prompt = `请将以下${src}文本翻译为${tgt}。这是长文第${i+1}/${total}段。\n\n要求：\n1. 必须完全使用${tgt}输出，严禁保留${src}原文\n2. 直接输出纯净译文正文，不要任何标题/前缀/注释\n3. 保持与上文风格、术语完全一致`;
@@ -1802,6 +1850,7 @@ if (state.running) return;
 
 state.running = true;
 state.abortController = new AbortController();
+state.usageTokens = { prompt: 0, completion: 0, total: 0 };
 const btn = document.getElementById('translateBtn');
 const btnD = document.getElementById('translateBtnDesktop');
 const spinnerHTML = `<span class="spinner">◌</span>&nbsp;引擎全功率运行中...`;
@@ -2418,14 +2467,18 @@ const termLock = termTable.length > 0 ? `\n【已锁定术语】${termTable.join
 const chunkSynthSystem = promptChunkSynthesis(src, tgt, termTable);
 const quickSynthMsg = `原文片段：\n${chunk}${termLock}\n版本A（语言学家）：\n${resA}\n\n版本B（本土编辑）：\n${resB}\n\n版本C（领域专家）：\n${resC}\n\n版本D（${dynamicAgent.name}）：\n${resD}\n\n版本F（风格镜像师）：\n${resF}\n\n批判意见：\n${critiqueA}\n${critiqueB}\n\n请裁决最优译文，直接输出纯净的${tgt}译文。`;
 
-let chunkTrans = '';
+// 流式过程中不更新DOM（避免模型回溯草稿导致显示错乱），只累积到变量
+let rawChunkTrans = '';
 await callDeepSeek([{role:'system',content:chunkSynthSystem},{role:'user',content:quickSynthMsg}], f => {
-  chunkTrans = parseSynthOutput(f).translation || f;
-  chunkResults[i] = chunkTrans;
-  chunkNodes[i].textContent = chunkTrans;
+  rawChunkTrans = f;
 }, 0.3);
 
-chunkResults[i] = parseSynthOutput(chunkTrans).translation || chunkTrans;
+// 流式完成后，一次性解析并显示最终内容
+chunkTrans = parseSynthOutput(rawChunkTrans).translation || rawChunkTrans;
+// 后处理：去除模型回溯导致的重复痕迹
+chunkTrans = cleanStreamingArtifacts(chunkTrans);
+chunkResults[i] = chunkTrans;
+chunkNodes[i].textContent = chunkTrans;
 prevTranslation = chunkResults[i];
 
 // 首块完成后提取术语
