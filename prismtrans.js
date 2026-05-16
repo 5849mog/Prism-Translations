@@ -1009,7 +1009,6 @@ md += `### 第 ${rd.round} 轮迭代 > **Token 消耗：** ${rd.usageTokens?.tot
 
 `;
 
-// ```
 md += `#### 阶一：五路并发草稿\n\n`;
 const pathMeta = [
 ['A · 语言学家', rd.paths.A, '忠实'],
@@ -1044,7 +1043,6 @@ if (rd.memo) {
 md += `#### 迭代备忘录\n\n> ${rd.memo.replace(/\n/g, '\n> ')}\n\n`;
 }
 });
-// ```
 
 }
 
@@ -1948,7 +1946,6 @@ setStatus('初始化：正在动态生成第四智能体...');
 const agentSec = document.getElementById('agentGenSection');
 agentSec.style.display = 'block';
 
-// ```
 const agentRaw = await callDeepSeek([
 { role: 'system', content: promptMetaAgent(src, tgt) },
 { role: 'user', content: `源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本】\n${text}` }
@@ -2131,8 +2128,7 @@ el.classList.remove('streaming');
 
 // 阶三：综合裁决
 setStatus(`第 ${r + 1} 轮 · 阶三：执行综合裁决...`);
-const synthMsg = `原文：\n${text}\n // \```
-
+const synthMsg = `原文：\n${text}\n
 版本A（语言学家）：\n${resA}\n
 版本B（本土编辑）：\n${resB}\n
 版本C（领域专家）：\n${resC}\n
@@ -2336,7 +2332,6 @@ leftPanel.scrollTo({ top: leftPanel.scrollHeight, behavior: 'smooth' });
 } else {
 document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
-// ```
 
 } catch (err) {
 stopTimer();
@@ -2345,14 +2340,12 @@ else if (err.message === 'USER_ABORT') { setStatus('翻译已中断'); showToast
 else { showToast(`错误：${err.message}`, 'error'); console.error(err); }
 setStatus(err.message === 'USER_ABORT' ? '翻译已中断' : '引擎运行异常，请重试');
 
-// ```
 // 异常恢复
 const finalLabelEl = document.querySelector('.result-label');
 if (finalLabelEl.dataset.earlyPreview) {
 finalLabelEl.innerHTML = '最终裁决译文';
 delete finalLabelEl.dataset.earlyPreview;
 }
-// ```
 
 } finally {
 state.running = false;
