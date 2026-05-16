@@ -2316,6 +2316,7 @@ state.lastTranslation = {
   thinkingMode: state.thinkingMode,
   wordCount: text.replace(/\s+/g,' ').trim().split(' ').length,
   charCount: text.length,
+  usageTokens: { ...state.usageTokens },
 };
 
 // 加入历史
@@ -2565,7 +2566,7 @@ stopTimer();
 setProgress(1);
 
 document.getElementById('exportSection').style.display = 'block';
-state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed };
+state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed, usageTokens: { ...state.usageTokens } };
 addHistory({ src: text.slice(0, 200), tgt: fullTranslation.slice(0, 200), srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
 }
 init();
