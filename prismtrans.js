@@ -1391,7 +1391,7 @@ const systemMsg = messages.find(m => m.role === 'system');
 const userMsgs = messages.filter(m => m.role !== 'system');
 const payload = {
 model: state.model || 'claude-sonnet-4-6',
-max_tokens: 4096,
+max_tokens: 8192,
 temperature,
 messages: userMsgs,
 ...(systemMsg ? { system: systemMsg.content } : {}),
