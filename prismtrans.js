@@ -435,6 +435,89 @@ function escHtml(str) {
 return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ─────────────────────────────────────────
+// Markdown 实时渲染引擎
+// ─────────────────────────────────────────
+let _markedLib = null;
+let _markedLoading = false;
+let _markedCallbacks = [];
+
+// 懒加载 marked.js (CDN)
+function ensureMarked() {
+return new Promise((resolve) => {
+if (_markedLib) { resolve(_markedLib); return; }
+_markedCallbacks.push(resolve);
+if (_markedLoading) return;
+_markedLoading = true;
+const s = document.createElement('script');
+s.src = 'https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js';
+s.onload = () => {
+_markedLib = window.marked;
+// 配置：允许软换行、禁用不安全的HTML标签
+if (_markedLib) {
+try {
+_markedLib.setOptions({
+breaks: true,
+gfm: true,
+headerIds: false,
+mangle: false,
+sanitize: false,
+smartypants: false,
+xhtml: false
+});
+} catch(_) {}
+}
+while (_markedCallbacks.length) _markedCallbacks.shift()(_markedLib);
+};
+s.onerror = () => {
+_markedLib = null;
+while (_markedCallbacks.length) _markedCallbacks.shift()(null);
+};
+document.head.appendChild(s);
+});
+}
+
+// 流式场景：智能处理未闭合的 Markdown 标记
+// 策略：临时补全未闭合标记 → marked 解析 → 移除临时补全痕迹
+const UNCLOSED_RE = /(\*\*(?!.*?\*\*)|\*(?!.*?(?<!\*)\*)|__(?!.*?__)|`{1,3}(?!.*?`{1,3})|\[(?![^\]]*\])|<(?![^>]*>))/gs;
+function renderMarkdownStream(raw) {
+if (!_markedLib || !raw) return escHtml(raw);
+// 检查末尾是否有未闭合的 markdown 标记
+let text = raw;
+const trailing = [];
+// 检测末尾未闭合的 **
+if ((text.match(/\*\*/g) || []).length % 2 === 1) {
+text += '**'; trailing.push('**');
+}
+// 检测末尾未闭合的 `
+if ((text.match(/`/g) || []).length % 2 === 1) {
+text += '`'; trailing.push('`');
+}
+// 检测末尾未闭合的 [
+const openBrackets = (text.match(/\[/g) || []).length;
+const closeBrackets = (text.match(/\]/g) || []).length;
+if (openBrackets > closeBrackets) {
+text += '](#)'; trailing.push('](#)');
+}
+// 用 marked 解析
+let html = _markedLib.parse(text);
+// 如果追加了临时补全，移除对应的痕迹
+if (trailing.length > 0) {
+// 移除追加的闭合标记在 HTML 中的体现
+for (const t of trailing) {
+if (t === '**') html = html.replace(/<strong><\/strong>/g, '').replace(/<\/strong><strong>/g, '');
+if (t === '`') html = html.replace(/<code><\/code>/g, '').replace(/<\/code><code>/g, '');
+}
+}
+return html;
+}
+
+// 非流式场景：直接完整渲染
+function renderMarkdown(raw) {
+if (!_markedLib || !raw) return escHtml(raw || '');
+try { return _markedLib.parse(raw); } catch(_) { return escHtml(raw); }
+}
+
 document.getElementById('historyBtn').addEventListener('click', () => {
 renderHistoryList();
 document.getElementById('historyModal').classList.add('active');
@@ -481,14 +564,25 @@ const LABEL_STRIP_RE = /^[[【「]?(最优译文正文|最优译文|优化译文
 function updateUI(el, full, reasoning) {
 let cleanFull = full.replace(LABEL_STRIP_RE, '');
 if (reasoning && !el.hasAttribute('data-has-reasoning')) {
-el.innerHTML = `<div class="reasoning-text"></div><div class="content-text"></div>`;
+el.innerHTML = `<div class="reasoning-text"></div><div class="content-text md-content"></div>`;
 el.setAttribute('data-has-reasoning', 'true');
 }
+const isStreaming = el.classList.contains('streaming');
 if (el.hasAttribute('data-has-reasoning')) {
 el.querySelector('.reasoning-text').textContent = reasoning;
+if (_markedLib) {
+el.querySelector('.content-text').innerHTML = isStreaming ? renderMarkdownStream(cleanFull) : renderMarkdown(cleanFull);
+} else {
 el.querySelector('.content-text').textContent = cleanFull;
+ensureMarked().then(() => updateUI(el, full, reasoning));
+}
+} else {
+if (_markedLib) {
+el.innerHTML = `<div class="md-content">${isStreaming ? renderMarkdownStream(cleanFull) : renderMarkdown(cleanFull)}</div>`;
 } else {
 el.textContent = cleanFull;
+ensureMarked().then(() => updateUI(el, full, reasoning));
+}
 }
 }
 
@@ -2058,7 +2152,15 @@ callDeepSeek([{ role:'system', content: promptPathA(src, tgt) }, { role:'user', 
 updateUI(paEl, f, re);
 if (r === 0) {
 document.getElementById('resultSection').classList.add('active');
-document.getElementById('finalResult').textContent = f.replace(LABEL_STRIP_RE, '');
+const cleanedF = f.replace(LABEL_STRIP_RE, '');
+if (_markedLib) {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
+} else {
+document.getElementById('finalResult').textContent = cleanedF;
+ensureMarked().then(() => {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
+});
+}
 const labelEl = document.querySelector('.result-label');
 if (!labelEl.dataset.earlyPreview) {
 labelEl.dataset.earlyPreview = 'true';
@@ -2176,10 +2278,21 @@ synthEl.textContent = displayText;
 
 if (lastMemo) {
 document.getElementById(`memo-row${r}`).style.display = 'block';
+if (_markedLib) {
+document.getElementById(`memo${r}`).innerHTML = `<div class="md-content md-memo">${renderMarkdown(lastMemo)}</div>`;
+} else {
 document.getElementById(`memo${r}`).textContent = lastMemo;
 }
+}
 
+if (_markedLib) {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdown(lastSynthResult)}</div>`;
+} else {
 document.getElementById('finalResult').textContent = lastSynthResult;
+ensureMarked().then(() => {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdown(lastSynthResult)}</div>`;
+});
+}
 
 completedSteps += 1; setProgress(completedSteps);
 document.getElementById(`rbadge${r}`).textContent = '已完成';
@@ -2227,10 +2340,12 @@ updateUI(document.getElementById('auditRemark'), remark || '', reasoning);
 
 document.getElementById('auditRemark').classList.remove('streaming');
 const { scores, remark } = parseAuditOutput(rawAudit);
+if (_markedLib) {
 if (document.getElementById('auditRemark').hasAttribute('data-has-reasoning')) {
-document.getElementById('auditRemark').querySelector('.content-text').textContent = remark;
+document.getElementById('auditRemark').querySelector('.content-text').innerHTML = `<div class="md-content">${renderMarkdown(remark || '')}</div>`;
 } else {
-document.getElementById('auditRemark').textContent = remark;
+document.getElementById('auditRemark').innerHTML = `<div class="md-content">${renderMarkdown(remark || '')}</div>`;
+}
 }
 
 finalScores = scores;
@@ -2431,8 +2546,12 @@ await callDeepSeek([
 { role: 'user', content: ctxParts.join('\n\n') }
 ], (full) => {
 chunkTrans = full;
-// 流式实时更新到对应节点
+// 流式实时更新到对应节点（Markdown 渲染）
+if (_markedLib) {
+chunkNodes[i].innerHTML = `<div class="md-content">${renderMarkdownStream(chunkTrans)}</div>`;
+} else {
 chunkNodes[i].textContent = chunkTrans;
+}
 }, 0.4);
 
 // 去除可能的前缀标签和原文重复
@@ -2443,7 +2562,11 @@ const lines = chunkTrans.split('\n').filter(l => !chunk.includes(l.trim()) || l.
 if (lines.length > 0) chunkTrans = lines.join('\n').trim();
 }
 chunkResults[i] = chunkTrans;
+if (_markedLib) {
+chunkNodes[i].innerHTML = `<div class="md-content">${renderMarkdown(chunkTrans)}</div>`;
+} else {
 chunkNodes[i].textContent = chunkTrans;
+}
 
 // 首块完成后提取关键术语
 if (i === 0) {
@@ -2467,7 +2590,14 @@ setProgress((i + 1) / total);
 
 // 显示最终结果
 const fullTranslation = chunkResults.join('\n\n');
+if (_markedLib) {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdown(fullTranslation)}</div>`;
+} else {
 document.getElementById('finalResult').textContent = fullTranslation;
+ensureMarked().then(() => {
+document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdown(fullTranslation)}</div>`;
+});
+}
 document.getElementById('chunkBadge').textContent = '已完成';
 document.getElementById('chunkBadge').classList.add('done');
 
