@@ -1,8 +1,7 @@
-// ═══════════════════════════════════════════
 // markdown.js — Markdown实时渲染引擎
-// 依赖: config.js, utils.js (escHtml)
-// ═══════════════════════════════════════════
 
+
+// 懒加载 marked.js (CDN)
 function ensureMarked() {
 return new Promise((resolve) => {
 if (_markedLib) { resolve(_markedLib); return; }
@@ -37,9 +36,6 @@ document.head.appendChild(s);
 });
 }
 
-// 流式场景：智能处理未闭合的 Markdown 标记
-// 策略：临时补全未闭合标记 → marked 解析 → 移除临时补全痕迹
-const UNCLOSED_RE = /(\*\*(?!.*?\*\*)|\*(?!.*?(?<!\*)\*)|__(?!.*?__)|`{1,3}(?!.*?`{1,3})|\[(?![^\]]*\])|<(?![^>]*>))/gs;
 function renderMarkdownStream(raw) {
 if (!_markedLib || !raw) return escHtml(raw);
 // 检查末尾是否有未闭合的 markdown 标记
@@ -72,22 +68,10 @@ if (t === '`') html = html.replace(/<code><\/code>/g, '').replace(/<\/code><code
 return html;
 }
 
+
 // 非流式场景：直接完整渲染
 function renderMarkdown(raw) {
 if (!_markedLib || !raw) return escHtml(raw || '');
 try { return _markedLib.parse(raw); } catch(_) { return escHtml(raw); }
 }
-
-document.getElementById('historyBtn').addEventListener('click', () => {
-renderHistoryList();
-document.getElementById('historyModal').classList.add('active');
-});
-document.getElementById('historyClose').addEventListener('click', closeHistoryModal);
-document.getElementById('historyModal').addEventListener('click', e => { if (e.target === document.getElementById('historyModal')) closeHistoryModal(); });
-document.getElementById('historyClearAll').addEventListener('click', () => {
-if (!confirm('确认清空全部翻译历史？')) return;
-localStorage.removeItem('prism_history');
-updateHistoryBadge();
-renderHistoryList();
-});
 

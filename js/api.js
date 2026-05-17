@@ -1,8 +1,10 @@
-// ═══════════════════════════════════════════
 // api.js — API调用层
-// 依赖: config.js (state), utils.js, markdown.js
-// ═══════════════════════════════════════════
 
+// ─────────────────────────────────────────
+// Provider 配置
+// ─────────────────────────────────────────
+// Provider 配置 (2026 最新)
+// ─────────────────────────────────────────
 function getProviderConfig() {
 const p = state.provider || 'deepseek';
 if (p === 'openai') {
@@ -15,6 +17,7 @@ return { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/comp
 return { url: 'https://api.deepseek.com/v1/chat/completions', model: state.model || 'deepseek-v4-flash', authHeader: `Bearer ${state.apiKey}` };
 }
 }
+
 
 async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0) {
 if (!state.apiKey) throw new Error('NO_KEY');
@@ -122,6 +125,7 @@ if (done) break;
 return resultContent || resultReasoning;
 }
 
+
 // Claude (Anthropic) 专用调用（非流式简化版）
 async function callClaude(messages, onChunk, temperature, retryCount) {
 const signal = state.abortController ? state.abortController.signal : undefined;
@@ -212,7 +216,4 @@ if (done) break;
 }
 return resultContent;
 }
-// ─────────────────────────────────────────
-// System Prompts
-// ─────────────────────────────────────────
 

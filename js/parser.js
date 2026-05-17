@@ -1,8 +1,7 @@
-// ═══════════════════════════════════════════
-// parser.js — 文件解析引擎 (CDN版)
-// 依赖: config.js, utils.js (loadCdn, detectEncoding, decodeBytes)
-// ═══════════════════════════════════════════
+// parser.js — 文件解析引擎
 
+
+// ── 大文件安全读取 ──
 function readFileChunked(file, maxSize) {
 return new Promise((resolve, reject) => {
 const reader = new FileReader();
@@ -12,12 +11,14 @@ reader.readAsArrayBuffer(file.size <= maxSize ? file : file.slice(0, maxSize));
 });
 }
 
+
 // ── HTML / CSV / RTF 原生解析 ──
 function parseHtml(text) {
 const doc = new DOMParser().parseFromString(text, 'text/html');
 doc.querySelectorAll('script, style, nav, header, footer, aside').forEach(el => el.remove());
 return (doc.body?.innerText || '').replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
 }
+
 function parseCsv(text) {
 return text.split(/\r?\n/).map(line => {
 if (!line.trim()) return '';
@@ -32,6 +33,7 @@ cells.push(cell.trim());
 return cells.join('\t');
 }).filter(Boolean).join('\n');
 }
+
 function parseRtf(bytes) {
 const raw = decodeBytes(bytes);
 return raw.replace(/\pard|\par|\tab|\line/g, '\n').replace(/\[a-z]+\d*\s?/gi, '')
@@ -39,6 +41,7 @@ return raw.replace(/\pard|\par|\tab|\line/g, '\n').replace(/\[a-z]+\d*\s?/gi, ''
 .replace(/\u(-?\d+)\s*?/g, (_, c) => String.fromCharCode(+c)).replace(/[{}]/g, '')
 .replace(/\n{3,}/g, '\n\n').trim();
 }
+
 
 // ── 各格式 CDN 解析器 ──
 
@@ -56,12 +59,14 @@ pages.push(tc.items.map(it => it.str).join(' '));
 return pages.join('\n\n');
 }
 
+
 // DOCX → mammoth.js
 async function parseDocxWithCdn(arrayBuffer) {
 await loadCdn('mammoth');
 const result = await mammoth.extractRawText({ arrayBuffer });
 return result.value;
 }
+
 
 // XLSX → SheetJS
 async function parseXlsxWithCdn(arrayBuffer) {
@@ -70,6 +75,7 @@ const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 const ws = wb.Sheets[wb.SheetNames[0]];
 return XLSX.utils.sheet_to_csv(ws).replace(/,/g, '\t');
 }
+
 
 // PPTX / ODT / EPUB → JSZip + XML 文本提取
 async function parseZipXmlWithCdn(arrayBuffer, fileFilter) {
@@ -90,6 +96,7 @@ if (clean.length > 3) text += (text ? '\n\n' : '') + clean;
 }
 return text;
 }
+
 
 // ── 主入口 ──
 async function handleFileSelect(file) {
@@ -166,39 +173,4 @@ default: showToast('不支持的格式：.' + ext);
 }
 } catch (e) { showToast('文件解析失败：' + (e.message || '未知错误'), 'error'); }
 }
-const fileDropZone = document.getElementById('fileDropZone');
-const fileInput = document.getElementById('fileInput');
-
-fileDropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); });
-
-fileDropZone.addEventListener('dragover', e => { e.preventDefault(); fileDropZone.classList.add('drag-over'); });
-fileDropZone.addEventListener('dragleave', () => fileDropZone.classList.remove('drag-over'));
-fileDropZone.addEventListener('drop', e => {
-e.preventDefault(); fileDropZone.classList.remove('drag-over');
-const file = e.dataTransfer.files[0];
-if (file) handleFileSelect(file);
-});
-
-document.getElementById('fileClearBtn').addEventListener('click', (e) => {
-e.stopPropagation();
-document.getElementById('fileLoadedBar').classList.remove('visible');
-document.getElementById('fileInput').value = '';
-showToast('已移除文件');
-});
-
-// ─────────────────────────────────────────
-// 功能 4：自动语言检测（启发式）
-// ─────────────────────────────────────────
-const LANG_DETECT_PATTERNS = [
-{ code:'zh', pattern: /[\u4e00-\u9fff]/, threshold: 0.15 },
-{ code:'ja', pattern: /[\u3040-\u30ff]/, threshold: 0.1 },
-{ code:'ko', pattern: /[\uac00-\ud7af]/, threshold: 0.1 },
-{ code:'ar', pattern: /[\u0600-\u06ff]/, threshold: 0.1 },
-{ code:'ru', pattern: /[\u0400-\u04ff]/, threshold: 0.1 },
-{ code:'hi', pattern: /[\u0900-\u097f]/, threshold: 0.1 },
-{ code:'fa', pattern: /[\u0600-\u06ff\u0750-\u077f]/, threshold: 0.1 },
-{ code:'th', pattern: /[\u0e00-\u0e7f]/, threshold: 0.1 },
-{ code:'vi', pattern: /[àáâãèéêìíòóôõùúýăđơư]/i, threshold: 0.05 },
-];
 

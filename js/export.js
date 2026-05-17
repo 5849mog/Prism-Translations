@@ -1,7 +1,4 @@
-// ═══════════════════════════════════════════
 // export.js — 导出功能
-// 依赖: config.js, utils.js (escHtml, gradeLabel, fmtTimestamp)
-// ═══════════════════════════════════════════
 
 function getOptions() {
 return {
@@ -12,6 +9,48 @@ incProcess: document.getElementById('optIncludeProcess').checked,
 incAgent:   document.getElementById('optIncludeAgent').checked,
 };
 }
+
+
+function triggerDownload(content, mime, ext) {
+const blob = new Blob([content], { type: mime });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const langPair = state.lastTranslation ? `${state.lastTranslation.srcLang}_${state.lastTranslation.tgtLang}`.replace(/\s+/g,'') : '';
+a.href = url;
+a.download = `prismtrans_${langPair}_${dateStr}.${ext}`;
+a.click();
+URL.revokeObjectURL(url);
+}
+
+
+// ── 预览弹窗 ──
+function openPreviewModal(result) {
+let modal = document.getElementById('exportPreviewModal');
+if (!modal) {
+modal = document.createElement('div');
+modal.id = 'exportPreviewModal';
+modal.className = 'export-preview-modal';
+modal.innerHTML = ` <div class="export-preview-panel"> <div class="export-preview-header"> <span class="export-preview-title">导出预览</span> <div style="display:flex;gap:8px;align-items:center;"> <span class="export-preview-chars" id="previewCharCount"></span> <button class="history-close" id="closePreviewBtn" title="关闭"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> </button> </div> </div> <pre class="export-preview-body" id="exportPreviewBody"></pre> <div class="export-preview-footer"> <button class="export-preview-copy-btn" id="previewCopyBtn"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 复制内容 </button> <button class="export-preview-dl-btn" id="previewDownloadBtn"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 下载文件 </button> </div> </div>`;
+document.body.appendChild(modal);
+document.getElementById('closePreviewBtn').addEventListener('click', () => { modal.classList.remove('active'); });
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
+}
+
+document.getElementById('exportPreviewBody').textContent = result.content;
+document.getElementById('previewCharCount').textContent = `${result.content.length.toLocaleString()} 字`;
+
+const prevCopy = document.getElementById('previewCopyBtn');
+const prevDl = document.getElementById('previewDownloadBtn');
+prevCopy.onclick = async () => {
+const r = await copyToClipboard(result.content);
+showToast(r.success ? '已复制 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
+};
+prevDl.onclick = () => { triggerDownload(result.content, result.mime, result.ext); showToast('已下载 ✓', 'success'); };
+
+modal.classList.add('active');
+}
+
 
 // ── Markdown 报告（完整版）──
 function buildMarkdown(t, opts) {
@@ -109,6 +148,7 @@ md += `---\n\n*由 **棱镜译 PrismTrans Pro V6** 生成 · ${ts}*\n`;
 return { content: md, mime: 'text/markdown;charset=utf-8', ext: 'md' };
 }
 
+
 // ── 纯文本报告 ──
 function buildPlainText(t, opts) {
 const sep1 = '═'.repeat(60);
@@ -180,6 +220,7 @@ if (rd.memo) txt += `【迭代备忘录】\n${rd.memo}\n\n`;
 return { content: txt, mime: 'text/plain;charset=utf-8', ext: 'txt' };
 }
 
+
 // ── JSON 数据 ──
 function buildJson(t, opts) {
 const ts = fmtTimestamp();
@@ -221,6 +262,7 @@ memo: rd.memo || null,
 return { content: JSON.stringify(obj, null, 2), mime: 'application/json;charset=utf-8', ext: 'json' };
 }
 
+
 // ── 双语对照 ──
 function buildBilingual(t, opts) {
 const ts = fmtTimestamp();
@@ -230,6 +272,7 @@ if (opts.incMeta) {
 md += `> **语言对：** ${t.srcLang} → ${t.tgtLang}　**模型：** \`${t.model}\`　**导出：** ${ts}\n\n`; } md += `—\n\n`; const srcParas = t.source.split(/\n\n+/); const tgtParas = t.result.split(/\n\n+/); const pMax = Math.max(srcParas.length, tgtParas.length); for (let i = 0; i < pMax; i++) { if (opts.incSrc && srcParas[i]) { md += `**【原文】**\n\n${srcParas[i]}\n\n`; } if (tgtParas[i]) { md += `**【译文】**\n\n${tgtParas[i]}\n\n`; } if (i < pMax - 1) md += `—\n\n`; } if (opts.incScores && t.scores) { md += `\n—\n\n## 质量评分\n\n`; md += `忠实度 **${t.scores[0]}/10** ${gradeLabel(t.scores[0])} · 流畅度 **${t.scores[1]}/10** ${gradeLabel(t.scores[1])} · 地道度 **${t.scores[2]}/10** ${gradeLabel(t.scores[2])} · 均分 **${avg}/10**\n`; if (t.remark) md += `\n> ${t.remark}\n`; } if (opts.incMeta) md += `\n—\n\n*棱镜译 PrismTrans Pro V6 · ${ts}*\n`;
 return { content: md, mime: 'text/markdown;charset=utf-8', ext: 'md' };
 }
+
 
 function buildExportContent(fmt) {
 const t = state.lastTranslation;
@@ -241,83 +284,4 @@ if (fmt === 'json') return buildJson(t, opts);
 if (fmt === 'bilingual') return buildBilingual(t, opts);
 return null;
 }
-
-function triggerDownload(content, mime, ext) {
-const blob = new Blob([content], { type: mime });
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const langPair = state.lastTranslation ? `${state.lastTranslation.srcLang}_${state.lastTranslation.tgtLang}`.replace(/\s+/g,'') : '';
-a.href = url;
-a.download = `prismtrans_${langPair}_${dateStr}.${ext}`;
-a.click();
-URL.revokeObjectURL(url);
-}
-
-// ── 预览弹窗 ──
-function openPreviewModal(result) {
-let modal = document.getElementById('exportPreviewModal');
-if (!modal) {
-modal = document.createElement('div');
-modal.id = 'exportPreviewModal';
-modal.className = 'export-preview-modal';
-modal.innerHTML = ` <div class="export-preview-panel"> <div class="export-preview-header"> <span class="export-preview-title">导出预览</span> <div style="display:flex;gap:8px;align-items:center;"> <span class="export-preview-chars" id="previewCharCount"></span> <button class="history-close" id="closePreviewBtn" title="关闭"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> </button> </div> </div> <pre class="export-preview-body" id="exportPreviewBody"></pre> <div class="export-preview-footer"> <button class="export-preview-copy-btn" id="previewCopyBtn"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 复制内容 </button> <button class="export-preview-dl-btn" id="previewDownloadBtn"> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 下载文件 </button> </div> </div>`;
-document.body.appendChild(modal);
-document.getElementById('closePreviewBtn').addEventListener('click', () => { modal.classList.remove('active'); });
-modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
-}
-
-document.getElementById('exportPreviewBody').textContent = result.content;
-document.getElementById('previewCharCount').textContent = `${result.content.length.toLocaleString()} 字`;
-
-const prevCopy = document.getElementById('previewCopyBtn');
-const prevDl = document.getElementById('previewDownloadBtn');
-prevCopy.onclick = async () => {
-const r = await copyToClipboard(result.content);
-showToast(r.success ? '已复制 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
-};
-prevDl.onclick = () => { triggerDownload(result.content, result.mime, result.ext); showToast('已下载 ✓', 'success'); };
-
-modal.classList.add('active');
-}
-
-document.getElementById('exportBtn').addEventListener('click', () => {
-const result = buildExportContent(currentExportFmt);
-if (!result) return;
-triggerDownload(result.content, result.mime, result.ext);
-showToast('报告已导出 ✓', 'success');
-});
-
-document.getElementById('exportCopyBtn').addEventListener('click', async () => {
-const result = buildExportContent(currentExportFmt);
-if (!result) return;
-const r = await copyToClipboard(result.content);
-showToast(r.success ? '已复制到剪贴板 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
-});
-
-document.getElementById('exportPreviewBtn').addEventListener('click', () => {
-const result = buildExportContent(currentExportFmt);
-if (!result) return;
-openPreviewModal(result);
-});
-// ─────────────────────────────────────────
-// 功能 5：API 错误细分
-// ─────────────────────────────────────────
-const API_ERROR_TIPS = {
-401: '❌ API 密钥无效或已过期，请在设置中重新填写。',
-402: '💳 账户余额不足，请前往对应平台充值后重试。',
-403: '🚫 无权访问该模型，请检查 API 密钥权限或模型可用性。',
-429: '⏳ 请求过于频繁（限流），请稍候片刻后再试。',
-500: '🔧 服务器内部错误，请稍后重试。',
-503: '🔧 服务暂时不可用，请稍后重试。',
-};
-
-// ─────────────────────────────────────────
-// DeepSeek API 调用（接入 AbortController）
-// ─────────────────────────────────────────
-// ─────────────────────────────────────────
-// Provider 配置
-// ─────────────────────────────────────────
-// Provider 配置 (2026 最新)
-// ─────────────────────────────────────────
 
