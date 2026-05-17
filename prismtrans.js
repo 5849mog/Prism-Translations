@@ -2415,14 +2415,15 @@ const chunk = chunks[i];
 const context = buildContextMemory(i, total, chunkResults, termTable);
 
 // 单路直接翻译（极速模式：不再做五路+批判+裁决，一次到位）
-const sysPrompt = `你是一位资深翻译专家。请将${src}文本精准翻译为${tgt}。
-要求：忠实原文、语言流畅、地道自然。必须直接输出译文正文，不要带任何前缀标签或分析过程。`;
+// 注意：src/tgt 是语言对象 {name, code}，必须用 .name 取语言名称
+const sysPrompt = `你是一位资深翻译专家。任务：将${escHtml(src.name)}文本精准翻译为${escHtml(tgt.name)}。
+要求：忠实原文、语言流畅、地道自然。必须直接输出译文正文，绝对不要带任何前缀标签、分析过程或元信息。`;
 
 const ctxParts = [];
-if (context.prevContext) ctxParts.push(`【前接译文】\n${context.prevContext}`);
-if (context.termList && context.termList.length > 0) ctxParts.push(`【术语锁定（必须全文一致使用）】\n${context.termList.join('\n')}`);
-if (context.summary) ctxParts.push(`【全文概要】\n${context.summary}`);
-ctxParts.push(`【待翻译片段（第${i+1}/${total}块）】\n${chunk}`);
+if (context.prevContext) ctxParts.push(`=== 前接译文（风格参考，请勿翻译） ===\n${context.prevContext}`);
+if (context.termList && context.termList.length > 0) ctxParts.push(`=== 术语锁定（全文强制一致使用） ===\n${context.termList.join('\n')}`);
+if (context.summary) ctxParts.push(`=== 全文概要（背景参考，请勿翻译） ===\n${context.summary}`);
+ctxParts.push(`=== 需要翻译的内容（第${i+1}/${total}块） ===\n${chunk}\n\n只翻译上方"=== 需要翻译的内容"部分，其他均为参考信息。`);
 
 let chunkTrans = '';
 await callDeepSeek([
@@ -2434,8 +2435,13 @@ chunkTrans = full;
 chunkNodes[i].textContent = chunkTrans;
 }, 0.4);
 
-// 去除可能的前缀标签
+// 去除可能的前缀标签和原文重复
 chunkTrans = chunkTrans.replace(LABEL_STRIP_RE, '').trim();
+// 兜底：如果翻译结果和原文几乎一样（模型直接返回了原文），尝试去除原文前缀
+if (chunkTrans === chunk || chunkTrans.startsWith(chunk.slice(0, 20))) {
+const lines = chunkTrans.split('\n').filter(l => !chunk.includes(l.trim()) || l.trim().length < 3);
+if (lines.length > 0) chunkTrans = lines.join('\n').trim();
+}
 chunkResults[i] = chunkTrans;
 chunkNodes[i].textContent = chunkTrans;
 
