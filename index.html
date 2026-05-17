@@ -43,7 +43,7 @@
   --sans: 'Noto Sans SC', 'Arial', system-ui, sans-serif;
   --mono: 'DM Mono', monospace;
 
-  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
   --r-2xl: 24px; --r-3xl: 32px; --r-full: 9999px;
 
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
@@ -57,7 +57,9 @@
 /* ════════════════════════════════════════
    基础 & 滚动条
 ════════════════════════════════════════ */
-body { font-family: var(--sans); background: var(--parchment); color: var(--near-black); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--sans); background: var(--parchment); color: var(--near-black); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.018'/%3E%3C/svg%3E");
+}
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-warm); border-radius: 4px; }
@@ -176,17 +178,22 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .logo-sub { font-size: 10px; color: var(--stone); letter-spacing: 0.7px; text-transform: uppercase; display: block; margin-top: 1px; }
 .logo-version { display: inline-flex; align-items: center; font-size: 9px; background: var(--terracotta); color: white; padding: 1px 6px; border-radius: var(--r-full); margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px; }
 /* 桌面端模型指示芯片 */
-.topbar-model-chip { display: none; }
+.api-status { display: none; }
 @media (min-width: 1024px) {
-  .topbar-model-chip {
-    display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--stone);
-    background: var(--ivory); border: 1px solid var(--border-cream);
-    padding: 5px 12px; border-radius: var(--r-full);
-    letter-spacing: 0.2px; font-family: var(--mono); pointer-events: none; user-select: none;
+  .api-status {
+    display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--olive);
+    font-family: var(--sans); letter-spacing: 0.3px;
+    pointer-events: none; user-select: none;
   }
-  .topbar-model-chip::before {
-    content: ''; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--success); flex-shrink: 0; box-shadow: 0 0 0 2px rgba(61,122,92,0.2);
+  .api-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success); flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(61,122,92,0.15);
+    animation: statusBreathe 3s ease-in-out infinite;
+  }
+  @keyframes statusBreathe {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 2px rgba(61,122,92,0.15); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(61,122,92,0); }
   }
 }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
@@ -521,7 +528,10 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .empty-title { color: var(--charcoal); font-size: 17px; letter-spacing: 0.3px; font-family: var(--serif); margin-bottom: 10px; font-weight: 500; }
 .empty-desc { color: var(--stone); font-size: 13px; letter-spacing: 0.2px; max-width: 280px; text-align: center; line-height: 1.7; margin-bottom: 32px; }
 .empty-features { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 300px; }
-.empty-feature { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--r-lg); background: var(--parchment); border: 1px solid var(--border-cream); }
+.empty-feature { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--r-md); background: var(--parchment); border: 1px solid var(--border-cream); position: relative; overflow: hidden; transition: all 0.3s var(--ease-out-quart); cursor: default; }
+.empty-feature::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--terracotta); opacity: 0; transition: opacity 0.3s; }
+.empty-feature:hover { background: var(--white); transform: translateX(3px); box-shadow: var(--shadow-sm); }
+.empty-feature:hover::before { opacity: 0.4; }
 .empty-feature-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .empty-feature-dot.a { background: #6b9fd4; }
 .empty-feature-dot.b { background: var(--terracotta); }
@@ -1331,7 +1341,7 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
       </div>
     </div>
     <div class="topbar-right">
-      <div class="topbar-model-chip" id="modelChip">deepseek-v4-flash</div>
+      <div class="api-status" id="apiStatus"><span class="api-status-dot"></span>API 已连接</div>
       <div class="icon-btn" id="historyBtn" title="翻译历史">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><path d="M3 3v4h4"/></svg>
         <span class="history-badge" id="historyBadge">0</span>
@@ -1388,9 +1398,9 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
       </div>
 
       <div class="textarea-card">
-        <textarea id="sourceText" placeholder="在此输入需要翻译的文本…（Ctrl+Enter 快速启动）"></textarea>
+        <textarea id="sourceText" placeholder="将需要翻译的文字贴于此处…（Ctrl+Enter 快速启动）"></textarea>
         <div class="input-footer">
-          <span class="char-count"><span id="charNum">0</span> 字符</span>
+          <span class="char-count"><span id="charNum">0</span> 字</span>
           <div class="input-actions">
             <button class="input-mini-btn" id="pasteBtn" title="粘贴">粘贴</button>
             <button class="input-mini-btn" id="clearBtn">清空</button>
@@ -1612,9 +1622,9 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
     <div style="margin-top:20px;width:100%;max-width:300px;">
       <button id="demoBtn" style="width:100%;padding:12px 16px;border-radius:var(--r-lg);border:1.5px solid var(--terracotta);background:transparent;color:var(--terracotta);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;font-family:var(--sans);letter-spacing:0.3px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        运行示例体验
+        试译一段
       </button>
-      <div style="font-size:10px;color:var(--warm-silver);text-align:center;margin-top:6px;letter-spacing:0.2px;">预填多语言复杂文本，一键展示完整流程</div>
+      <div style="font-size:10px;color:var(--warm-silver);text-align:center;margin-top:6px;letter-spacing:0.2px;">贴入一段多语言文本，看完整翻译过程</div>
     </div>
     <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动</div>
   </div>
