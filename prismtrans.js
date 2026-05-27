@@ -2016,8 +2016,10 @@ const setProgress = n => {
 const pct = Math.round(n / totalSteps * 100);
 document.getElementById('progressFill').style.width = pct + '%';
 document.getElementById('progressPct').textContent = pct + '%';
+// 增强层钩子
+if (window.PrismEnhance) window.PrismEnhance.updateProgress(pct);
 };
-const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; };
+const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; if (window.PrismEnhance) window.PrismEnhance.flashStatus(); };
 
 const src = state.srcLang.name, tgt = state.tgtLang.name;
 let lastSynthResult = '', lastMemo = '';
@@ -2099,6 +2101,8 @@ const synthEl = document.getElementById(`synth${r}`);
 
 // 阶一：五路并发独立翻译（A/B/C/D/F）
 setStatus(`第 ${r + 1} 轮 · 阶一：五路并发独立翻译...`);
+// 增强层：激活所有路径指示器
+document.querySelectorAll('.path-item').forEach((item, idx) => { if (idx < 6) item.classList.add('active-translating'); });
 peEl.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">作为后处理层，等待基础草稿就绪...</span>';
 peEl.classList.remove('streaming');
 
@@ -2160,6 +2164,11 @@ callDeepSeek([{ role:'system', content: promptPathA(src, tgt) }, { role:'user', 
 updateUI(paEl, f, re);
 if (r === 0) {
 document.getElementById('resultSection').classList.add('active');
+// 增强层：触发结果揭示动画
+if (window.PrismEnhance && window.PrismEnhance.fadeOutIn) {
+  const resultCard = document.querySelector('.result-card');
+  if (resultCard) window.PrismEnhance.fadeOutIn(resultCard);
+}
 const cleanedF = f.replace(LABEL_STRIP_RE, '');
 if (_markedLib) {
 document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
@@ -2182,6 +2191,8 @@ callDeepSeek([{ role:'system', content: dynamicAgent.systemPrompt }, { role:'use
 callDeepSeek([{ role:'system', content: promptPathF(src, tgt) }, { role:'user', content: buildUserMsg('风格镜像师', 'F') }], (f,re) => updateUI(pfEl, f, re), 0.75).then(res => resF = res),
 ]);
 [paEl,pbEl,pcEl,pdEl,pfEl].forEach(el => el.classList.remove('streaming'));
+// 增强层：移除路径活性指示
+document.querySelectorAll('.path-item').forEach(item => item.classList.remove('active-translating'));
 lastPaths.A = resA; lastPaths.B = resB; lastPaths.C = resC; lastPaths.D = resD; lastPaths.F = resF;
 completedSteps += 5; setProgress(completedSteps);
 
@@ -2364,6 +2375,8 @@ if (scores) {
 scores.forEach((s, i) => {
 const isExcellent = s >= 9;
 document.getElementById(`s${i}`).textContent = s;
+// 增强层：评分动画
+if (window.PrismEnhance) window.PrismEnhance.animateScore(`s${i}`, s, i * 180);
 if (isExcellent) {
 document.getElementById(`s${i}`).classList.add('excellent');
 document.getElementById(`si${i}`).classList.add('excellent');
@@ -2405,6 +2418,11 @@ delete finalLabelEl.dataset.earlyPreview;
 
 // 显示最终结果面板（防漏）
 document.getElementById('resultSection').classList.add('active');
+// 增强层：触发结果揭示动画
+if (window.PrismEnhance && window.PrismEnhance.fadeOutIn) {
+  const resultCard = document.querySelector('.result-card');
+  if (resultCard) window.PrismEnhance.fadeOutIn(resultCard);
+}
 document.getElementById('exportSection').style.display = 'block';
 
 // 保存用于导出 & 历史（包含完整推演数据）
@@ -2594,6 +2612,8 @@ if (cardEl) cardEl.insertBefore(termPanel, document.getElementById('chunkGrid'))
 pills[i].className = 'chunk-pill done';
 pills[i].querySelector('.chunk-pill-label').textContent = '完成';
 setProgress((i + 1) / total);
+// 增强层：进度脉冲
+if (window.PrismEnhance) window.PrismEnhance.updateProgress(Math.round((i + 1) / total * 100));
 }
 
 // 显示最终结果
