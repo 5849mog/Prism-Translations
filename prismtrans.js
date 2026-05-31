@@ -645,11 +645,29 @@ showToast('已粘贴', 'success');
 } catch(_) { showToast('无法访问剪贴板'); }
 });
 
-document.getElementById('clearBtn').addEventListener('click', () => {
+// -- 统一清空函数（UI + 数据状态全重置）--
+function doClearAll() {
 document.getElementById('sourceText').value = '';
 updateWordStats();
 updateTranslateBtnState();
 safeRemove('session', TEXT_CACHE_KEY);
+// 清空最终结果（防止 swapBtn 等引用旧数据）
+document.getElementById('finalResult').textContent = '';
+document.getElementById('bilingualView').style.display = 'none';
+document.getElementById('finalResult').style.display = '';
+// 重置双语对照状态
+_bilingualActive = false;
+const bilingualBtn = document.getElementById('bilingualBtn');
+if (bilingualBtn) bilingualBtn.style.color = '';
+// 重置翻译历史状态
+state.lastTranslation = null;
+// 重置语音输入累积变量
+finalTranscript = '';
+if (_isVoiceListening) {
+_isVoiceListening = false;
+try { _recognition.stop(); } catch(_) {}
+updateVoiceBtnState();
+}
 document.getElementById('resultSection').classList.remove('active');
 const labelEl = document.querySelector('.result-label');
 labelEl.innerHTML = '最终裁决译文';
@@ -668,7 +686,8 @@ document.getElementById('sp1').textContent = '流 —';
 document.getElementById('sp2').textContent = '地 —';
 ['sp0','sp1','sp2'].forEach(id => document.getElementById(id).classList.remove('loaded'));
 stopTimer();
-});
+}
+document.getElementById('clearBtn').addEventListener('click', doClearAll);
 
 // ─────────────────────────────────────────
 // 语言对调（带内容互换）
@@ -681,9 +700,9 @@ setTimeout(() => btn.classList.remove('swapping'), 300);
 [state.srcLang, state.tgtLang] =[state.tgtLang, state.srcLang];
 updateLangDisplay();
 
-const final = document.getElementById('finalResult').textContent;
-if (final) {
-document.getElementById('sourceText').value = final;
+// 只有当存在有效翻译记录时才交换内容（doClearAll 已将其置为 null）
+if (state.lastTranslation?.result) {
+document.getElementById('sourceText').value = state.lastTranslation.result;
 updateWordStats();
 document.getElementById('resultSection').classList.remove('active');
 document.getElementById('enginePanel').classList.remove('active');
