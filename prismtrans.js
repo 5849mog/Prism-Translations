@@ -479,7 +479,6 @@ document.head.appendChild(s);
 
 // 流式场景：智能处理未闭合的 Markdown 标记
 // 策略：临时补全未闭合标记 → marked 解析 → 移除临时补全痕迹
-const UNCLOSED_RE = /(\*\*(?!.*?\*\*)|\*(?!.*?(?<!\*)\*)|__(?!.*?__)|`{1,3}(?!.*?`{1,3})|\[(?![^\]]*\])|<(?![^>]*>))/gs;
 function renderMarkdownStream(raw) {
 if (!_markedLib || !raw) return escHtml(raw);
 // 检查末尾是否有未闭合的 markdown 标记
@@ -659,7 +658,6 @@ updateLangDisplay();
 
 const final = document.getElementById('finalResult').textContent;
 if (final) {
-const src = document.getElementById('sourceText').value;
 document.getElementById('sourceText').value = final;
 updateWordStats();
 document.getElementById('resultSection').classList.remove('active');
@@ -1308,11 +1306,16 @@ document.getElementById('previewCharCount').textContent = `${result.content.leng
 
 const prevCopy = document.getElementById('previewCopyBtn');
 const prevDl = document.getElementById('previewDownloadBtn');
-prevCopy.onclick = async () => {
+// 移除旧事件监听器避免重复绑定
+const newPrevCopy = prevCopy.cloneNode(true);
+const newPrevDl = prevDl.cloneNode(true);
+prevCopy.parentNode.replaceChild(newPrevCopy, prevCopy);
+prevDl.parentNode.replaceChild(newPrevDl, prevDl);
+newPrevCopy.addEventListener('click', async () => {
 const r = await copyToClipboard(result.content);
 showToast(r.success ? '已复制 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
-};
-prevDl.onclick = () => { triggerDownload(result.content, result.mime, result.ext); showToast('已下载 ✓', 'success'); };
+});
+newPrevDl.addEventListener('click', () => { triggerDownload(result.content, result.mime, result.ext); showToast('已下载 ✓', 'success'); });
 
 modal.classList.add('active');
 }
@@ -1865,16 +1868,6 @@ return cleanStreamingArtifacts(cleaned);
 return cleaned;
 }
 
-// ── 分块翻译 Prompt 构建 ──
-function promptChunkTranslation(src, tgt, context, chunk, i, total) {
-let prompt = `请将以下${src}文本翻译为${tgt}。这是长文第${i+1}/${total}段。\n\n要求：\n1. 必须完全使用${tgt}输出，严禁保留${src}原文\n2. 直接输出纯净译文正文，不要任何标题/前缀/注释\n3. 保持与上文风格、术语完全一致`;
-if (context && context.trim()) {
-prompt += `\n\n${context}`;
-}
-prompt += `\n\n【待翻译文本】\n${chunk}`;
-return prompt;
-}
-
 // ── 分块合成 Prompt 构建 ──
 function promptChunkSynthesis(src, tgt, termTable) {
 let base = `你是终极翻译裁决官。将四路草稿合并为最优的${tgt}译文。\n\n规则：\n1. 必须输出纯净的${tgt}译文，禁止任何前缀/标题/注释\n2. 选择最准确、最流畅、最地道的表达\n3. 消除四路之间的冲突和重复\n4. 确保语体风格一致\n5. 如果某路明显偏离，果断舍弃`;
@@ -1900,8 +1893,13 @@ return [...new Set(terms)].slice(0, 15);
 
 // ── 3. 结构化上下文记忆 ──
 function buildContextMemory(i, total, chunkResults, termTable) {
-const parts = [];
-if (termTable.length > 0) parts.push(`【已确立术语表 — 后续翻译必须严格遵循】\n${termTable.map(t => `- ${t}`).join('\n')}`);
+const result = {
+termList: termTable && termTable.length > 0 ? termTable : [],
+prevContext: (i > 0 && chunkResults[i - 1]) ? chunkResults[i - 1].slice(-200) : '',
+summary: '',
+position: `长文第 ${i + 1}/${total} 段`
+};
+// 构建前文摘要
 if (i > 0) {
 const summaries = [];
 for (let j = Math.max(0, i - 3); j < i; j++) {
@@ -1910,21 +1908,24 @@ const s = chunkResults[j].match(/^[^\u3002\uFF01\uFF1F.!?]{10,80}[\u3002\uFF01\u
 if (s) summaries.push(`[块${j+1}] ${s[0]}`);
 }
 }
-if (summaries.length) parts.push(`【前文摘要】\n${summaries.join('\n')}`);
-}
-if (i > 0 && chunkResults[i - 1]) parts.push(`【紧邻上文末段（确保衔接）】\n${chunkResults[i - 1].slice(-200)}`);
 // 语体风格
-if (i > 0 && chunkResults[0]) {
+let styleNote = '';
+if (chunkResults[0]) {
 const t0 = chunkResults[0];
 let style = '中性说明体';
 if (/[\u6211\u4F60\u4ED6\u5979\u6211\u4EEC\u54B1\u4EEC]/.test(t0)) style = '叙事体';
 else if (/[\u672C\u54C1\u672C\u516C\u53F8\u672C\u7CFB\u7EDF\u7528\u6237]/.test(t0)) style = '技术说明体';
 else if (/[\u656C\u8BF7\u8C28\u6B64\u81F4\u4EE5\u987A\u795D]/.test(t0)) style = '正式信函体';
 else if (/[\u6211\u8BA4\u4E3A\u4ED6\u6307\u51FA\u7814\u7A76\u8868\u660E]/.test(t0)) style = '学术论述体';
-parts.push(`【语体风格】${style} — 请保持全文一致`);
+styleNote = `【语体风格】${style} — 请保持全文一致`;
 }
-parts.push(`【当前位置】长文第 ${i + 1}/${total} 段`);
-return parts.join('\n\n');
+const parts = [];
+if (summaries.length) parts.push(`【前文摘要】\n${summaries.join('\n')}`);
+if (styleNote) parts.push(styleNote);
+parts.push(`【当前位置】${result.position}`);
+result.summary = parts.join('\n\n');
+}
+return result;
 }
 
 // ── 4. 块间一致性审计 ──
@@ -2016,10 +2017,8 @@ const setProgress = n => {
 const pct = Math.round(n / totalSteps * 100);
 document.getElementById('progressFill').style.width = pct + '%';
 document.getElementById('progressPct').textContent = pct + '%';
-// 增强层钩子
-if (window.PrismEnhance) window.PrismEnhance.updateProgress(pct);
 };
-const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; if (window.PrismEnhance) window.PrismEnhance.flashStatus(); };
+const setStatus = msg => { document.getElementById('phaseStatus').textContent = msg; };
 
 const src = state.srcLang.name, tgt = state.tgtLang.name;
 let lastSynthResult = '', lastMemo = '';
@@ -2101,8 +2100,6 @@ const synthEl = document.getElementById(`synth${r}`);
 
 // 阶一：五路并发独立翻译（A/B/C/D/F）
 setStatus(`第 ${r + 1} 轮 · 阶一：五路并发独立翻译...`);
-// 增强层：激活所有路径指示器
-document.querySelectorAll('.path-item').forEach((item, idx) => { if (idx < 6) item.classList.add('active-translating'); });
 peEl.innerHTML = '<span style="color:var(--warm-silver);font-style:italic;font-size:11px;">作为后处理层，等待基础草稿就绪...</span>';
 peEl.classList.remove('streaming');
 
@@ -2164,11 +2161,6 @@ callDeepSeek([{ role:'system', content: promptPathA(src, tgt) }, { role:'user', 
 updateUI(paEl, f, re);
 if (r === 0) {
 document.getElementById('resultSection').classList.add('active');
-// 增强层：触发结果揭示动画
-if (window.PrismEnhance && window.PrismEnhance.fadeOutIn) {
-  const resultCard = document.querySelector('.result-card');
-  if (resultCard) window.PrismEnhance.fadeOutIn(resultCard);
-}
 const cleanedF = f.replace(LABEL_STRIP_RE, '');
 if (_markedLib) {
 document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
@@ -2191,8 +2183,6 @@ callDeepSeek([{ role:'system', content: dynamicAgent.systemPrompt }, { role:'use
 callDeepSeek([{ role:'system', content: promptPathF(src, tgt) }, { role:'user', content: buildUserMsg('风格镜像师', 'F') }], (f,re) => updateUI(pfEl, f, re), 0.75).then(res => resF = res),
 ]);
 [paEl,pbEl,pcEl,pdEl,pfEl].forEach(el => el.classList.remove('streaming'));
-// 增强层：移除路径活性指示
-document.querySelectorAll('.path-item').forEach(item => item.classList.remove('active-translating'));
 lastPaths.A = resA; lastPaths.B = resB; lastPaths.C = resC; lastPaths.D = resD; lastPaths.F = resF;
 completedSteps += 5; setProgress(completedSteps);
 
@@ -2375,8 +2365,6 @@ if (scores) {
 scores.forEach((s, i) => {
 const isExcellent = s >= 9;
 document.getElementById(`s${i}`).textContent = s;
-// 增强层：评分动画
-if (window.PrismEnhance) window.PrismEnhance.animateScore(`s${i}`, s, i * 180);
 if (isExcellent) {
 document.getElementById(`s${i}`).classList.add('excellent');
 document.getElementById(`si${i}`).classList.add('excellent');
@@ -2418,11 +2406,6 @@ delete finalLabelEl.dataset.earlyPreview;
 
 // 显示最终结果面板（防漏）
 document.getElementById('resultSection').classList.add('active');
-// 增强层：触发结果揭示动画
-if (window.PrismEnhance && window.PrismEnhance.fadeOutIn) {
-  const resultCard = document.querySelector('.result-card');
-  if (resultCard) window.PrismEnhance.fadeOutIn(resultCard);
-}
 document.getElementById('exportSection').style.display = 'block';
 
 // 保存用于导出 & 历史（包含完整推演数据）
@@ -2557,7 +2540,7 @@ const context = buildContextMemory(i, total, chunkResults, termTable);
 
 // 单路直接翻译（极速模式：不再做五路+批判+裁决，一次到位）
 // 注意：src/tgt 是语言对象 {name, code}，必须用 .name 取语言名称
-const sysPrompt = `你是一位资深翻译专家。任务：将${escHtml(src.name)}文本精准翻译为${escHtml(tgt.name)}。
+const sysPrompt = `你是一位资深翻译专家。任务：将${escHtml(src)}文本精准翻译为${escHtml(tgt)}。
 要求：忠实原文、语言流畅、地道自然。必须直接输出译文正文，绝对不要带任何前缀标签、分析过程或元信息。`;
 
 const ctxParts = [];
@@ -2596,7 +2579,7 @@ chunkNodes[i].textContent = chunkTrans;
 
 // 首块完成后提取关键术语
 if (i === 0) {
-const extracted = extractKeyTerms(chunkResults[0], chunks[0]);
+const extracted = extractKeyTerms(chunkResults[0]);
 if (extracted.length > 0) {
 termTable = extracted;
 showToast(`已锁定 ${extracted.length} 个关键术语`, 'success');
@@ -2612,8 +2595,6 @@ if (cardEl) cardEl.insertBefore(termPanel, document.getElementById('chunkGrid'))
 pills[i].className = 'chunk-pill done';
 pills[i].querySelector('.chunk-pill-label').textContent = '完成';
 setProgress((i + 1) / total);
-// 增强层：进度脉冲
-if (window.PrismEnhance) window.PrismEnhance.updateProgress(Math.round((i + 1) / total * 100));
 }
 
 // 显示最终结果
@@ -2677,7 +2658,7 @@ setProgress(1);
 
 document.getElementById('exportSection').style.display = 'block';
 state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed, usageTokens: { ...state.usageTokens } };
-addHistory({ src: text.slice(0, 200), tgt: fullTranslation.slice(0, 200), srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
+addHistory({ src: text, tgt: fullTranslation, srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
 }
 
 init(); 
