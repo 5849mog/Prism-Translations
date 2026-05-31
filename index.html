@@ -1402,7 +1402,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
           支持 txt · md · pdf · docx · pptx · xlsx · odt · rtf · html · csv · epub
         </div>
         <span class="file-drop-badge">文件导入</span>
-        <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.pptx,.xlsx,.odt,.rtf,.html,.htm,.csv,.epub,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.text,application/rtf,text/html,text/csv,application/epub+zip"/>
+        <input type="file" id="fileInput" multiple accept=".txt,.md,.pdf,.docx,.pptx,.xlsx,.odt,.rtf,.html,.htm,.csv,.epub,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.text,application/rtf,text/html,text/csv,application/epub+zip"/>
       </div>
       <div class="file-loaded-bar" id="fileLoadedBar">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1417,6 +1417,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
           <div class="input-actions">
             <button class="input-mini-btn" id="pasteBtn" title="粘贴">粘贴</button>
             <button class="input-mini-btn" id="clearBtn">清空</button>
+            <button class="input-mini-btn" id="voiceInputBtn" title="语音输入">语音</button>
           </div>
         </div>
       </div>
@@ -1454,6 +1455,9 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
             <button class="action-btn" id="speakBtn" title="朗读译文">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
             </button>
+            <button class="action-btn" id="bilingualBtn" title="双语对照 (Ctrl+B)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>对照
+            </button>
             <button class="action-btn" id="copyBtn">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
             </button>
@@ -1461,6 +1465,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
         </div>
         <div class="result-body">
           <div id="finalResult"></div>
+          <div id="bilingualView" style="display:none;flex-direction:column;gap:1px;"></div>
         </div>
       </div>
     </div>
@@ -1639,7 +1644,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
       </button>
       <div style="font-size:10px;color:var(--warm-silver);text-align:center;margin-top:6px;letter-spacing:0.2px;">贴入一段多语言文本，看完整翻译过程</div>
     </div>
-    <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动</div>
+    <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动 &nbsp;·&nbsp; <kbd>Ctrl</kbd> + <kbd>K</kbd> 快捷键</div>
   </div>
 </div>
 
@@ -1673,10 +1678,26 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
+    <div class="history-search-wrap" style="padding:10px 16px;border-bottom:1px solid var(--border-cream);">
+      <input type="text" id="historySearchInput" placeholder="搜索历史记录（语言对/内容关键词）" style="width:100%;padding:8px 12px;border:1px solid var(--border-cream);border-radius:var(--r-md);font-size:13px;font-family:var(--sans);background:var(--parchment);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--terracotta)'" onblur="this.style.borderColor='var(--border-cream)'"/>
+    </div>
     <div class="history-list" id="historyList"></div>
     <div class="history-footer">
       <button class="history-clear-all" id="historyClearAll">清空全部历史</button>
     </div>
+  </div>
+</div>
+
+<!-- 快捷键帮助面板 -->
+<div class="shortcut-modal" id="shortcutModal" style="display:none;position:fixed;inset:0;z-index:260;background:rgba(20,20,19,0.4);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
+  <div style="background:var(--white);border-radius:var(--r-xl);padding:24px;max-width:420px;width:90%;max-height:80vh;overflow:auto;box-shadow:var(--shadow-xl);position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-family:var(--serif);font-size:16px;font-weight:700;color:var(--near-black);">快捷键一览</span>
+      <button class="history-close" id="shortcutClose" style="position:relative;top:0;right:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="shortcutList" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 

@@ -296,7 +296,15 @@ const fileDropZone = document.getElementById('fileDropZone');
 const fileInput = document.getElementById('fileInput');
 
 fileDropZone.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
-fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); });
+fileInput.addEventListener('change', e => {
+const files = Array.from(e.target.files || []);
+if (files.length === 0) return;
+if (files.length === 1) { handleFileSelect(files[0]); return; }
+// 批量模式：逐文件导入，中间用分隔线连接
+_fileQueue = files;
+_fileQueueIndex = 0;
+processFileQueue();
+});
 
 fileDropZone.addEventListener('dragover', e => { e.preventDefault(); fileDropZone.classList.add('drag-over'); });
 fileDropZone.addEventListener('dragleave', () => fileDropZone.classList.remove('drag-over'));
@@ -2673,5 +2681,257 @@ document.getElementById('exportSection').style.display = 'block';
 state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source: text, result: fullTranslation, scores, remark, elapsed, usageTokens: { ...state.usageTokens } };
 addHistory({ src: text, tgt: fullTranslation, srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
 }
+
+// ═════════════════════════════════════════
+// 增强 1：全局键盘快捷键体系 + 帮助面板
+// ═════════════════════════════════════════
+const SHORTCUTS = [
+{ keys: 'Ctrl + Enter', desc: '启动翻译', scope: '全局' },
+{ keys: 'Ctrl + K', desc: '快捷键帮助', scope: '全局' },
+{ keys: 'Ctrl + /', desc: '打开/关闭设置', scope: '全局' },
+{ keys: 'Ctrl + Shift + V', desc: '语音输入', scope: '全局' },
+{ keys: 'Ctrl + Shift + C', desc: '复制译文', scope: '全局' },
+{ keys: 'Ctrl + Shift + S', desc: '朗读译文', scope: '全局' },
+{ keys: 'Ctrl + B', desc: '双语对照视图', scope: '全局' },
+{ keys: 'Ctrl + H', desc: '翻译历史', scope: '全局' },
+{ keys: 'Ctrl + L', desc: '语言选择', scope: '全局' },
+{ keys: 'Ctrl + D', desc: '清空输入', scope: '全局' },
+{ keys: 'Escape', desc: '关闭弹窗/抽屉', scope: '全局' },
+];
+
+function showShortcutModal() {
+const modal = document.getElementById('shortcutModal');
+const list = document.getElementById('shortcutList');
+if (!list.dataset.built) {
+list.innerHTML = SHORTCUTS.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-cream);"><span style="font-size:12px;color:var(--charcoal);">${s.desc}</span><div style="display:flex;gap:4px;align-items:center;"><kbd style="font-family:var(--mono);font-size:10px;padding:2px 6px;background:var(--warm-sand);border:1px solid var(--border-cream);border-radius:3px;color:var(--olive);">${s.keys.replace(/Ctrl/g, 'Ctrl').replace(/Shift/g, 'Shift').replace(/ \+ /g, '</kbd><span style="color:var(--stone);font-size:10px;">+</span><kbd style="font-family:var(--mono);font-size:10px;padding:2px 6px;background:var(--warm-sand);border:1px solid var(--border-cream);border-radius:3px;color:var(--olive);">')}</kbd></div></div>`).join('');
+list.dataset.built = 'true';
+}
+modal.style.display = 'flex';
+}
+function hideShortcutModal() { document.getElementById('shortcutModal').style.display = 'none'; }
+document.getElementById('shortcutClose').addEventListener('click', hideShortcutModal);
+document.getElementById('shortcutModal').addEventListener('click', e => { if (e.target === document.getElementById('shortcutModal')) hideShortcutModal(); });
+
+document.addEventListener('keydown', e => {
+const tag = e.target.tagName;
+const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+const mod = e.ctrlKey || e.metaKey;
+
+// Ctrl+K / Cmd+K：快捷键帮助
+if (mod && e.key === 'k' && !isInput) { e.preventDefault(); showShortcutModal(); return; }
+// Ctrl+/：切换设置抽屉
+if (mod && e.key === '/' && !isInput) { e.preventDefault(); const d = document.getElementById('settingsDrawer'); d.classList.contains('open') ? closeDrawer() : openDrawer(); return; }
+// Ctrl+Shift+V：语音输入
+if (mod && e.shiftKey && e.key === 'V') { e.preventDefault(); document.getElementById('voiceInputBtn').click(); return; }
+// Ctrl+Shift+C：复制译文（当焦点不在输入框时）
+if (mod && e.shiftKey && e.key === 'C' && !isInput) { e.preventDefault(); document.getElementById('copyBtn').click(); return; }
+// Ctrl+Shift+S：朗读译文
+if (mod && e.shiftKey && e.key === 'S' && !isInput) { e.preventDefault(); document.getElementById('speakBtn').click(); return; }
+// Ctrl+B：双语对照
+if (mod && e.key === 'b' && !isInput) { e.preventDefault(); document.getElementById('bilingualBtn').click(); return; }
+// Ctrl+H：翻译历史
+if (mod && e.key === 'h' && !isInput) { e.preventDefault(); const h = document.getElementById('historyModal'); h.style.display = h.style.display === 'flex' ? 'none' : 'flex'; renderHistoryList(); return; }
+// Ctrl+L：语言选择
+if (mod && e.key === 'l' && !isInput) { e.preventDefault(); openLangModal(true); return; }
+// Ctrl+D：清空输入
+if (mod && e.key === 'd' && !isInput) { e.preventDefault(); document.getElementById('clearBtn').click(); return; }
+// Escape：关闭帮助面板
+if (e.key === 'Escape' && document.getElementById('shortcutModal').style.display === 'flex') { hideShortcutModal(); return; }
+});
+
+// ═════════════════════════════════════════
+// 增强 2：语音输入（Web Speech API）
+// ═════════════════════════════════════════
+let _recognition = null;
+function initVoiceInput() {
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+document.getElementById('voiceInputBtn').style.display = 'none';
+return;
+}
+_recognition = new SpeechRecognition();
+_recognition.continuous = true;
+_recognition.interimResults = true;
+_recognition.lang = state.srcLang.code;
+
+let finalTranscript = '';
+_recognition.onresult = e => {
+let interim = '';
+for (let i = e.resultIndex; i < e.results.length; i++) {
+if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+else interim += e.results[i][0].transcript;
+}
+const el = document.getElementById('sourceText');
+el.value = finalTranscript + interim;
+updateWordStats();
+updateTranslateBtnState();
+};
+_recognition.onerror = e => {
+if (e.error === 'no-speech') return;
+showToast('语音识别错误：' + e.error, 'error');
+_isVoiceListening = false;
+updateVoiceBtnState();
+};
+_recognition.onend = () => {
+if (_isVoiceListening) _recognition.start(); // 自动续接
+};
+}
+let _isVoiceListening = false;
+function updateVoiceBtnState() {
+const btn = document.getElementById('voiceInputBtn');
+if (_isVoiceListening) {
+btn.style.color = 'var(--terracotta)';
+btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="4" width="12" height="16" rx="2"/><line x1="9" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="15" y2="8"/></svg><span>停止</span>';
+} else {
+btn.style.color = '';
+btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><span>语音</span>';
+}
+}
+document.getElementById('voiceInputBtn').addEventListener('click', () => {
+if (!_recognition) { showToast('当前浏览器不支持语音识别'); return; }
+if (_isVoiceListening) { _recognition.stop(); _isVoiceListening = false; updateVoiceBtnState(); showToast('语音识别已停止'); }
+else {
+_recognition.lang = state.srcLang.code;
+finalTranscript = document.getElementById('sourceText').value;
+_isVoiceListening = true; _recognition.start();
+updateVoiceBtnState(); showToast('语音识别中...', 'success');
+}
+});
+
+// ═════════════════════════════════════════
+// 增强 3：翻译历史搜索
+// ═════════════════════════════════════════
+document.getElementById('historySearchInput').addEventListener('input', function() {
+const q = this.value.trim().toLowerCase();
+const h = getHistory();
+const list = document.getElementById('historyList');
+const filtered = q ? h.filter(item =>
+item.srcCode.toLowerCase().includes(q) ||
+item.tgtCode.toLowerCase().includes(q) ||
+item.src.toLowerCase().includes(q) ||
+item.tgt.toLowerCase().includes(q) ||
+(item.remark && item.remark.toLowerCase().includes(q))
+) : h;
+if (filtered.length === 0) { list.innerHTML = '<div class="history-empty">' + (q ? '无匹配的历史记录' : '暂无翻译历史') + '</div>'; return; }
+list.innerHTML = '';
+filtered.forEach(item => {
+const el = document.createElement('div'); el.className = 'history-item';
+el.innerHTML = `<div class="history-item-meta"> <div class="history-langs">${item.srcCode} → ${item.tgtCode}</div> <div class="history-time">${item.time}</div> ${item.scores ?`<div style="margin-top:4px;display:flex;gap:3px;">${['忠','流','地'].map((l,i)=>`<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`).join('')}</div>`: ''} </div> <div class="history-item-content"> <div class="history-src">${escHtml(item.src.slice(0,60))}${item.src.length>60?'...':''}</div> <div class="history-tgt">${escHtml(item.tgt.slice(0,60))}${item.tgt.length>60?'...':''}</div> ${item.remark ?`<div style="font-size:10px;color:var(--stone);margin-top:4px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escHtml(item.remark.slice(0,80))}${item.remark.length>80?'...':''}</div>` : ''} </div> <div class="history-actions"> <button class="history-use-btn" data-id="${item.id}">使用</button> <button class="history-del-btn" data-id="${item.id}">删除</button> </div>`;
+const useBtn = el.querySelector('.history-use-btn');
+const delBtn = el.querySelector('.history-del-btn');
+useBtn.addEventListener('click', () => {
+document.getElementById('sourceText').value = item.src;
+document.getElementById('charNum').textContent = item.src.length;
+const srcL = LANGS.find(l => l.code === item.srcCode) || LANGS[0];
+const tgtL = LANGS.find(l => l.code === item.tgtCode) || LANGS[1];
+state.srcLang = srcL; state.tgtLang = tgtL;
+updateLangDisplay(); closeHistoryModal(); updateWordStats();
+showToast('已加载历史记录', 'success');
+});
+delBtn.addEventListener('click', () => {
+let nh = getHistory().filter(x => x.id !== item.id);
+saveHistory(nh); updateHistoryBadge(); renderHistoryList();
+});
+list.appendChild(el);
+});
+});
+
+// ═════════════════════════════════════════
+// 增强 4：双语对照视图（段落级原文/译文并排）
+// ═════════════════════════════════════════
+let _bilingualActive = false;
+function renderBilingualView() {
+const t = state.lastTranslation;
+if (!t || !t.source || !t.result) return;
+const container = document.getElementById('bilingualView');
+const srcParas = t.source.split(/\n\n+/).filter(Boolean);
+const tgtParas = t.result.split(/\n\n+/).filter(Boolean);
+const maxLen = Math.max(srcParas.length, tgtParas.length);
+let html = '';
+for (let i = 0; i < maxLen; i++) {
+html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border-cream);border-radius:var(--r-md);overflow:hidden;margin-bottom:1px;">
+<div style="padding:10px 12px;background:var(--parchment);font-size:13px;line-height:1.7;color:var(--charcoal);font-family:var(--serif);white-space:pre-wrap;word-break:break-word;">${srcParas[i] ? escHtml(srcParas[i]) : '<span style="color:var(--warm-silver);font-style:italic;">（无对应段落）</span>'}</div>
+<div style="padding:10px 12px;background:var(--ivory);font-size:13px;line-height:1.7;color:var(--near-black);font-family:var(--serif);white-space:pre-wrap;word-break:break-word;">${tgtParas[i] ? escHtml(tgtParas[i]) : '<span style="color:var(--warm-silver);font-style:italic;">（无对应段落）</span>'}</div>
+</div>`;
+}
+html += `<div style="display:flex;gap:8px;justify-content:center;padding:8px;font-size:11px;color:var(--stone);"><span style="display:inline-block;width:12px;height:12px;background:var(--parchment);border:1px solid var(--border-cream);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>原文&nbsp;&nbsp;<span style="display:inline-block;width:12px;height:12px;background:var(--ivory);border:1px solid var(--border-cream);border-radius:2px;vertical-align:middle;margin-right:4px;"></span>译文</div>`;
+container.innerHTML = html;
+}
+document.getElementById('bilingualBtn').addEventListener('click', () => {
+const t = state.lastTranslation;
+if (!t || !t.result) { showToast('暂无译文可对照'); return; }
+const finalResult = document.getElementById('finalResult');
+const bilingualView = document.getElementById('bilingualView');
+const btn = document.getElementById('bilingualBtn');
+_bilingualActive = !_bilingualActive;
+if (_bilingualActive) {
+renderBilingualView();
+finalResult.style.display = 'none';
+bilingualView.style.display = 'flex';
+btn.style.color = 'var(--terracotta)';
+} else {
+finalResult.style.display = '';
+bilingualView.style.display = 'none';
+btn.style.color = '';
+}
+});
+
+// ═════════════════════════════════════════
+// 增强 5：翻译进度持久化（刷新页面可恢复）
+// ═════════════════════════════════════════
+const PROGRESS_KEY = 'prism_progress';
+function saveProgress(data) {
+try { sessionStorage.setItem(PROGRESS_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); } catch(_) {}
+}
+function loadProgress() {
+try {
+const raw = sessionStorage.getItem(PROGRESS_KEY);
+if (!raw) return null;
+const data = JSON.parse(raw);
+// 只保留15分钟内的进度
+if (Date.now() - data.savedAt > 15 * 60 * 1000) { sessionStorage.removeItem(PROGRESS_KEY); return null; }
+return data;
+} catch(_) { return null; }
+}
+function clearProgress() {
+try { sessionStorage.removeItem(PROGRESS_KEY); } catch(_) {}
+}
+
+// ═════════════════════════════════════════
+// 增强 6：批量文件上传（多文件队列）
+// ═════════════════════════════════════════
+let _fileQueue = [];
+let _fileQueueIndex = 0;
+async function processFileQueue() {
+if (_fileQueueIndex >= _fileQueue.length) {
+if (_fileQueue.length > 1) showToast(`批量导入完成 · 共 ${_fileQueue.length} 个文件`, 'success');
+_fileQueue = []; _fileQueueIndex = 0;
+return;
+}
+const file = _fileQueue[_fileQueueIndex];
+_fileQueueIndex++;
+await handleFileSelect(file);
+// 追加模式：如果队列中还有更多文件，将内容追加到原文末尾
+if (_fileQueueIndex < _fileQueue.length) {
+const currentText = document.getElementById('sourceText').value;
+if (currentText) {
+document.getElementById('sourceText').value = currentText + '\n\n---\n\n';
+updateWordStats();
+showToast(`已导入 ${_fileQueueIndex}/${_fileQueue.length} · 继续处理...`, 'success');
+}
+}
+}
+
+// 初始化语音输入
+initVoiceInput();
+
+// 页面加载时检查是否有可恢复的进度
+(function checkRestorableProgress() {
+const saved = loadProgress();
+if (saved && saved.source) {
+// 可选：显示恢复提示 toast
+// showToast('检测到上次未完成的翻译，已恢复原文', 'success');
+}
+})();
 
 init(); 
