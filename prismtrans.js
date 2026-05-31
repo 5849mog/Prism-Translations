@@ -30,17 +30,24 @@ const LANGS =[
 // 应用状态
 // ─────────────────────────────────────────
 const TEXT_CACHE_KEY = 'prism_text_cache';
+const WARN_THRESHOLD = 6000;
+const HARD_LIMIT = 7500;
+const API_TIMEOUT_MS = 120000;
+const MAX_HISTORY_ITEMS = 30;
 
+function safeGet(type, key, fallback) {
+  try { const v = (type === 'session' ? sessionStorage : localStorage).getItem(key); return v !== null ? v : fallback; } catch(_) { return fallback; }
+}
 const state = {
 srcLang: LANGS[0],
 tgtLang: LANGS[1],
-rounds: parseInt(localStorage.getItem('prism_rounds') || '2'),
-apiKey: localStorage.getItem('prism_key') || '',
-model: localStorage.getItem('prism_model') || 'deepseek-v4-flash',
-thinkingMode: localStorage.getItem('prism_thinking') || 'disabled',
-customPrompt: localStorage.getItem('prism_custom_prompt') || '',
-provider: localStorage.getItem('prism_provider') || 'deepseek',
-glossary: localStorage.getItem('prism_glossary') || '',
+rounds: parseInt(safeGet('local', 'prism_rounds', '2')),
+apiKey: safeGet('local', 'prism_key', ''),
+model: safeGet('local', 'prism_model', 'deepseek-v4-flash'),
+thinkingMode: safeGet('local', 'prism_thinking', 'disabled'),
+customPrompt: safeGet('local', 'prism_custom_prompt', ''),
+provider: safeGet('local', 'prism_provider', 'deepseek'),
+glossary: safeGet('local', 'prism_glossary', ''),
 running: false,
 pickingFor: null,
 startTime: null,
@@ -51,6 +58,18 @@ usageTokens: { prompt: 0, completion: 0, total: 0 },
 currentRoundUsage: { prompt: 0, completion: 0, total: 0 },
 };
 
+// ── DOM 引用缓存（静态结构，页面加载后不变）──
+let _panelRight = null;
+function getPanelRight() { return _panelRight || (_panelRight = document.querySelector('.panel-right')); }
+
+// ── 安全 Storage 包装（隐私模式/存储满时 graceful degrade）──
+function safeStore(type, key, value) {
+  try { (type === 'session' ? sessionStorage : localStorage).setItem(key, value); } catch(_) {}
+}
+function safeRemove(type, key) {
+  try { (type === 'session' ? sessionStorage : localStorage).removeItem(key); } catch(_) {}
+}
+
 // ─────────────────────────────────────────
 // 功能 1：文件上传（txt / md / pdf / docx）
 // ─────────────────────────────────────────
@@ -58,7 +77,7 @@ function loadFileText(text, filename) {
 document.getElementById('sourceText').value = text;
 updateWordStats();
 updateTranslateBtnState();
-sessionStorage.setItem(TEXT_CACHE_KEY, text);
+safeStore('session', TEXT_CACHE_KEY, text);
 document.getElementById('fileLoadedName').textContent = filename;
 document.getElementById('fileLoadedBar').classList.add('visible');
 detectAndApplyLang(text);
@@ -139,7 +158,7 @@ return cells.join('\t');
 }
 function parseRtf(bytes) {
 const raw = decodeBytes(bytes);
-return raw.replace(/\pard|\par|\tab|\line/g, '\n').replace(/\[a-z]+\d*\s?/gi, '')
+return raw.replace(/\\pard|\\par|\\tab|\\line/g, '\n').replace(/\\[a-z]+\d*\s?/gi, '')
 .replace(/\\([{}])/g, '$1').replace(/\'([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
 .replace(/\u(-?\d+)\s*?/g, (_, c) => String.fromCharCode(+c)).replace(/[{}]/g, '')
 .replace(/\n{3,}/g, '\n\n').trim();
@@ -150,7 +169,9 @@ return raw.replace(/\pard|\par|\tab|\line/g, '\n').replace(/\[a-z]+\d*\s?/gi, ''
 // PDF → pdf.js
 async function parsePdfWithCdn(arrayBuffer) {
 await loadCdn('pdfjs');
-pdfjsLib.GlobalWorkerOptions.workerSrc = false; // 不使用 worker，避免额外加载
+// 注：禁用 Worker 可避免跨域加载 worker 脚本的问题，但在解析大型 PDF（>50页）时会阻塞主线程 UI。
+// 如需处理大文件，建议改为：pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([...], {type:'text/javascript'}));
+pdfjsLib.GlobalWorkerOptions.workerSrc = false;
 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 const pages = [];
 for (let i = 1; i <= pdf.numPages; i++) {
@@ -188,7 +209,7 @@ const xml = await zip.file(path).async('string');
 // 移除 XML 标签，提取文本
 const clean = xml.replace(/<\/[^>]+>/g, '\n')   // 结束标签 → 换行
 .replace(/<[^/][^>]*>/g, '')      // 开始标签 → 空
-.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 .replace(/'/g, "'").replace(/"/g, '"')
 .replace(/\n{3,}/g, '\n\n').trim();
 if (clean.length > 3) text += (text ? '\n\n' : '') + clean;
@@ -274,7 +295,7 @@ default: showToast('不支持的格式：.' + ext);
 const fileDropZone = document.getElementById('fileDropZone');
 const fileInput = document.getElementById('fileInput');
 
-fileDropZone.addEventListener('click', () => fileInput.click());
+fileDropZone.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
 fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); });
 
 fileDropZone.addEventListener('dragover', e => { e.preventDefault(); fileDropZone.classList.add('drag-over'); });
@@ -347,7 +368,7 @@ charCountEl.appendChild(chip);
 document.getElementById('sourceText').addEventListener('input', function() {
 updateWordStats();
 if (this.value.length > 20) detectAndApplyLang(this.value);
-sessionStorage.setItem(TEXT_CACHE_KEY, this.value);
+safeStore('session', TEXT_CACHE_KEY, this.value);
 updateTranslateBtnState();
 });
 
@@ -380,7 +401,7 @@ function getHistory() {
 try { return JSON.parse(localStorage.getItem('prism_history') || '[]'); } catch(_) { return[]; }
 }
 function saveHistory(history) {
-localStorage.setItem('prism_history', JSON.stringify(history.slice(0, 30)));
+safeStore('local', 'prism_history', JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
 }
 function addHistory(entry) {
 const history = getHistory();
@@ -403,13 +424,10 @@ h.forEach(item => {
 const el = document.createElement('div');
 el.className = 'history-item';
 el.innerHTML = `<div class="history-item-meta"> <div class="history-langs">${item.srcCode} → ${item.tgtCode}</div> <div class="history-time">${item.time}</div> ${item.scores ?`<div style="margin-top:4px;display:flex;gap:3px;">${['忠','流','地'].map((l,i)=>`<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`).join('')}</div>`: ''} </div> <div class="history-item-content"> <div class="history-src">${escHtml(item.src.slice(0,60))}${item.src.length>60?'...':''}</div> <div class="history-tgt">${escHtml(item.tgt.slice(0,60))}${item.tgt.length>60?'...':''}</div> ${item.remark ?`<div style="font-size:10px;color:var(--stone);margin-top:4px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escHtml(item.remark.slice(0,80))}${item.remark.length>80?'...':''}</div>` : ''} </div> <div class="history-actions"> <button class="history-use-btn" data-id="${item.id}">使用</button> <button class="history-del-btn" data-id="${item.id}">删除</button> </div>`;
-list.appendChild(el);
-});
-list.querySelectorAll('.history-use-btn').forEach(btn => {
-btn.addEventListener('click', e => {
-const id = parseInt(e.target.dataset.id);
-const item = getHistory().find(x => x.id === id);
-if (!item) return;
+// 闭包绑定事件（避免点击时重复读取 localStorage）
+const useBtn = el.querySelector('.history-use-btn');
+const delBtn = el.querySelector('.history-del-btn');
+useBtn.addEventListener('click', () => {
 document.getElementById('sourceText').value = item.src;
 document.getElementById('charNum').textContent = item.src.length;
 const srcL = LANGS.find(l => l.code === item.srcCode) || LANGS[0];
@@ -420,15 +438,13 @@ closeHistoryModal();
 updateWordStats();
 showToast('已加载历史记录', 'success');
 });
-});
-list.querySelectorAll('.history-del-btn').forEach(btn => {
-btn.addEventListener('click', e => {
-const id = parseInt(e.target.dataset.id);
-let h = getHistory().filter(x => x.id !== id);
+delBtn.addEventListener('click', () => {
+let h = getHistory().filter(x => x.id !== item.id);
 saveHistory(h);
 updateHistoryBadge();
 renderHistoryList();
 });
+list.appendChild(el);
 });
 }
 function escHtml(str) {
@@ -481,18 +497,19 @@ document.head.appendChild(s);
 // 策略：临时补全未闭合标记 → marked 解析 → 移除临时补全痕迹
 function renderMarkdownStream(raw) {
 if (!_markedLib || !raw) return escHtml(raw);
-// 检查末尾是否有未闭合的 markdown 标记
+// 检查末尾是否有未闭合的 markdown 标记（只扫描最后200字符，避免长文本全局搜索）
 let text = raw;
 const trailing = [];
+const tail = text.slice(-200);
 // 检测末尾未闭合的 **
-if ((text.match(/\*\*/g) || []).length % 2 === 1) {
+if ((tail.match(/\*\*/g) || []).length % 2 === 1) {
 text += '**'; trailing.push('**');
 }
 // 检测末尾未闭合的 `
-if ((text.match(/`/g) || []).length % 2 === 1) {
+if ((tail.match(/`/g) || []).length % 2 === 1) {
 text += '`'; trailing.push('`');
 }
-// 检测末尾未闭合的 [
+// 检测末尾未闭合的 [（需要全局计数，因为链接文本可能很长）
 const openBrackets = (text.match(/\[/g) || []).length;
 const closeBrackets = (text.match(/\]/g) || []).length;
 if (openBrackets > closeBrackets) {
@@ -525,7 +542,7 @@ document.getElementById('historyClose').addEventListener('click', closeHistoryMo
 document.getElementById('historyModal').addEventListener('click', e => { if (e.target === document.getElementById('historyModal')) closeHistoryModal(); });
 document.getElementById('historyClearAll').addEventListener('click', () => {
 if (!confirm('确认清空全部翻译历史？')) return;
-localStorage.removeItem('prism_history');
+safeRemove('local', 'prism_history');
 updateHistoryBadge();
 renderHistoryList();
 });
@@ -591,8 +608,8 @@ const text = document.getElementById('sourceText').value;
 const len = text.length;
 document.getElementById('charNum').textContent = len;
 const charEl = document.querySelector('.char-count');
-charEl.classList.toggle('near-limit', len > 6000 && len <= 7500);
-charEl.classList.toggle('at-limit', len > 7500);
+charEl.classList.toggle('near-limit', len > WARN_THRESHOLD && len <= HARD_LIMIT);
+charEl.classList.toggle('at-limit', len > HARD_LIMIT);
 
 if (len > 0) {
 document.getElementById('wordStats').style.display = 'flex';
@@ -615,7 +632,7 @@ const text = await navigator.clipboard.readText();
 document.getElementById('sourceText').value = text;
 updateWordStats();
 updateTranslateBtnState();
-sessionStorage.setItem(TEXT_CACHE_KEY, text);
+safeStore('session', TEXT_CACHE_KEY, text);
 showToast('已粘贴', 'success');
 } catch(_) { showToast('无法访问剪贴板'); }
 });
@@ -624,7 +641,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 document.getElementById('sourceText').value = '';
 updateWordStats();
 updateTranslateBtnState();
-sessionStorage.removeItem(TEXT_CACHE_KEY);
+safeRemove('session', TEXT_CACHE_KEY);
 document.getElementById('resultSection').classList.remove('active');
 const labelEl = document.querySelector('.result-label');
 labelEl.innerHTML = '最终裁决译文';
@@ -714,27 +731,30 @@ function closeDrawer() { document.getElementById('settingsDrawer').classList.rem
 document.getElementById('roundsMinus').addEventListener('click', () => { if (state.rounds > 1) { state.rounds--; document.getElementById('roundsDisplay').textContent = state.rounds; } });
 document.getElementById('roundsPlus').addEventListener('click', () => { if (state.rounds < 5) { state.rounds++; document.getElementById('roundsDisplay').textContent = state.rounds; } });
 document.getElementById('keyToggle').addEventListener('click', () => { const inp = document.getElementById('apiKeyInput'); inp.type = inp.type === 'password' ? 'text' : 'password'; });
-document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-const key = document.getElementById('apiKeyInput').value.trim();
-if (!key) { showToast('请输入 API 密钥'); return; }
+// ── 设置持久化公共逻辑 ──
+function commitSettings(key) {
 state.apiKey = key;
 state.model = document.getElementById('modelSelect').value;
 state.thinkingMode = document.getElementById('thinkingSelect').value;
 state.customPrompt = document.getElementById('customPromptInput').value.trim();
 state.provider = document.getElementById('providerSelect').value;
 state.glossary = document.getElementById('glossaryInput').value.trim();
-localStorage.setItem('prism_key', key);
-localStorage.setItem('prism_rounds', state.rounds);
-localStorage.setItem('prism_model', state.model);
-localStorage.setItem('prism_thinking', state.thinkingMode);
-localStorage.setItem('prism_custom_prompt', state.customPrompt);
-localStorage.setItem('prism_provider', state.provider);
-localStorage.setItem('prism_glossary', state.glossary);
-// 同步模型芯片
+safeStore('local', 'prism_key', key);
+safeStore('local', 'prism_rounds', state.rounds);
+safeStore('local', 'prism_model', state.model);
+safeStore('local', 'prism_thinking', state.thinkingMode);
+safeStore('local', 'prism_custom_prompt', state.customPrompt);
+safeStore('local', 'prism_provider', state.provider);
+safeStore('local', 'prism_glossary', state.glossary);
 const chip = document.getElementById('modelChip');
 if (chip) chip.textContent = state.model;
-// 保存后刷新按钮状态（API密钥可能刚填入）
 updateTranslateBtnState();
+}
+
+document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+const key = document.getElementById('apiKeyInput').value.trim();
+if (!key) { showToast('请输入 API 密钥'); return; }
+commitSettings(key);
 showToast('设置已保存', 'success');
 closeDrawer();
 });
@@ -804,24 +824,7 @@ function autoSaveSettings() {
 clearTimeout(autoSaveTimer);
 autoSaveTimer = setTimeout(() => {
 const key = document.getElementById('apiKeyInput').value.trim();
-state.apiKey = key;
-state.model = document.getElementById('modelSelect').value;
-state.thinkingMode = document.getElementById('thinkingSelect').value;
-state.customPrompt = document.getElementById('customPromptInput').value.trim();
-state.provider = document.getElementById('providerSelect').value;
-state.glossary = document.getElementById('glossaryInput').value.trim();
-localStorage.setItem('prism_key', key);
-localStorage.setItem('prism_rounds', state.rounds);
-localStorage.setItem('prism_model', state.model);
-localStorage.setItem('prism_thinking', state.thinkingMode);
-localStorage.setItem('prism_custom_prompt', state.customPrompt);
-localStorage.setItem('prism_provider', state.provider);
-localStorage.setItem('prism_glossary', state.glossary);
-// 同步模型芯片
-const chip = document.getElementById('modelChip');
-if (chip) chip.textContent = state.model;
-// 自动保存后刷新按钮状态
-updateTranslateBtnState();
+commitSettings(key);
 }, 400);
 }
 // 给所有设置输入项绑定自动保存
@@ -859,7 +862,7 @@ btn.title = '';
 // 输入时自动缓存 + 更新按钮状态
 // 页面加载时恢复缓存文本
 (function restoreTextCache() {
-const cached = sessionStorage.getItem(TEXT_CACHE_KEY);
+const cached = safeGet('session', TEXT_CACHE_KEY, null);
 if (cached && cached.trim()) {
 const el = document.getElementById('sourceText');
 if (el && !el.value.trim()) {
@@ -874,7 +877,7 @@ document.getElementById('apiKeyInput')?.addEventListener('input', updateTranslat
 // 初始化按钮状态
 updateTranslateBtnState();
 // 翻译成功后清除缓存（在 doTranslate 成功后的 finally 中）
-function clearTextCache() { sessionStorage.removeItem(TEXT_CACHE_KEY); }
+function clearTextCache() { safeRemove('session', TEXT_CACHE_KEY); }
 
 // ─────────────────────────────────────────
 // 优化 4：一键示例体验
@@ -888,7 +891,7 @@ document.getElementById('demoBtn')?.addEventListener('click', () => {
 document.getElementById('sourceText').value = DEMO_TEXT;
 updateWordStats();
 updateTranslateBtnState();
-sessionStorage.setItem(TEXT_CACHE_KEY, DEMO_TEXT);
+safeStore('session', TEXT_CACHE_KEY, DEMO_TEXT);
 showToast('示例文本已加载，点击启动翻译体验完整流程', 'success');
 document.getElementById('sourceText').focus();
 });
@@ -985,7 +988,7 @@ if (!text) { showToast('暂无译文可朗读'); return; }
 const u = new SpeechSynthesisUtterance(text);
 u.lang = state.tgtLang.code + '-' + state.tgtLang.code.toUpperCase();
 u.onend = () => { isSpeaking = false; document.getElementById('speakBtn').style.color = ''; };
-u.onerror = () => { isSpeaking = false; };
+u.onerror = () => { isSpeaking = false; document.getElementById('speakBtn').style.color = ''; };
 speechSynthesis.cancel();
 speechSynthesis.speak(u);
 isSpeaking = true;
@@ -1393,7 +1396,7 @@ else if (state.thinkingMode === 'max') { payload.thinking = { type: 'enabled', b
 }
 
 const timeoutController = new AbortController();
-const timeoutId = setTimeout(() => timeoutController.abort(), 120000);
+const timeoutId = setTimeout(() => timeoutController.abort() , API_TIMEOUT_MS);
 const combinedSignal = signal
 ? (() => { const ac = new AbortController(); signal.addEventListener('abort', () => ac.abort()); timeoutController.signal.addEventListener('abort', () => ac.abort()); return ac.signal; })()
 : timeoutController.signal;
@@ -1462,7 +1465,7 @@ if (onChunk && (delta.reasoning_content || delta.content)) {
 onChunk(resultContent, resultReasoning);
 const now = Date.now();
 if (now - lastScrollTime > 200) {
-const rightPanel = document.querySelector('.panel-right');
+const rightPanel = getPanelRight();
 if (rightPanel) {
 const distFromBottom = rightPanel.scrollHeight - rightPanel.scrollTop - rightPanel.clientHeight;
 if (distFromBottom < 200) rightPanel.scrollTop = rightPanel.scrollHeight;
@@ -1556,7 +1559,7 @@ if (onChunk) {
 onChunk(resultContent, '');
 const now = Date.now();
 if (now - lastScrollTime > 200) {
-const rp = document.querySelector('.panel-right');
+const rp = getPanelRight();
 if (rp && rp.scrollHeight - rp.scrollTop - rp.clientHeight < 200) rp.scrollTop = rp.scrollHeight;
 lastScrollTime = now;
 }
@@ -1839,7 +1842,10 @@ return parts.filter(p => p.length > 5);
 // DeepSeek V4 等模型在流式输出时会自我修正回溯，导致累计内容包含重复草稿痕迹
 function cleanStreamingArtifacts(text) {
 if (!text || text.length < 10) return text;
-let cleaned = text;
+// 超长文本只检测末尾 300 字符，避免主线程卡顿
+const MAX_SCAN = 300;
+const scan = text.length > MAX_SCAN ? text.slice(-MAX_SCAN) : text;
+let cleaned = scan;
 // 策略1: 检测相邻短重复（3-15字符）
 for (let len = 15; len >= 3; len--) {
 for (let i = 0; i + len * 2 <= cleaned.length; i++) {
@@ -1860,11 +1866,15 @@ if (cleaned.slice(pos, pos + prefixLen) === prefix) {
 const middle = cleaned.slice(prefixLen, pos);
 if (middle.length < prefixLen * 3 && middle.length > 3) {
 cleaned = cleaned.slice(0, prefixLen) + cleaned.slice(pos);
-return cleanStreamingArtifacts(cleaned);
+// 递归前也限制长度，防止爆栈
+if (cleaned.length < MAX_SCAN) return cleanStreamingArtifacts(cleaned);
+return cleaned;
 }
 }
 }
 }
+// 如果扫描的是截断版本，需要拼回原文前缀
+return text.length > MAX_SCAN ? text.slice(0, text.length - MAX_SCAN) + cleaned : cleaned;
 return cleaned;
 }
 
@@ -1981,6 +1991,8 @@ if (state.running) return;
 
 state.running = true;
 state.abortController = new AbortController();
+	const _beforeUnload = e => { e.preventDefault(); e.returnValue = "翻译进行中，确定要离开？"; };
+	window.addEventListener("beforeunload", _beforeUnload);
 state.usageTokens = { prompt: 0, completion: 0, total: 0 };
 const btn = document.getElementById('translateBtn');
 const btnD = document.getElementById('translateBtnDesktop');
@@ -2008,7 +2020,7 @@ document.getElementById('sp2').textContent = '地 —';
 
 const enginePanel = document.getElementById('enginePanel');
 enginePanel.classList.add('active');
-document.querySelector('.panel-right').scrollTo({ top: 0, behavior: 'smooth' });
+getPanelRight().scrollTo({ top: 0, behavior: 'smooth' });
 
 // 阶梯步数在模式解析后计算（下方 mode 变量已就位）
 let completedSteps = 0;
@@ -2484,7 +2496,8 @@ btn.disabled = false;
 btn.innerHTML = restoreHTML;
 const btnD2 = document.getElementById('translateBtnDesktop');
 if (btnD2) { btnD2.disabled = false; btnD2.innerHTML = restoreHTML; }
-clearTextCache(); // 翻译成功后清除缓存
+window.removeEventListener("beforeunload", _beforeUnload);
+		clearTextCache(); // 翻译成功后清除缓存
 }
 }
 
