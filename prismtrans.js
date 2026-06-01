@@ -444,6 +444,8 @@ state.srcLang = srcL; state.tgtLang = tgtL;
 updateLangDisplay();
 closeHistoryModal();
 updateWordStats();
+updateTranslateBtnState();
+safeStore('session', TEXT_CACHE_KEY, item.src);
 showToast('已加载历史记录', 'success');
 });
 delBtn.addEventListener('click', () => {
@@ -704,6 +706,7 @@ updateLangDisplay();
 if (state.lastTranslation?.result) {
 document.getElementById('sourceText').value = state.lastTranslation.result;
 updateWordStats();
+updateTranslateBtnState();
 document.getElementById('resultSection').classList.remove('active');
 document.getElementById('enginePanel').classList.remove('active');
 document.getElementById('roundsContainer').innerHTML = '';
