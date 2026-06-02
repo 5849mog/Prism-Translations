@@ -2956,4 +2956,328 @@ if (saved && saved.source) {
 }
 })();
 
+// ═════════════════════════════════════════
+// 3D 彩蛋：棱镜圣碑（Three.js 棱镜折射 + Bloom 辉光 + 粒子）
+// ═════════════════════════════════════════
+let _prismEasterActive = false;
+let _prismEasterScene = null;
+
+// ── Konami Code 检测 ──
+const _konamiSequence = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let _konamiIndex = 0;
+document.addEventListener('keydown', e => {
+if (_prismEasterActive) return;
+if (e.key === _konamiSequence[_konamiIndex]) { _konamiIndex++; if (_konamiIndex >= _konamiSequence.length) { _konamiIndex = 0; awakenPrismEaster(); } }
+else { _konamiIndex = 0; }
+});
+
+// ── 原文区咒语检测 ──
+const _prismTriggerRe = /^\/\/prism\s*$/i;
+document.getElementById('sourceText').addEventListener('keydown', e => {
+if (e.key === 'Enter' && _prismTriggerRe.test(document.getElementById('sourceText').value.trim())) {
+e.preventDefault(); document.getElementById('sourceText').value = ''; updateWordStats(); awakenPrismEaster();
+}
+});
+
+async function awakenPrismEaster() {
+if (_prismEasterActive) return;
+_prismEasterActive = true;
+const overlay = document.getElementById('prismEasterOverlay');
+const canvasContainer = document.getElementById('prismEasterCanvas');
+const loadingEl = document.getElementById('prismEasterLoading');
+overlay.style.display = 'block';
+
+// ── 动态加载 Three.js + 后处理 ──
+let THREE, EffectComposer, RenderPass, UnrealBloomPass;
+try {
+THREE = await import('three');
+const post = await import('three/addons/postprocessing/EffectComposer.js');
+EffectComposer = post.EffectComposer;
+const rp = await import('three/addons/postprocessing/RenderPass.js');
+RenderPass = rp.RenderPass;
+const bp = await import('three/addons/postprocessing/UnrealBloomPass.js');
+UnrealBloomPass = bp.UnrealBloomPass;
+} catch(e) { showToast('3D 库加载失败，请检查网络'); _prismEasterActive = false; overlay.style.display = 'none'; return; }
+
+loadingEl.style.display = 'none';
+
+// ══ 3D 场景构建 ══
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0a0a0f, 0.035);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 6);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+canvasContainer.appendChild(renderer.domElement);
+
+// ── 后处理：Bloom 辉光 ──
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+new THREE.Vector2(window.innerWidth, window.innerHeight),
+1.2,   // strength
+0.4,   // radius
+0.85   // threshold
+);
+composer.addPass(bloomPass);
+
+// ── 六面纹理生成（每面一个译者代号）──
+const faceData = [
+{ text: '甲\n语言学家', color: '#c0392b', sub: '忠实' },
+{ text: '乙\n本土编辑', color: '#2980b9', sub: '地道' },
+{ text: '丙\n领域专家', color: '#27ae60', sub: '专业' },
+{ text: '丁\n专属译者', color: '#8e44ad', sub: '补全' },
+{ text: '戊\n隐义探微', color: '#d35400', sub: '隐义' },
+{ text: '己\n风格摹写', color: '#16a085', sub: '风格' },
+];
+
+function createFaceTexture(data) {
+const c = document.createElement('canvas');
+c.width = 512; c.height = 512;
+const ctx = c.getContext('2d');
+// 深色玻璃背景
+ctx.fillStyle = '#0a0a1a';
+ctx.fillRect(0, 0, 512, 512);
+// 边框辉光
+const grad = ctx.createRadialGradient(256, 256, 80, 256, 256, 260);
+grad.addColorStop(0, data.color + '22');
+grad.addColorStop(0.5, data.color + '08');
+grad.addColorStop(1, 'transparent');
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, 512, 512);
+// 边框线
+ctx.strokeStyle = data.color + '44';
+ctx.lineWidth = 3;
+ctx.strokeRect(20, 20, 472, 472);
+// 主文字
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 72px "Noto Serif SC", serif';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.shadowColor = data.color;
+ctx.shadowBlur = 20;
+const lines = data.text.split('\n');
+lines.forEach((line, i) => {
+ctx.fillText(line, 256, 200 + i * 90);
+});
+// 副标题
+ctx.font = '36px "Noto Sans SC", sans-serif';
+ctx.fillStyle = data.color + 'cc';
+ctx.shadowBlur = 10;
+ctx.fillText(data.sub, 256, 420);
+ctx.shadowBlur = 0;
+return new THREE.CanvasTexture(c);
+}
+
+const materials = faceData.map(d => new THREE.MeshPhysicalMaterial({
+map: createFaceTexture(d),
+transmission: 0.6,
+opacity: 1,
+metalness: 0.1,
+roughness: 0.05,
+ior: 1.7,           // 高折射率 = 玻璃感
+thickness: 1.5,
+specularIntensity: 1,
+specularColor: new THREE.Color(0xffffff),
+envMapIntensity: 1,
+transparent: true,
+side: THREE.DoubleSide
+}));
+
+// ── 水晶立方体 ──
+const cubeSize = 2.2;
+const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+const cube = new THREE.Mesh(cubeGeo, materials);
+scene.add(cube);
+
+// ── 内部彩虹光源（棱镜色散）──
+const rainbowColors = [0xff2d55, 0xff9500, 0xffcc00, 0x34c759, 0x007aff, 0xaf52de];
+const innerLights = [];
+rainbowColors.forEach((color, i) => {
+const angle = (i / rainbowColors.length) * Math.PI * 2;
+const light = new THREE.PointLight(color, 3, 5);
+light.position.set(Math.cos(angle) * 1.2, Math.sin(angle * 1.3) * 0.6, Math.sin(angle) * 1.2);
+cube.add(light);
+innerLights.push({ light, angle, speed: 0.3 + i * 0.1 });
+});
+
+// ── 外部环状光源 ──
+const ambientLight = new THREE.AmbientLight(0x223355, 0.3);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+dirLight.position.set(3, 5, 4);
+scene.add(dirLight);
+
+// ── 外框线（线框效果）──
+const edges = new THREE.EdgesGeometry(cubeGeo);
+const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+const wireframe = new THREE.LineSegments(edges, lineMat);
+cube.add(wireframe);
+
+// ── 外层半透明保护壳（更大的玻璃盒）──
+const shellGeo = new THREE.BoxGeometry(cubeSize + 0.3, cubeSize + 0.3, cubeSize + 0.3);
+const shellMat = new THREE.MeshPhysicalMaterial({
+transmission: 0.95, opacity: 0.3, metalness: 0, roughness: 0, ior: 1.5,
+thickness: 0.5, transparent: true, side: THREE.BackSide,
+color: new THREE.Color(0x6688ff)
+});
+const shell = new THREE.Mesh(shellGeo, shellMat);
+cube.add(shell);
+
+// ── 漂浮粒子系统 ──
+const particleCount = 800;
+const particleGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const colors = new Float32Array(particleCount * 3);
+const colorObj = new THREE.Color();
+for (let i = 0; i < particleCount; i++) {
+positions[i * 3] = (Math.random() - 0.5) * 30;
+positions[i * 3 + 1] = (Math.random() - 0.5) * 30;
+positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+colorObj.setHSL(Math.random(), 0.7, 0.6);
+colors[i * 3] = colorObj.r;
+colors[i * 3 + 1] = colorObj.g;
+colors[i * 3 + 2] = colorObj.b;
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+const particleMat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ── 轨道环（装饰性）──
+for (let ri = 0; ri < 3; ri++) {
+const ringGeo = new THREE.RingGeometry(2.5 + ri * 0.8, 2.52 + ri * 0.8, 64);
+const ringMat = new THREE.MeshBasicMaterial({
+color: rainbowColors[ri % rainbowColors.length],
+transparent: true, opacity: 0.12, side: THREE.DoubleSide,
+blending: THREE.AdditiveBlending
+});
+const ring = new THREE.Mesh(ringGeo, ringMat);
+ring.rotation.x = Math.PI / 2 + (ri * 0.4);
+ring.rotation.y = ri * 0.3;
+cube.add(ring);
+}
+
+// ── 鼠标/触摸交互 ──
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let targetRotation = { x: 0, y: 0 };
+let currentRotation = { x: 0, y: 0 };
+
+function onPointerDown(e) {
+isDragging = true;
+prevMouse.x = e.clientX || e.touches?.[0]?.clientX;
+prevMouse.y = e.clientY || e.touches?.[0]?.clientY;
+overlay.style.cursor = 'grabbing';
+}
+function onPointerMove(e) {
+if (!isDragging) return;
+const cx = e.clientX || e.touches?.[0]?.clientX;
+const cy = e.clientY || e.touches?.[0]?.clientY;
+targetRotation.y += (cx - prevMouse.x) * 0.005;
+targetRotation.x += (cy - prevMouse.y) * 0.005;
+prevMouse.x = cx; prevMouse.y = cy;
+}
+function onPointerUp() { isDragging = false; overlay.style.cursor = 'grab'; }
+
+overlay.addEventListener('mousedown', onPointerDown);
+overlay.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+overlay.addEventListener('touchstart', onPointerDown, { passive: true });
+overlay.addEventListener('touchmove', onPointerMove, { passive: true });
+window.addEventListener('touchend', onPointerUp);
+
+// 滚轮缩放
+let cameraZ = 6;
+overlay.addEventListener('wheel', e => {
+cameraZ += e.deltaY * 0.005;
+cameraZ = Math.max(3, Math.min(12, cameraZ));
+}, { passive: true });
+
+// ── 动画循环 ──
+const clock = new THREE.Clock();
+let animId;
+function animate() {
+animId = requestAnimationFrame(animate);
+const t = clock.getElapsedTime();
+
+// 自动旋转 + 拖拽融合
+if (!isDragging) {
+targetRotation.y += 0.003;
+targetRotation.x += Math.sin(t * 0.2) * 0.0005;
+}
+currentRotation.x += (targetRotation.x - currentRotation.x) * 0.05;
+currentRotation.y += (targetRotation.y - currentRotation.y) * 0.05;
+cube.rotation.x = currentRotation.x;
+cube.rotation.y = currentRotation.y;
+
+// 内部光源旋转
+innerLights.forEach(il => {
+il.angle += il.speed * 0.01;
+il.light.position.set(Math.cos(il.angle) * 1.2, Math.sin(il.angle * 1.3) * 0.6, Math.sin(il.angle) * 1.2);
+});
+
+// 粒子缓慢旋转
+particles.rotation.y += 0.0003;
+particles.rotation.x += 0.0001;
+
+// 相机缓动
+camera.position.z += (cameraZ - camera.position.z) * 0.05;
+
+// 线框脉动
+lineMat.opacity = 0.1 + Math.sin(t * 2) * 0.05;
+
+composer.render();
+}
+animate();
+
+// ── 清理函数 ──
+function destroy() {
+if (animId) cancelAnimationFrame(animId);
+overlay.removeEventListener('mousedown', onPointerDown);
+overlay.removeEventListener('mousemove', onPointerMove);
+window.removeEventListener('mouseup', onPointerUp);
+overlay.removeEventListener('touchstart', onPointerDown);
+overlay.removeEventListener('touchmove', onPointerMove);
+window.removeEventListener('touchend', onPointerUp);
+canvasContainer.innerHTML = '';
+overlay.style.display = 'none';
+loadingEl.style.display = 'flex';
+_prismEasterActive = false;
+_prismEasterScene = null;
+}
+
+_prismEasterScene = { destroy };
+
+// 关闭按钮
+document.getElementById('prismEasterClose').onclick = destroy;
+// 任意键/点击关闭（除了拖拽）
+overlay.addEventListener('click', e => { if (e.target === overlay && !isDragging) destroy(); });
+document.addEventListener('keydown', e => { if (_prismEasterActive && e.key === 'Escape') destroy(); });
+
+// 窗口大小适配
+window.addEventListener('resize', () => {
+if (!_prismEasterActive) return;
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
+composer.setSize(window.innerWidth, window.innerHeight);
+});
+}
+
+// ── 控制台 API ──
+window.prismEaster = {
+awaken: awakenPrismEaster,
+isActive: () => _prismEasterActive
+};
+
+// ═════════════════════════════════════════
+// 初始化入口
+// ═════════════════════════════════════════
 init(); 
