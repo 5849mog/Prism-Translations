@@ -1,6 +1,7 @@
-// ─────────────────────────────────────────
+// @charset “UTF-8”
+// —————————————–
 // 语言列表（扩展至 22 种）
-// ─────────────────────────────────────────
+// —————————————–
 const LANGS =[
 { code:‘zh’, name:‘中文’,     label:‘ZH’, flag:‘🇨🇳’ },
 { code:‘en’, name:‘英语’,     label:‘EN’, flag:‘🇺🇸’ },
@@ -26,9 +27,9 @@ const LANGS =[
 { code:‘ms’, name:‘马来语’,   label:‘MS’, flag:‘🇲🇾’ },
 ];
 
-// ─────────────────────────────────────────
+// —————————————–
 // 应用状态
-// ─────────────────────────────────────────
+// —————————————–
 const TEXT_CACHE_KEY = ‘prism_text_cache’;
 const WARN_THRESHOLD = 6000;
 const HARD_LIMIT = 7500;
@@ -58,11 +59,11 @@ usageTokens: { prompt: 0, completion: 0, total: 0 },
 currentRoundUsage: { prompt: 0, completion: 0, total: 0 },
 };
 
-// ── DOM 引用缓存（静态结构，页面加载后不变）──
+// – DOM 引用缓存（静态结构，页面加载后不变）–
 let _panelRight = null;
 function getPanelRight() { return _panelRight || (_panelRight = document.querySelector(’.panel-right’)); }
 
-// ── 安全 Storage 包装（隐私模式/存储满时 graceful degrade）──
+// – 安全 Storage 包装（隐私模式/存储满时 graceful degrade）–
 function safeStore(type, key, value) {
 try { (type === ‘session’ ? sessionStorage : localStorage).setItem(key, value); } catch(*) {}
 }
@@ -70,9 +71,9 @@ function safeRemove(type, key) {
 try { (type === ‘session’ ? sessionStorage : localStorage).removeItem(key); } catch(*) {}
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 功能 1：文件上传（txt / md / pdf / docx）
-// ─────────────────────────────────────────
+// —————————————–
 function loadFileText(text, filename) {
 document.getElementById(‘sourceText’).value = text;
 updateWordStats();
@@ -84,12 +85,12 @@ detectAndApplyLang(text);
 showToast(`已加载：${filename}`, ‘success’);
 }
 
-// ═════════════════════════════════════════
+// =========================================
 // 文件解析引擎 v3 — CDN 增强版
 // PDF→pdf.js  DOCX→mammoth  XLSX→SheetJS  ZIP→JSZip
-// ═════════════════════════════════════════
+// =========================================
 
-// ── CDN 配置（按需加载，不影响首屏）──
+// – CDN 配置（按需加载，不影响首屏）–
 const CDN_LIBS = {
 jszip:   ‘https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js’,
 mammoth: ‘https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js’,
@@ -113,7 +114,7 @@ document.head.appendChild(s);
 });
 }
 
-// ── 编码检测（txt / md）──
+// – 编码检测（txt / md）–
 function detectEncoding(bytes) {
 if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return { enc: ‘utf-8’, skip: 3 };
 if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) return { enc: ‘utf-16le’, skip: 2 };
@@ -127,7 +128,7 @@ const { enc, skip } = detectEncoding(bytes);
 return new TextDecoder(enc, { fatal: false }).decode(bytes.slice(skip));
 }
 
-// ── 大文件安全读取 ──
+// – 大文件安全读取 –
 function readFileChunked(file, maxSize) {
 return new Promise((resolve, reject) => {
 const reader = new FileReader();
@@ -137,7 +138,7 @@ reader.readAsArrayBuffer(file.size <= maxSize ? file : file.slice(0, maxSize));
 });
 }
 
-// ── HTML / CSV / RTF 原生解析 ──
+// – HTML / CSV / RTF 原生解析 –
 function parseHtml(text) {
 const doc = new DOMParser().parseFromString(text, ‘text/html’);
 doc.querySelectorAll(‘script, style, nav, header, footer, aside’).forEach(el => el.remove());
@@ -165,7 +166,7 @@ return raw.replace(/\pard|\par|\tab|\line/g, ‘\n’).replace(/\[a-z]+\d*\s?/gi
 .replace(/\n{3,}/g, ‘\n\n’).trim();
 }
 
-// ── 各格式 CDN 解析器 ──
+// – 各格式 CDN 解析器 –
 
 // PDF → pdf.js
 async function parsePdfWithCdn(arrayBuffer) {
@@ -218,7 +219,7 @@ if (clean.length > 3) text += (text ? ‘\n\n’ : ‘’) + clean;
 return text;
 }
 
-// ── 主入口 ──
+// – 主入口 –
 async function handleFileSelect(file) {
 if (!file) return;
 const name = file.name, ext = name.split(’.’).pop().toLowerCase();
@@ -322,9 +323,9 @@ document.getElementById(‘fileInput’).value = ‘’;
 showToast(‘已移除文件’);
 });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 功能 4：自动语言检测（启发式）
-// ─────────────────────────────────────────
+// —————————————–
 const LANG_DETECT_PATTERNS = [
 { code:‘zh’, pattern: /[\u4e00-\u9fff]/, threshold: 0.15 },
 { code:‘ja’, pattern: /[\u3040-\u30ff]/, threshold: 0.1 },
@@ -381,9 +382,9 @@ safeStore(‘session’, TEXT_CACHE_KEY, this.value);
 updateTranslateBtnState();
 });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 功能 2：翻译中断（Stop）
-// ─────────────────────────────────────────
+// —————————————–
 function showStopBtn() {
 document.getElementById(‘stopBtn’).classList.add(‘visible’);
 const d = document.getElementById(‘stopBtnDesktop’);
@@ -404,7 +405,7 @@ document.getElementById(‘stopBtn’).addEventListener(‘click’, doStop);
 // 桌面端停止按钮（动态绑定）
 document.addEventListener(‘click’, e => { if (e.target.closest(’#stopBtnDesktop’)) doStop(); });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 历史记录管理
 function getHistory() {
 try { return JSON.parse(localStorage.getItem(‘prism_history’) || ‘[]’); } catch(_) { return[]; }
@@ -425,9 +426,9 @@ if (h.length > 0) { badge.textContent = h.length > 9 ? ‘9+’ : h.length; badg
 else { badge.classList.remove(‘visible’); }
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 辅助：构建历史记录条目 HTML（供 renderHistoryList 和历史搜索共用）
-// ─────────────────────────────────────────
+// —————————————–
 function buildHistoryItemHTML(item) {
 const scoreChips = item.scores
 ? `<div style="margin-top:4px;display:flex;gap:3px;">${ ['忠','流','地'].map((l,i) => `<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>` ).join('') }</div>`
@@ -484,9 +485,9 @@ return String(str)
 .replace(/’/g, ‘'’);
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // Markdown 实时渲染引擎
-// ─────────────────────────────────────────
+// —————————————–
 let _markedLib = null;
 let _markedLoading = false;
 let _markedCallbacks = [];
@@ -581,9 +582,9 @@ renderHistoryList();
 });
 function closeHistoryModal() { document.getElementById(‘historyModal’).classList.remove(‘active’); }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 初始化
-// ─────────────────────────────────────────
+// —————————————–
 function init() {
 document.getElementById(‘roundsDisplay’).textContent = state.rounds;
 if (state.apiKey) document.getElementById(‘apiKeyInput’).value = state.apiKey;
@@ -603,9 +604,9 @@ document.getElementById(‘tgtLangName’).textContent = state.tgtLang.name;
 document.getElementById(‘tgtLangCode’).textContent = state.tgtLang.label;
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // UI 更新（流式防幻觉）
-// ─────────────────────────────────────────
+// —————————————–
 const LABEL_STRIP_RE = /^[[【「]?(最优译文正文|最优译文|优化译文|最终译文|译文正文|译文|翻译结果|翻译如下|以下是译文|以下是翻译|以下译文|Translation|Final Translation|Here is the translation|隐含语义译文|隐义译文)[]】」]?[:：]?\s*/i;
 
 function updateUI(el, full, reasoning) {
@@ -633,9 +634,9 @@ ensureMarked().then(() => updateUI(el, full, reasoning));
 }
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 字数统计
-// ─────────────────────────────────────────
+// —————————————–
 function updateWordStats() {
 const text = document.getElementById(‘sourceText’).value;
 const len = text.length;
@@ -714,9 +715,9 @@ stopTimer();
 }
 document.getElementById(‘clearBtn’).addEventListener(‘click’, doClearAll);
 
-// ─────────────────────────────────────────
+// —————————————–
 // 语言对调（带内容互换）
-// ─────────────────────────────────────────
+// —————————————–
 document.getElementById(‘swapBtn’).addEventListener(‘click’, () => {
 const btn = document.getElementById(‘swapBtn’);
 btn.classList.add(‘swapping’);
@@ -738,9 +739,9 @@ document.getElementById(‘exportSection’).style.display = ‘none’;
 }
 });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 语言选择模态
-// ─────────────────────────────────────────
+// —————————————–
 function openLangModal(forSrc) {
 state.pickingFor = forSrc ? ‘src’ : ‘tgt’;
 document.getElementById(‘langModalTitle’).textContent = forSrc ? ‘选择源语言’ : ‘选择目标语言’;
@@ -774,9 +775,9 @@ document.getElementById(‘langModalBack’).addEventListener(‘click’, close
 document.getElementById(‘langModal’).addEventListener(‘click’, e => { if (e.target === document.getElementById(‘langModal’)) closeLangModal(); });
 document.getElementById(‘langSearch’).addEventListener(‘input’, function() { renderLangList(this.value.trim()); });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 设置抽屉
-// ─────────────────────────────────────────
+// —————————————–
 document.getElementById(‘settingsBtn’).addEventListener(‘click’, openDrawer);
 document.getElementById(‘drawerOverlay’).addEventListener(‘click’, closeDrawer);
 function openDrawer() { document.getElementById(‘settingsDrawer’).classList.add(‘open’); document.getElementById(‘drawerOverlay’).classList.add(‘active’); }
@@ -784,7 +785,7 @@ function closeDrawer() { document.getElementById(‘settingsDrawer’).classList
 document.getElementById(‘roundsMinus’).addEventListener(‘click’, () => { if (state.rounds > 1) { state.rounds–; document.getElementById(‘roundsDisplay’).textContent = state.rounds; } });
 document.getElementById(‘roundsPlus’).addEventListener(‘click’, () => { if (state.rounds < 5) { state.rounds++; document.getElementById(‘roundsDisplay’).textContent = state.rounds; } });
 document.getElementById(‘keyToggle’).addEventListener(‘click’, () => { const inp = document.getElementById(‘apiKeyInput’); inp.type = inp.type === ‘password’ ? ‘text’ : ‘password’; });
-// ── 设置持久化公共逻辑 ──
+// – 设置持久化公共逻辑 –
 function commitSettings(key) {
 state.apiKey = key;
 state.model = document.getElementById(‘modelSelect’).value;
@@ -812,9 +813,9 @@ showToast(‘设置已保存’, ‘success’);
 closeDrawer();
 });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 优化 1：Provider-模型联动过滤
-// ─────────────────────────────────────────
+// —————————————–
 const PROVIDER_MODELS = {
 deepseek: [‘deepseek-v4-flash’, ‘deepseek-v4-pro’],
 gemini: [‘gemini-2.5-flash’, ‘gemini-2.5-pro’],
@@ -869,9 +870,9 @@ autoSaveSettings();
 // 初始化联动
 updateModelOptions();
 
-// ─────────────────────────────────────────
+// —————————————–
 // 优化 3：设置自动保存（debounce）
-// ─────────────────────────────────────────
+// —————————————–
 let autoSaveTimer = null;
 function autoSaveSettings() {
 clearTimeout(autoSaveTimer);
@@ -893,9 +894,9 @@ document.getElementById(‘roundsPlus’)?.addEventListener(‘click’, () => {
 // Escape 键关闭抽屉
 document.addEventListener(‘keydown’, e => { if (e.key === ‘Escape’) closeDrawer(); });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 优化 2：文本自动缓存 + 按钮状态联动
-// ─────────────────────────────────────────
+// —————————————–
 function updateTranslateBtnState() {
 const hasText = document.getElementById(‘sourceText’).value.trim().length > 0;
 const hasKey = !!state.apiKey;
@@ -932,12 +933,12 @@ updateTranslateBtnState();
 // 翻译成功后清除缓存（在 doTranslate 成功后的 finally 中）
 function clearTextCache() { safeRemove(‘session’, TEXT_CACHE_KEY); }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 优化 4：一键示例体验
-// ─────────────────────────────────────────
-// ═════════════════════════════════════════
+// —————————————–
+// =========================================
 // 试译一下：示例文本库
-// ═════════════════════════════════════════
+// =========================================
 const DEMO_LIBRARY = [
 {
 key: ‘speech’, icon: ‘🎤’, title: ‘科技演讲’, desc: ‘AI 发展主题，含引用与数据’,
@@ -994,7 +995,7 @@ The convergence of neural networks and natural language processing has created u
 技术进步虽然惊人，但最终决定翻译质量的，依然是对语言背后文化的深刻理解。`}
 ];
 
-// ── 示例选择面板 ──
+// – 示例选择面板 –
 function showDemoPanel() {
 const modal = document.getElementById(‘demoPanelModal’);
 const grid = document.getElementById(‘demoPanelGrid’);
@@ -1041,7 +1042,7 @@ document.getElementById('demoPanelClose')?.addEventListener('click', hideDemoPan
 document.getElementById('demoPanelModal')?.addEventListener('click', e => { if (e.target === document.getElementById('demoPanelModal')) hideDemoPanel(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('demoPanelModal').style.display === 'flex') hideDemoPanel(); });
 
-// ── 桌面端翻译按钮同步 ──
+// – 桌面端翻译按钮同步 –
 const translateBtnDesktop = document.getElementById(‘translateBtnDesktop’);
 if (translateBtnDesktop) {
 translateBtnDesktop.addEventListener(‘click’, doTranslate);
@@ -1050,9 +1051,9 @@ translateBtnDesktop.addEventListener(‘click’, doTranslate);
 const chipEl = document.getElementById(‘modelChip’);
 if (chipEl) chipEl.textContent = state.model || ‘deepseek-v4-flash’;
 
-// ─────────────────────────────────────────
+// —————————————–
 // Toast
-// ─────────────────────────────────────────
+// —————————————–
 let toastTimer;
 function showToast(msg, type = ‘’) {
 const t = document.getElementById(‘toast’);
@@ -1063,9 +1064,9 @@ clearTimeout(toastTimer);
 toastTimer = setTimeout(() => t.classList.remove(‘show’), 2400);
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 统一剪贴板复制函数（三策略兜底）
-// ─────────────────────────────────────────
+// —————————————–
 async function copyToClipboard(text) {
 if (!text) return { success: false, error: ‘无内容’ };
 // 策略1: Clipboard API（现代浏览器）
@@ -1105,9 +1106,9 @@ if (ok) return { success: true };
 return { success: false, error: ‘剪贴板不可用’ };
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 复制 & 朗读
-// ─────────────────────────────────────────
+// —————————————–
 document.getElementById(‘copyBtn’).addEventListener(‘click’, async () => {
 const text = document.getElementById(‘finalResult’).textContent;
 if (!text) return;
@@ -1140,9 +1141,9 @@ isSpeaking = true;
 document.getElementById(‘speakBtn’).style.color = ‘var(–terracotta)’;
 });
 
-// ─────────────────────────────────────────
+// —————————————–
 // 计时器
-// ─────────────────────────────────────────
+// —————————————–
 function startTimer() {
 state.startTime = Date.now();
 const el = document.getElementById(‘phaseTimer’);
@@ -1156,9 +1157,9 @@ clearInterval(state.timerInterval);
 document.getElementById(‘phaseTimer’).textContent = ‘’;
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 导出 — 深度增强版
-// ─────────────────────────────────────────
+// —————————————–
 let currentExportFmt = ‘md’;
 
 document.querySelectorAll(’.export-fmt-btn’).forEach(btn => {
@@ -1171,7 +1172,7 @@ document.getElementById(‘exportBtnLabel’).textContent = `下载 ${labels[cur
 });
 });
 
-// ── 工具函数 ──
+// – 工具函数 –
 function fmtElapsed(s) {
 if (!s) return ‘—’;
 return s < 60 ? `${s} 秒` : `${Math.floor(s/60)} 分 ${s%60} 秒`;
@@ -1195,7 +1196,7 @@ incAgent:   document.getElementById(‘optIncludeAgent’).checked,
 };
 }
 
-// ── Markdown 报告（完整版）──
+// – Markdown 报告（完整版）–
 function buildMarkdown(t, opts) {
 const ts = fmtTimestamp();
 const elapsed = fmtElapsed(t.elapsed);
@@ -1292,7 +1293,7 @@ md += `---\n\n*由 **棱镜译 PrismTrans Pro V6** 生成 · ${ts}*\n`;
 return { content: md, mime: ‘text/markdown;charset=utf-8’, ext: ‘md’ };
 }
 
-// ── 纯文本报告 ──
+// – 纯文本报告 –
 function buildPlainText(t, opts) {
 const sep1 = ‘═’.repeat(60);
 const sep2 = ‘─’.repeat(60);
@@ -1363,7 +1364,7 @@ if (rd.memo) txt += `【迭代备忘录】\n${rd.memo}\n\n`;
 return { content: txt, mime: ‘text/plain;charset=utf-8’, ext: ‘txt’ };
 }
 
-// ── JSON 数据 ──
+// – JSON 数据 –
 function buildJson(t, opts) {
 const ts = fmtTimestamp();
 const avg = t.scores ? parseFloat((t.scores.reduce((a,b)=>a+b,0)/t.scores.length).toFixed(1)) : null;
@@ -1404,7 +1405,7 @@ memo: rd.memo || null,
 return { content: JSON.stringify(obj, null, 2), mime: ‘application/json;charset=utf-8’, ext: ‘json’ };
 }
 
-// ── 双语对照 ──
+// – 双语对照 –
 function buildBilingual(t, opts) {
 const ts = fmtTimestamp();
 const avg = t.scores ? (t.scores.reduce((a,b)=>a+b,0)/t.scores.length).toFixed(1) : null;
@@ -1437,7 +1438,7 @@ a.click();
 URL.revokeObjectURL(url);
 }
 
-// ── 预览弹窗 ──
+// – 预览弹窗 –
 function openPreviewModal(result) {
 let modal = document.getElementById(‘exportPreviewModal’);
 if (!modal) {
@@ -1488,9 +1489,9 @@ const result = buildExportContent(currentExportFmt);
 if (!result) return;
 openPreviewModal(result);
 });
-// ─────────────────────────────────────────
+// —————————————–
 // 功能 5：API 错误细分
-// ─────────────────────────────────────────
+// —————————————–
 const API_ERROR_TIPS = {
 401: ‘❌ API 密钥无效或已过期，请在设置中重新填写。’,
 402: ‘💳 账户余额不足，请前往对应平台充值后重试。’,
@@ -1500,14 +1501,14 @@ const API_ERROR_TIPS = {
 503: ‘🔧 服务暂时不可用，请稍后重试。’,
 };
 
-// ─────────────────────────────────────────
+// —————————————–
 // DeepSeek API 调用（接入 AbortController）
-// ─────────────────────────────────────────
-// ─────────────────────────────────────────
+// —————————————–
+// —————————————–
 // Provider 配置
-// ─────────────────────────────────────────
+// —————————————–
 // Provider 配置 (2026 最新)
-// ─────────────────────────────────────────
+// —————————————–
 function getProviderConfig() {
 const p = state.provider || ‘deepseek’;
 if (p === ‘openai’) {
@@ -1717,9 +1718,9 @@ if (done) break;
 }
 return resultContent;
 }
-// ─────────────────────────────────────────
+// —————————————–
 // System Prompts
-// ─────────────────────────────────────────
+// —————————————–
 function injectCustomPrompt(base) {
 let result = base;
 if (state.customPrompt) result += `\n\n【用户偏好附加指令】\n${state.customPrompt}`;
@@ -1877,9 +1878,9 @@ SCORES:忠实度:x/流畅度:x/地道度:x
 REMARK:你的评语（3-5句话，须明确指出亮点、不足，以及隐含语义的处理是否到位）`;
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 解析函数
-// ─────────────────────────────────────────
+// —————————————–
 function parseSynthOutput(raw) {
 // Fix 3: 修复贪婪正则在用户的原文中含有”【备忘录】“时导致的严重全文截断问题
 const memoIndex = raw.lastIndexOf(’【备忘录】’);
@@ -1923,9 +1924,9 @@ const scores = scoreMatch
 return { scores, remark };
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 深度自适应
-// ─────────────────────────────────────────
+// —————————————–
 const ADAPTIVE_MODES = [
 { key: ‘refined’,   label: ‘✦ 精炼’,   maxLen: 500,   maxRounds: null, critique: true,  implicit: true  },
 { key: ‘standard’,  label: ‘◈ 标准’,   maxLen: 2000,  maxRounds: 2,    critique: true,  implicit: true  },
@@ -1934,9 +1935,9 @@ const ADAPTIVE_MODES = [
 { key: ‘chunk’,     label: ‘⬡ 分块’,   maxLen: Infinity, maxRounds: 1, critique: false, implicit: false },
 ];
 
-// ─────────────────────────────────────────
+// —————————————–
 // 辅助：分数渲染（统一 doTranslate / doTranslateChunked 中的重复逻辑）
-// ─────────────────────────────────────────
+// —————————————–
 function renderScores(scores, idPrefix = ‘’) {
 const scoreLabels = [‘忠’, ‘流’, ‘地’];
 if (!scores) {
@@ -1975,11 +1976,11 @@ const rounds = mode.maxRounds === null ? userRounds : Math.min(userRounds, mode.
 return { …mode, rounds };
 }
 
-// ═════════════════════════════════════════
+// =========================================
 // 分块翻译质量保障体系 v3
-// ═════════════════════════════════════════
+// =========================================
 
-// ── 1. 语义边界智能切分 ──
+// – 1. 语义边界智能切分 –
 function smartSplitIntoChunks(text, targetLen = 1200, maxLen = 1600) {
 const rawParas = text.split(/\n{2,}/).filter(p => p.trim());
 // 处理超长段落：按句子切分
@@ -2018,8 +2019,8 @@ if (start < para.length) parts.push(para.slice(start).trim());
 return parts.filter(p => p.length > 5);
 }
 
-// ── 2. 术语提取（从首块译文中提取）──
-// ── 流式回溯草稿清理 ──
+// – 2. 术语提取（从首块译文中提取）–
+// – 流式回溯草稿清理 –
 // DeepSeek V4 等模型在流式输出时会自我修正回溯，导致累计内容包含重复草稿痕迹
 function cleanStreamingArtifacts(text) {
 if (!text || text.length < 10) return text;
@@ -2058,7 +2059,7 @@ return cleaned;
 return text.length > MAX_SCAN ? text.slice(0, text.length - MAX_SCAN) + cleaned : cleaned;
 }
 
-// ── 分块合成 Prompt 构建 ──
+// – 分块合成 Prompt 构建 –
 function promptChunkSynthesis(src, tgt, termTable) {
 let base = `你是终极翻译裁决官。将四路草稿合并为最优的${tgt}译文。\n\n规则：\n1. 必须输出纯净的${tgt}译文，禁止任何前缀/标题/注释\n2. 选择最准确、最流畅、最地道的表达\n3. 消除四路之间的冲突和重复\n4. 确保语体风格一致\n5. 如果某路明显偏离，果断舍弃`;
 if (termTable && termTable.length > 0) {
@@ -2081,7 +2082,7 @@ if (quoted) for (const q of quoted) terms.push(q.slice(1, -1));
 return […new Set(terms)].slice(0, 15);
 }
 
-// ── 3. 结构化上下文记忆 ──
+// – 3. 结构化上下文记忆 –
 function buildContextMemory(i, total, chunkResults, termTable) {
 const result = {
 termList: termTable && termTable.length > 0 ? termTable : [],
@@ -2118,7 +2119,7 @@ result.summary = parts.join(’\n\n’);
 return result;
 }
 
-// ── 4. 块间一致性审计 ──
+// – 4. 块间一致性审计 –
 function auditChunkConsistency(chunkResults) {
 const issues = [];
 for (let i = 1; i < chunkResults.length; i++) {
@@ -2144,7 +2145,7 @@ prev = temp;
 return a.slice(endIdx - maxLen, endIdx);
 }
 
-// ── 5. 智能合并 ──
+// – 5. 智能合并 –
 function mergeChunksSmart(chunkResults, issues) {
 if (!issues || issues.length === 0) return chunkResults.join(’\n\n’);
 const fixed = […chunkResults];
@@ -2160,9 +2161,9 @@ fixed[i] = fixed[i].slice(iss.text.length).trim();
 return fixed.join(’\n\n’).replace(/\n{4,}/g, ‘\n\n\n’);
 }
 
-// ─────────────────────────────────────────
+// —————————————–
 // 主翻译流程
-// ─────────────────────────────────────────
+// —————————————–
 async function doTranslate() {
 const text = document.getElementById(‘sourceText’).value.trim();
 if (!text) { showToast(‘请先输入要翻译的内容’); document.getElementById(‘sourceText’).focus(); return; }
@@ -2220,7 +2221,7 @@ let lastCritiques = { A: ‘’, B: ‘’, C: ‘’, D: ‘’, F: ‘’ };
 const roundUsageSnapshots = []; // 每轮结束时保存本轮 token 快照
 startTimer();
 
-// ── 自适应模式解析 ──
+// – 自适应模式解析 –
 const mode = resolveAdaptiveMode(text.length, state.rounds);
 const adaptiveBadgeEl = document.getElementById(‘adaptiveBadge’);
 adaptiveBadgeEl.textContent = mode.label;
@@ -2232,7 +2233,7 @@ const stepsPerRound = 5 + (mode.implicit ? 1 : 0) + (mode.critique ? 5 : 0) + 1;
 totalSteps = 1 + mode.rounds * stepsPerRound + 1;
 
 try {
-// ── 分块模式走独立流程 ──
+// – 分块模式走独立流程 –
 if (mode.key === ‘chunk’) {
 await doTranslateChunked(text, src, tgt, setStatus, setProgress);
 return;
@@ -2649,10 +2650,10 @@ clearTextCache(); // 翻译成功后清除缓存
 
 document.getElementById(‘translateBtn’).addEventListener(‘click’, doTranslate);
 
-// ─────────────────────────────────────────
-// ─────────────────────────────────────────
+// —————————————–
+// —————————————–
 // 分块翻译流程 v2（极速版：每块1次API，总调用量减少约7倍）
-// ─────────────────────────────────────────
+// —————————————–
 async function doTranslateChunked(text, src, tgt, setStatus, setProgress) {
 const chunks = smartSplitIntoChunks(text, 1200, 1600);
 const total = chunks.length;
@@ -2811,9 +2812,9 @@ state.lastTranslation = { srcLang: src, tgtLang: tgt, model: state.model, source
 addHistory({ src: text, tgt: fullTranslation, srcCode: state.srcLang.code, tgtCode: state.tgtLang.code, scores, remark });
 }
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 1：全局键盘快捷键体系 + 帮助面板
-// ═════════════════════════════════════════
+// =========================================
 const SHORTCUTS = [
 { keys: ‘Ctrl + Enter’, desc: ‘启动翻译’, scope: ‘全局’ },
 { keys: ‘Ctrl + K’, desc: ‘快捷键帮助’, scope: ‘全局’ },
@@ -2868,9 +2869,9 @@ if (mod && e.key === ‘d’ && !isInput) { e.preventDefault(); document.getElem
 if (e.key === ‘Escape’ && document.getElementById(‘shortcutModal’).style.display === ‘flex’) { hideShortcutModal(); return; }
 });
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 2：语音输入（Web Speech API）
-// ═════════════════════════════════════════
+// =========================================
 let _recognition = null;
 function initVoiceInput() {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2928,9 +2929,9 @@ updateVoiceBtnState(); showToast(‘语音识别中…’, ‘success’);
 }
 });
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 3：翻译历史搜索
-// ═════════════════════════════════════════
+// =========================================
 document.getElementById(‘historySearchInput’).addEventListener(‘input’, function() {
 const q = this.value.trim().toLowerCase();
 const h = getHistory();
@@ -2956,9 +2957,9 @@ list.appendChild(el);
 });
 });
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 4：双语对照视图（段落级原文/译文并排）
-// ═════════════════════════════════════════
+// =========================================
 let _bilingualActive = false;
 function renderBilingualView() {
 const t = state.lastTranslation;
@@ -2997,9 +2998,9 @@ btn.style.color = '';
 }
 });
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 5：翻译进度持久化（刷新页面可恢复）
-// ═════════════════════════════════════════
+// =========================================
 const PROGRESS_KEY = ‘prism_progress’;
 function saveProgress(data) {
 try { sessionStorage.setItem(PROGRESS_KEY, JSON.stringify({ …data, savedAt: Date.now() })); } catch(*) {}
@@ -3018,9 +3019,9 @@ function clearProgress() {
 try { sessionStorage.removeItem(PROGRESS_KEY); } catch(_) {}
 }
 
-// ═════════════════════════════════════════
+// =========================================
 // 增强 6：批量文件上传（多文件队列）
-// ═════════════════════════════════════════
+// =========================================
 let _fileQueue = [];
 let _fileQueueIndex = 0;
 async function processFileQueue() {
@@ -3060,13 +3061,13 @@ if (saved && saved.source) {
 }
 })();
 
-// ═════════════════════════════════════════
+// =========================================
 // 3D 彩蛋：棱镜圣碑（Three.js 棱镜折射 + Bloom 辉光 + 粒子）
-// ═════════════════════════════════════════
+// =========================================
 let _prismEasterActive = false;
 let _prismEasterScene = null;
 
-// ── Konami Code 检测 ──
+// – Konami Code 检测 –
 const _konamiSequence = [‘ArrowUp’,‘ArrowUp’,‘ArrowDown’,‘ArrowDown’,‘ArrowLeft’,‘ArrowRight’,‘ArrowLeft’,‘ArrowRight’,‘b’,‘a’];
 let _konamiIndex = 0;
 document.addEventListener(‘keydown’, e => {
@@ -3075,7 +3076,7 @@ if (e.key === _konamiSequence[_konamiIndex]) { _konamiIndex++; if (_konamiIndex 
 else { _konamiIndex = 0; }
 });
 
-// ── 原文区咒语检测 ──
+// – 原文区咒语检测 –
 const _prismTriggerRe = /^//prism\s*$/i;
 document.getElementById(‘sourceText’).addEventListener(‘keydown’, e => {
 if (e.key === ‘Enter’ && _prismTriggerRe.test(document.getElementById(‘sourceText’).value.trim())) {
@@ -3091,7 +3092,7 @@ const canvasContainer = document.getElementById(‘prismEasterCanvas’);
 const loadingEl = document.getElementById(‘prismEasterLoading’);
 overlay.style.display = ‘block’;
 
-// ── 动态加载 Three.js + 后处理 ──
+// – 动态加载 Three.js + 后处理 –
 let THREE, EffectComposer, RenderPass, UnrealBloomPass;
 try {
 THREE = await import(‘three’);
@@ -3105,7 +3106,7 @@ UnrealBloomPass = bp.UnrealBloomPass;
 
 loadingEl.style.display = ‘none’;
 
-// ══ 3D 场景构建 ══
+// == 3D 场景构建 ==
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0a0a0f, 0.035);
 
@@ -3119,7 +3120,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 canvasContainer.appendChild(renderer.domElement);
 
-// ── 后处理：Bloom 辉光 ──
+// – 后处理：Bloom 辉光 –
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloomPass = new UnrealBloomPass(
@@ -3130,7 +3131,7 @@ new THREE.Vector2(window.innerWidth, window.innerHeight),
 );
 composer.addPass(bloomPass);
 
-// ── 六面纹理生成（每面一个译者代号）──
+// – 六面纹理生成（每面一个译者代号）–
 const faceData = [
 { text: ‘甲\n语言学家’, color: ‘#c0392b’, sub: ‘忠实’ },
 { text: ‘乙\n本土编辑’, color: ‘#2980b9’, sub: ‘地道’ },
@@ -3193,13 +3194,13 @@ transparent: true,
 side: THREE.DoubleSide
 }));
 
-// ── 水晶立方体 ──
+// – 水晶立方体 –
 const cubeSize = 2.2;
 const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
 const cube = new THREE.Mesh(cubeGeo, materials);
 scene.add(cube);
 
-// ── 内部彩虹光源（棱镜色散）──
+// – 内部彩虹光源（棱镜色散）–
 const rainbowColors = [0xff2d55, 0xff9500, 0xffcc00, 0x34c759, 0x007aff, 0xaf52de];
 const innerLights = [];
 rainbowColors.forEach((color, i) => {
@@ -3210,20 +3211,20 @@ cube.add(light);
 innerLights.push({ light, angle, speed: 0.3 + i * 0.1 });
 });
 
-// ── 外部环状光源 ──
+// – 外部环状光源 –
 const ambientLight = new THREE.AmbientLight(0x223355, 0.3);
 scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
 dirLight.position.set(3, 5, 4);
 scene.add(dirLight);
 
-// ── 外框线（线框效果）──
+// – 外框线（线框效果）–
 const edges = new THREE.EdgesGeometry(cubeGeo);
 const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
 const wireframe = new THREE.LineSegments(edges, lineMat);
 cube.add(wireframe);
 
-// ── 外层半透明保护壳（更大的玻璃盒）──
+// – 外层半透明保护壳（更大的玻璃盒）–
 const shellGeo = new THREE.BoxGeometry(cubeSize + 0.3, cubeSize + 0.3, cubeSize + 0.3);
 const shellMat = new THREE.MeshPhysicalMaterial({
 transmission: 0.95, opacity: 0.3, metalness: 0, roughness: 0, ior: 1.5,
@@ -3233,7 +3234,7 @@ color: new THREE.Color(0x6688ff)
 const shell = new THREE.Mesh(shellGeo, shellMat);
 cube.add(shell);
 
-// ── 漂浮粒子系统 ──
+// – 漂浮粒子系统 –
 const particleCount = 800;
 const particleGeo = new THREE.BufferGeometry();
 const positions = new Float32Array(particleCount * 3);
@@ -3254,7 +3255,7 @@ const particleMat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, t
 const particles = new THREE.Points(particleGeo, particleMat);
 scene.add(particles);
 
-// ── 轨道环（装饰性）──
+// – 轨道环（装饰性）–
 for (let ri = 0; ri < 3; ri++) {
 const ringGeo = new THREE.RingGeometry(2.5 + ri * 0.8, 2.52 + ri * 0.8, 64);
 const ringMat = new THREE.MeshBasicMaterial({
@@ -3268,7 +3269,7 @@ ring.rotation.y = ri * 0.3;
 cube.add(ring);
 }
 
-// ── 鼠标/触摸交互 ──
+// – 鼠标/触摸交互 –
 let isDragging = false;
 let prevMouse = { x: 0, y: 0 };
 let targetRotation = { x: 0, y: 0 };
@@ -3304,7 +3305,7 @@ cameraZ += e.deltaY * 0.005;
 cameraZ = Math.max(3, Math.min(12, cameraZ));
 }, { passive: true });
 
-// ── 动画循环 ──
+// – 动画循环 –
 const clock = new THREE.Clock();
 let animId;
 function animate() {
@@ -3341,7 +3342,7 @@ composer.render();
 }
 animate();
 
-// ── 清理函数 ──
+// – 清理函数 –
 function destroy() {
 if (animId) cancelAnimationFrame(animId);
 overlay.removeEventListener(‘mousedown’, onPointerDown);
@@ -3375,13 +3376,13 @@ composer.setSize(window.innerWidth, window.innerHeight);
 });
 }
 
-// ── 控制台 API ──
+// – 控制台 API –
 window.prismEaster = {
 awaken: awakenPrismEaster,
 isActive: () => _prismEasterActive
 };
 
-// ═════════════════════════════════════════
+// =========================================
 // 初始化入口
-// ═════════════════════════════════════════
+// =========================================
 init();
