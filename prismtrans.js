@@ -2146,6 +2146,30 @@
   }
 
   // ─────────────────────────────────────────
+  // Provider 配置
+  // ─────────────────────────────────────────
+  const PROVIDER_MODELS = {
+    deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+    openai: ['gpt-4.1', 'gpt-4.1-mini'],
+    claude: ['claude-sonnet-4-6', 'claude-haiku-4-5'],
+  };
+
+  const PROVIDER_NAMES = {
+    deepseek: 'DeepSeek',
+    gemini: 'Gemini',
+    openai: 'OpenAI',
+    claude: 'Claude',
+  };
+
+  const MODEL_DESCRIPTIONS = {
+    deepseek: 'DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强',
+    gemini: 'Gemini 2.5 系列 — Flash 翻译冠军且免费，Pro 推理最强',
+    openai: 'GPT-4.1 系列 — 均衡通用，1M 超长上下文',
+    claude: 'Claude 系列 — Sonnet 长文本专业，Haiku 轻量快速',
+  };
+
+  // ─────────────────────────────────────────
   // 深度自适应
   // ─────────────────────────────────────────
   const ADAPTIVE_MODES = [
