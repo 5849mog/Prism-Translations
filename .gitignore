@@ -1,0 +1,38 @@
+# === OS files ===
+Windows
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# === Editors ===
+.vscode/
+.idea/
+*.swp
+*.sublime-workspace
+*.sublime-project
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+
+# === Temp & generated ===
+*.log
+node_modules/
+dist/
+build/
+
+# === Claude ===
+.claude/
+
+# === Dependencies (if any added later) ===
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

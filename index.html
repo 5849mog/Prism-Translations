@@ -187,9 +187,13 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
   }
   .api-status-dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: var(--success); flex-shrink: 0;
-    box-shadow: 0 0 0 2px rgba(61,122,92,0.15);
+    background: var(--warm-silver); flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(120,115,105,0.15);
     animation: statusBreathe 3s ease-in-out infinite;
+  }
+  .api-status-dot.connected {
+    background: var(--success);
+    box-shadow: 0 0 0 2px rgba(61,122,92,0.15);
   }
   @keyframes statusBreathe {
     0%, 100% { opacity: 1; box-shadow: 0 0 0 2px rgba(61,122,92,0.15); }
@@ -1321,19 +1325,6 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 </head>
 <body>
 
-<div id="errPanel" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#c96442;color:#fff;font-size:12px;padding:8px 14px;font-family:monospace;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<script>
-(function(){
-var ep=document.getElementById('errPanel');
-var logs=[];
-function show(msg){logs.push(msg);if(ep){ep.style.display='block';ep.textContent=logs.join('\n');}}
-window.onerror=function(msg,src,line,col,err){show('[ERROR] '+msg+' @ L'+line);return false;};
-window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.reason);};
-})();
-</script>
-
-<div id="debugFixed" style="display:none;position:fixed;bottom:10px;left:10px;right:10px;z-index:99999;background:#c96442;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;font-family:monospace;white-space:pre-wrap;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>
-
 <div class="app-wrap">
   <!-- Topbar -->
   <div class="topbar">
@@ -1354,13 +1345,13 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
       </div>
     </div>
     <div class="topbar-right">
-      <div class="api-status" id="apiStatus"><span class="api-status-dot"></span>API 已连接</div>
-      <div class="icon-btn" id="historyBtn" title="翻译历史">
+      <div class="api-status" id="apiStatus"><span class="api-status-dot" id="apiStatusDot"></span><span id="apiStatusText">API 未配置</span></div>
+      <div class="icon-btn" id="historyBtn" title="翻译历史" aria-label="翻译历史">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><path d="M3 3v4h4"/></svg>
         <span class="history-badge" id="historyBadge">0</span>
         <span class="tooltip">翻译历史</span>
       </div>
-      <div class="icon-btn" id="settingsBtn">
+      <div class="icon-btn" id="settingsBtn" title="设置" aria-label="设置">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -1376,16 +1367,16 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
     <!-- 左侧面板 -->
     <div class="panel-left">
       <div class="lang-bar">
-        <div class="lang-display" id="srcLangBtn">
+        <div class="lang-display" id="srcLangBtn" role="button" aria-haspopup="dialog">
           <span class="lang-display-name" id="srcLangName">中文</span>
           <span class="lang-display-code" id="srcLangCode">ZH</span>
         </div>
-        <div class="lang-arrow" id="swapBtn" title="切换方向">
+        <div class="lang-arrow" id="swapBtn" title="切换方向" role="button" aria-label="切换语言方向">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 9h14"/><path d="M5 9l4-4"/><path d="M5 9l4 4"/><path d="M19 15H5"/><path d="M19 15l-4-4"/><path d="M19 15l-4 4"/>
           </svg>
         </div>
-        <div class="lang-display" id="tgtLangBtn">
+        <div class="lang-display" id="tgtLangBtn" role="button" aria-haspopup="dialog">
           <span class="lang-display-name" id="tgtLangName">英语</span>
           <span class="lang-display-code" id="tgtLangCode">EN</span>
         </div>
@@ -1411,12 +1402,12 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
       </div>
 
       <div class="textarea-card">
-        <textarea id="sourceText" placeholder="将需要翻译的文字贴于此处…（Ctrl+Enter 快速启动）"></textarea>
+        <textarea id="sourceText" placeholder="将需要翻译的文字贴于此处…（Ctrl+Enter 快速启动）" aria-label="输入待翻译文本"></textarea>
         <div class="input-footer">
           <span class="char-count"><span id="charNum">0</span> 字</span>
           <div class="input-actions">
-            <button class="input-mini-btn" id="pasteBtn" title="粘贴">粘贴</button>
-            <button class="input-mini-btn" id="clearBtn">清空</button>
+            <button class="input-mini-btn" id="pasteBtn" title="粘贴" aria-label="粘贴文本">粘贴</button>
+            <button class="input-mini-btn" id="clearBtn" aria-label="清空文本">清空</button>
           </div>
         </div>
       </div>
@@ -1648,7 +1639,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
 
 <!-- 语言选择模态 -->
 
-<div class="lang-modal" id="langModal">
+<div class="lang-modal" id="langModal" role="dialog" aria-modal="true" aria-label="语言选择">
   <div class="lang-modal-content">
     <div class="lang-modal-bar">
       <div class="back-btn" id="langModalBack">
@@ -1665,7 +1656,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
 
 <!-- 历史记录模态 -->
 
-<div class="history-modal" id="historyModal">
+<div class="history-modal" id="historyModal" role="dialog" aria-modal="true" aria-label="翻译历史">
   <div class="history-panel">
     <div class="history-header">
       <span class="history-title">翻译历史</span>
@@ -1683,7 +1674,7 @@ window.addEventListener('unhandledrejection',function(e){show('[PROMISE] '+e.rea
 <!-- 设置抽屉 -->
 
 <div class="drawer-overlay" id="drawerOverlay"></div>
-<div class="drawer" id="settingsDrawer">
+<div class="drawer" id="settingsDrawer" role="dialog" aria-modal="true" aria-label="偏好设置">
   <div class="drawer-handle"></div>
   <div class="drawer-title">偏好设置</div>
 

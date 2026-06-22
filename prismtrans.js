@@ -14,6 +14,46 @@
   'use strict';
 
   // ─────────────────────────────────────────
+  // 生产环境开关
+  // ─────────────────────────────────────────
+  const PRODUCTION = true;
+  const log = {
+    warn: function () { if (!PRODUCTION) { console.warn.apply(console, arguments); } },
+    error: function () { if (!PRODUCTION) { console.error.apply(console, arguments); } },
+  };
+
+  // ─────────────────────────────────────────
+  // 焦点陷阱
+  // ─────────────────────────────────────────
+  let _trapContainer = null;
+  function _onTabKey(e) {
+    if (!_trapContainer) return;
+    const focusable = _trapContainer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+  function trapFocus(container) {
+    releaseFocus();
+    _trapContainer = container;
+    document.addEventListener('keydown', _onTabKey);
+    // 焦点移到容器内第一个可聚焦元素
+    const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable.length) setTimeout(function () { focusable[0].focus(); }, 100);
+  }
+  function releaseFocus() {
+    _trapContainer = null;
+    document.removeEventListener('keydown', _onTabKey);
+  }
+
+  // ─────────────────────────────────────────
   // 语言列表（扩展至 22 种）
   // ─────────────────────────────────────────
   const LANGS = [
@@ -690,6 +730,7 @@
   document.getElementById('historyBtn').addEventListener('click', () => {
     renderHistoryList();
     document.getElementById('historyModal').classList.add('active');
+    trapFocus(document.getElementById('historyModal'));
   });
   document.getElementById('historyClose').addEventListener('click', closeHistoryModal);
   document.getElementById('historyModal').addEventListener('click', (e) => {
@@ -703,6 +744,7 @@
   });
   function closeHistoryModal() {
     document.getElementById('historyModal').classList.remove('active');
+    releaseFocus();
   }
 
 
@@ -872,10 +914,12 @@
     document.getElementById('langSearch').value = '';
     renderLangList('');
     document.getElementById('langModal').classList.add('active');
+    trapFocus(document.getElementById('langModal'));
     setTimeout(() => document.getElementById('langSearch').focus(), 150);
   }
   function closeLangModal() {
     document.getElementById('langModal').classList.remove('active');
+    releaseFocus();
   }
   function renderLangList(q) {
     const active = state.pickingFor === 'src' ? state.srcLang : state.tgtLang;
@@ -923,10 +967,12 @@
   function openDrawer() {
     document.getElementById('settingsDrawer').classList.add('open');
     document.getElementById('drawerOverlay').classList.add('active');
+    trapFocus(document.getElementById('settingsDrawer'));
   }
   function closeDrawer() {
     document.getElementById('settingsDrawer').classList.remove('open');
     document.getElementById('drawerOverlay').classList.remove('active');
+    releaseFocus();
   }
   document.getElementById('roundsMinus').addEventListener('click', () => {
     if (state.rounds > 1) {
@@ -1074,6 +1120,18 @@
         btn.title = '';
       }
     });
+    // 更新 API 状态指示器
+    const dot = document.getElementById('apiStatusDot');
+    const text = document.getElementById('apiStatusText');
+    if (dot && text) {
+      if (hasKey) {
+        dot.classList.add('connected');
+        text.textContent = 'API 已连接';
+      } else {
+        dot.classList.remove('connected');
+        text.textContent = 'API 未配置';
+      }
+    }
   }
 
   // 页面加载时恢复缓存文本
@@ -2829,6 +2887,7 @@
 
     state.running = true;
     state.abortController = new AbortController();
+    document.title = '翻译中… · PrismTrans Pro V6';
 
     // P0-4: 使用 AbortController 统一管理 beforeunload
     const _beforeUnload = (e) => {
@@ -2915,7 +2974,7 @@
           dynamicAgent = parsed;
         }
       } catch (e) {
-        console.warn('Agent 解析失败，使用默认配置:', e.message);
+        log.warn('Agent 解析失败，使用默认配置:', e.message);
       }
 
       document.getElementById('agentGenName').textContent = dynamicAgent.name;
@@ -3025,6 +3084,7 @@
       }
       window.removeEventListener('beforeunload', _beforeUnload);
       clearTextCache();
+      document.title = '棱镜译 · PrismTrans Pro V6';
     }
   }
 
@@ -3091,7 +3151,7 @@
       showToast('翻译已手动停止');
     } else {
       showToast(`错误：${err.message}`, 'error');
-      console.error(err);
+      log.error(err);
     }
     const finalLabelEl = document.querySelector('.result-label');
     if (finalLabelEl.dataset.earlyPreview) {
@@ -3133,7 +3193,7 @@
           dynamicAgent = parsed;
         }
       } catch (e) {
-        console.warn('Chunk Agent 解析失败，使用默认配置:', e.message);
+        log.warn('Chunk Agent 解析失败，使用默认配置:', e.message);
       }
 
       // 五路并发
@@ -3382,7 +3442,7 @@
     };
 
     _recognition.onerror = (event) => {
-      console.warn('语音识别错误:', event.error);
+      log.warn('语音识别错误:', event.error);
       if (event.error === 'not-allowed') {
         showToast('麦克风权限被拒绝');
         _isVoiceListening = false;
@@ -3395,7 +3455,7 @@
         try {
           _recognition.start();
         } catch (e) {
-          console.warn('语音识别重启失败:', e);
+          log.warn('语音识别重启失败:', e);
           _isVoiceListening = false;
           updateVoiceBtnState();
         }
@@ -3412,7 +3472,7 @@
         try {
           _recognition.stop();
         } catch (e) {
-          console.warn('语音识别停止失败:', e);
+          log.warn('语音识别停止失败:', e);
         }
         updateVoiceBtnState();
         showToast('语音输入已停止');
@@ -3470,6 +3530,7 @@
         e.preventDefault();
         renderHistoryList();
         document.getElementById('historyModal').classList.add('active');
+        trapFocus(document.getElementById('historyModal'));
       } else if (e.key.toLowerCase() === 'v') {
         e.preventDefault();
         document.getElementById('pasteBtn').click();
