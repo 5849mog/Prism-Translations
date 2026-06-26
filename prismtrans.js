@@ -117,6 +117,14 @@
       return fallback;
     }
   }
+  function safeGetJSON(type, key, fallback) {
+    try {
+      const v = (type === 'session' ? sessionStorage : localStorage).getItem(key);
+      return v !== null ? JSON.parse(v) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
 
   const state = {
     srcLang: LANGS[0],
@@ -128,6 +136,8 @@
     customPrompt: safeGet('local', 'prism_custom_prompt', ''),
     provider: safeGet('local', 'prism_provider', 'deepseek'),
     glossary: safeGet('local', 'prism_glossary', ''),
+    customBaseUrls: safeGetJSON('local', 'prism_custom_base_urls', {}),
+    lastTestedProvider: null,
     running: false,
     pickingFor: null,
     startTime: null,
@@ -761,6 +771,10 @@
     if (state.glossary) document.getElementById('glossaryInput').value = state.glossary;
     updateLangDisplay();
     updateHistoryBadge();
+    updateModelOptions();
+    updateTranslateBtnState();
+    buildProviderCards();
+    updateProviderConfigPanel(state.provider);
   }
 
   function updateLangDisplay() {
@@ -968,6 +982,8 @@
     document.getElementById('settingsDrawer').classList.add('open');
     document.getElementById('drawerOverlay').classList.add('active');
     trapFocus(document.getElementById('settingsDrawer'));
+    buildProviderCards();
+    updateProviderConfigPanel(state.provider);
   }
   function closeDrawer() {
     document.getElementById('settingsDrawer').classList.remove('open');
@@ -1005,8 +1021,9 @@
     safeStore('local', 'prism_custom_prompt', state.customPrompt);
     safeStore('local', 'prism_provider', state.provider);
     safeStore('local', 'prism_glossary', state.glossary);
-    const chip = document.getElementById('modelChip');
-    if (chip) chip.textContent = state.model;
+    if (state.customBaseUrls) safeStore('local', 'prism_custom_base_urls', JSON.stringify(state.customBaseUrls));
+    buildProviderCards();
+    updateProviderConfigPanel(state.provider);
     updateTranslateBtnState();
   }
 
@@ -1022,35 +1039,23 @@
   });
 
   // ─────────────────────────────────────────
-  // Provider-模型联动过滤
+  // Provider-模型联动过滤（基于 Provider Registry）
   // ─────────────────────────────────────────
-  const PROVIDER_MODELS = {
-    deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    openai: ['gpt-4.1', 'gpt-4.1-mini'],
-    claude: ['claude-sonnet-4-6', 'claude-haiku-4-5'],
-  };
-  const PROVIDER_NAMES = {
-    deepseek: 'DeepSeek',
-    gemini: 'Gemini',
-    openai: 'OpenAI',
-    claude: 'Claude',
-  };
-  const MODEL_DESCRIPTIONS = {
-    deepseek: 'DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强',
-    gemini: 'Gemini 2.5 系列 — Flash 翻译冠军且免费，Pro 推理最强',
-    openai: 'GPT-4.1 系列 — 均衡通用，1M 超长上下文',
-    claude: 'Claude 系列 — Sonnet 长文本专业，Haiku 轻量快速',
-  };
+  function getProviderModels(providerId) { var p = findProvider(providerId); return p ? p.models : []; }
+  function getProviderName(providerId) { var p = findProvider(providerId); return p ? p.name : providerId; }
+  function getProviderDescription(providerId) { var p = findProvider(providerId); return p ? p.description : ''; }
+  function getProviderSupportsThinking(providerId) { var p = findProvider(providerId); return p ? p.supportsThinking : false; }
+
   function updateModelOptions() {
     const provider = document.getElementById('providerSelect').value;
     const modelSelect = document.getElementById('modelSelect');
-    const allowedModels = PROVIDER_MODELS[provider] || [];
+    const allowedModels = getProviderModels(provider);
     let hasVisible = false;
     let firstVisible = null;
     for (let i = 0; i < modelSelect.options.length; i++) {
       const opt = modelSelect.options[i];
-      const show = allowedModels.includes(opt.value);
+      const optProvider = opt.getAttribute('data-provider');
+      const show = (optProvider && optProvider === provider) || allowedModels.indexOf(opt.value) !== -1;
       opt.style.display = show ? '' : 'none';
       opt.disabled = !show;
       if (show) {
@@ -1059,26 +1064,28 @@
       }
     }
     const currentVal = modelSelect.value;
-    const currentOpt = modelSelect.querySelector(`option[value="${currentVal}"]`);
-    if (!currentOpt || !allowedModels.includes(currentVal)) {
+    const currentOpt = modelSelect.querySelector('option[value="' + currentVal.replace(/"/g, '&quot;') + '"]');
+    if (!currentOpt || currentOpt.disabled) {
       if (firstVisible) modelSelect.value = firstVisible.value;
     }
     const keyLabel = document.getElementById('apiKeyLabel');
     if (keyLabel) {
-      keyLabel.textContent = (PROVIDER_NAMES[provider] || provider) + ' API 密钥';
+      keyLabel.textContent = getProviderName(provider) + ' API 密钥';
     }
     const modelDesc = document.getElementById('modelSelectDesc');
     if (modelDesc) {
-      modelDesc.textContent = MODEL_DESCRIPTIONS[provider] || '';
+      modelDesc.textContent = getProviderDescription(provider);
     }
-    const thinkRow = document.getElementById('thinkingSelect')?.closest('.setting-row.stacked');
-    if (thinkRow) thinkRow.style.display = provider === 'deepseek' ? '' : 'none';
+    const thinkRow = document.getElementById('thinkingSelect') ? document.getElementById('thinkingSelect').closest('.setting-row.stacked') : null;
+    if (thinkRow) thinkRow.style.display = getProviderSupportsThinking(provider) ? '' : 'none';
   }
-  document.getElementById('providerSelect').addEventListener('change', () => {
+  document.getElementById('providerSelect').addEventListener('change', function () {
+    state.provider = this.value;
     updateModelOptions();
+    updateProviderConfigPanel(state.provider);
+    buildProviderCards();
     autoSaveSettings();
   });
-  updateModelOptions();
 
   // ─────────────────────────────────────────
   // 设置自动保存
@@ -1120,13 +1127,15 @@
         btn.title = '';
       }
     });
-    // 更新 API 状态指示器
+    // 更新 API 状态指示器（增强版：显示 Provider + 模型）
     const dot = document.getElementById('apiStatusDot');
     const text = document.getElementById('apiStatusText');
     if (dot && text) {
       if (hasKey) {
         dot.classList.add('connected');
-        text.textContent = 'API 已连接';
+        const providerName = getProviderName(state.provider);
+        const isVerified = state.lastTestedProvider === state.provider;
+        text.textContent = providerName + ' · ' + state.model + (isVerified ? ' ✓' : '');
       } else {
         dot.classList.remove('connected');
         text.textContent = 'API 未配置';
@@ -1134,7 +1143,7 @@
     }
   }
 
-  // 页面加载时恢复缓存文本
+  // 页面加载时恢复缓存文本（不调用 updateTranslateBtnState，由 init 统一处理）
   (function restoreTextCache() {
     const cached = safeGet('session', TEXT_CACHE_KEY, null);
     if (cached && cached.trim()) {
@@ -1142,15 +1151,109 @@
       if (el && !el.value.trim()) {
         el.value = cached;
         updateWordStats();
-        updateTranslateBtnState();
       }
     }
   })();
   document.getElementById('apiKeyInput')?.addEventListener('input', updateTranslateBtnState);
-  updateTranslateBtnState();
   function clearTextCache() {
     safeRemove('session', TEXT_CACHE_KEY);
   }
+
+  // ─────────────────────────────────────────
+  // Provider 卡片 UI 构建
+  // ─────────────────────────────────────────
+  function buildProviderCards() {
+    const grid = document.getElementById('providerGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    PROVIDER_REGISTRY.forEach(function (p) {
+      const isActive = p.id === state.provider;
+      const hasKey = !!state.apiKey;
+      const isVerified = state.lastTestedProvider === p.id;
+      const card = document.createElement('div');
+      card.className = 'provider-card' + (isActive ? ' active' : '');
+      card.setAttribute('data-provider-id', p.id);
+      var statusClass = isVerified ? 'connected' : 'disconnected';
+      var statusText = isVerified ? '✓ ' + '已验证' : (hasKey ? '○ ' + '已配置' : '○ ' + '未配置');
+      card.innerHTML =
+        '<div class="provider-card-icon">' + p.id.toUpperCase() + '</div>' +
+        '<div class="provider-card-name">' + escHtml(p.name) + '</div>' +
+        '<div class="provider-card-models">' + escHtml(p.models.join(' / ')) + '</div>' +
+        '<div class="provider-card-status ' + statusClass + '">' + statusText + '</div>';
+      card.addEventListener('click', function () {
+        if (state.provider === p.id) return;
+        state.provider = p.id;
+        document.getElementById('providerSelect').value = p.id;
+        updateModelOptions();
+        updateProviderConfigPanel(p.id);
+        updateTranslateBtnState();
+        autoSaveSettings();
+        // 刷新卡片高亮
+        grid.querySelectorAll('.provider-card').forEach(function (c) { c.classList.remove('active'); });
+        card.classList.add('active');
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function updateProviderConfigPanel(providerId) {
+    const p = findProvider(providerId);
+    if (!p) return;
+    const header = document.getElementById('providerConfigHeader');
+    if (header) header.textContent = p.name + ' · ' + p.description;
+    const label = document.getElementById('apiKeyLabel');
+    if (label) label.textContent = p.name + ' API 密钥';
+    const endpointInput = document.getElementById('customEndpointInput');
+    if (endpointInput && state.customBaseUrls) {
+      endpointInput.value = state.customBaseUrls[providerId] || '';
+    }
+    const endpointRow = document.getElementById('customEndpointRow');
+    if (endpointRow) {
+      endpointRow.style.display = p.supportsCustomEndpoint ? '' : 'none';
+    }
+    // 切换 provider 后清除连接测试结果
+    const resultEl = document.getElementById('testApiResult');
+    if (resultEl) { resultEl.textContent = ''; resultEl.className = 'provider-test-result'; }
+  }
+
+  // 自定义端点输入自动保存
+  document.getElementById('customEndpointInput')?.addEventListener('input', function () {
+    if (!state.customBaseUrls) state.customBaseUrls = {};
+    state.customBaseUrls[state.provider] = this.value.trim() || '';
+    safeStore('local', 'prism_custom_base_urls', JSON.stringify(state.customBaseUrls));
+  });
+
+  // 测试连接按钮
+  document.getElementById('testApiBtn')?.addEventListener('click', async function () {
+    const btn = document.getElementById('testApiBtn');
+    const resultEl = document.getElementById('testApiResult');
+    if (!state.apiKey) {
+      resultEl.textContent = '❌ 请先填写 API 密钥';
+      resultEl.className = 'provider-test-result error';
+      return;
+    }
+    btn.disabled = true;
+    btn.classList.add('testing');
+    btn.innerHTML = '<span class="spinner">◌</span> 测试中...';
+    resultEl.textContent = '';
+    resultEl.className = 'provider-test-result';
+    const r = await testApiConnection();
+    btn.disabled = false;
+    btn.classList.remove('testing');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接';
+    if (r.success) {
+      state.lastTestedProvider = state.provider;
+      resultEl.textContent = '✓ 连接成功！';
+      resultEl.className = 'provider-test-result success';
+      buildProviderCards();
+      updateTranslateBtnState();
+      showToast('✓ ' + findProvider(state.provider).name + ' 连接成功', 'success');
+    } else {
+      resultEl.textContent = '❌ ' + (r.error || '连接失败');
+      resultEl.className = 'provider-test-result error';
+      showToast('❌ ' + (r.error || '连接失败'), 'error');
+    }
+  });
 
   // ═════════════════════════════════════════
   // 试译一下：示例文本库
@@ -1488,6 +1591,7 @@
       md += `| 项目 | 内容 |\n|------|------|\n`;
       md += `| 导出时间 | ${ts} |\n`;
       md += `| 语言对 | ${t.srcLang} \u2192 ${t.tgtLang} |\n`;
+      md += `| 翻译服务商 | ${t.providerName || (t.provider ? getProviderName(t.provider) : '—')} |\n`;
       md += `| 翻译模型 | \`${t.model}\` |\n`;
       md += `| 翻译模式 | ${modeNames[t.mode] || t.mode || '\u2014'} |\n`;
       md += `| 迭代轮次 | ${t.rounds || 1} 轮 |\n`;
@@ -1588,6 +1692,7 @@
     if (opts.incMeta) {
       txt += `导出时间：${ts}\n`;
       txt += `语言对：${t.srcLang} \u2192 ${t.tgtLang}\n`;
+      txt += `服务商：${t.providerName || (t.provider ? getProviderName(t.provider) : '—')}\n`;
       txt += `模型：${t.model}\n`;
       txt += `翻译模式：${t.modeLabel || t.mode || '\u2014'}\n`;
       txt += `迭代轮次：${t.rounds || 1} 轮\n`;
@@ -1656,7 +1761,7 @@
       Object.assign(obj, {
         srcLang: t.srcLang,
         tgtLang: t.tgtLang,
-        model: t.model,
+        provider: t.provider, providerName: t.providerName || getProviderName(t.provider), model: t.model,
         mode: t.mode,
         modeLabel: t.modeLabel,
         rounds: t.rounds,
@@ -1865,64 +1970,274 @@
     503: '\uD83D\uDD27 \u670D\u52A1\u6682\u65F6\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002',
   });
 
-  // ─────────────────────────────────────────
-  // Provider 配置
-  // ─────────────────────────────────────────
-  function getProviderConfig() {
-    const p = state.provider || 'deepseek';
-    if (p === 'openai') {
-      return { url: 'https://api.openai.com/v1/chat/completions', model: state.model || 'gpt-4.1', authHeader: `Bearer ${state.apiKey}` };
-    } else if (p === 'claude') {
-      return { url: 'https://api.anthropic.com/v1/messages', model: state.model || 'claude-sonnet-4-6', authHeader: null, isAnthropic: true };
-    } else if (p === 'gemini') {
-      return {
-        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        model: state.model || 'gemini-2.5-flash',
-        authHeader: `Bearer ${state.apiKey}`,
+  // ═════════════════════════════════════════
+  // Provider Registry — 现代化 Provider 注册表
+  // ═════════════════════════════════════════
+  const PROVIDER_REGISTRY = Object.freeze([
+    {
+      id: 'deepseek', name: 'DeepSeek', defaultModel: 'deepseek-v4-flash',
+      baseUrl: 'https://api.deepseek.com', endpoint: '/v1/chat/completions',
+      authScheme: 'Bearer', apiType: 'openai',
+      supportsThinking: true, supportsCustomEndpoint: true,
+      models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      description: 'DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强',
+      features: ['streaming', 'thinking', 'usage_tokens'],
+      rateLimit: '60 RPM / 50,000 TPM', pricing: 'Flash $0.14/M input · $0.28/M output',
+    },
+    {
+      id: 'gemini', name: 'Gemini', defaultModel: 'gemini-2.5-flash',
+      baseUrl: 'https://generativelanguage.googleapis.com', endpoint: '/v1beta/openai/chat/completions',
+      authScheme: 'Bearer', apiType: 'openai',
+      supportsThinking: false, supportsCustomEndpoint: true,
+      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      description: 'Gemini 2.5 系列 — Flash 翻译冠军且免费，Pro 推理最强',
+      features: ['streaming', 'usage_tokens'],
+      rateLimit: '免费层 1,500 RPD', pricing: 'Flash 免费 · Pro $0.05-0.10/M',
+    },
+    {
+      id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1',
+      baseUrl: 'https://api.openai.com', endpoint: '/v1/chat/completions',
+      authScheme: 'Bearer', apiType: 'openai',
+      supportsThinking: false, supportsCustomEndpoint: true,
+      models: ['gpt-4.1', 'gpt-4.1-mini'],
+      description: 'GPT-4.1 系列 — 均衡通用，1M 超长上下文',
+      features: ['streaming', 'usage_tokens'],
+      rateLimit: '取决于使用层', pricing: '4.1 $2/M in · $8/M out · mini $0.4/$1.6',
+    },
+    {
+      id: 'claude', name: 'Claude', defaultModel: 'claude-sonnet-4-6',
+      baseUrl: 'https://api.anthropic.com', endpoint: '/v1/messages',
+      authScheme: 'x-api-key', apiType: 'anthropic',
+      supportsThinking: true, supportsCustomEndpoint: true,
+      models: ['claude-sonnet-4-6', 'claude-haiku-4-5'],
+      description: 'Claude 系列 — Sonnet 长文本专业，Haiku 轻量快速',
+      extraHeaders: {
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      features: ['streaming', 'thinking', 'usage_tokens'],
+      rateLimit: 'Sonnet 1K RPM · 80K TPD', pricing: 'Sonnet $3/$15 · Haiku $0.25/$1.25',
+    },
+  ]);
+
+  /** 查找 Provider（注册表 + 用户自定义） */
+  function findProvider(id) {
+    return PROVIDER_REGISTRY.find(function (p) { return p.id === id; }) || PROVIDER_REGISTRY[0];
+  }
+
+  /** 构建 API URL（支持自定义端点覆盖） */
+  function buildApiUrl(provider) {
+    var base = (state.customBaseUrls && state.customBaseUrls[provider.id]) || provider.baseUrl;
+    return base.replace(/\/+$/, '') + provider.endpoint;
+  }
+
+  /** 构建认证头 */
+  function buildAuthHeaders(provider) {
+    if (provider.authScheme === 'x-api-key') {
+      var headers = { 'x-api-key': state.apiKey };
+      if (provider.extraHeaders) {
+        for (var k in provider.extraHeaders) {
+          if (provider.extraHeaders.hasOwnProperty(k)) headers[k] = provider.extraHeaders[k];
+        }
+      }
+      return headers;
+    }
+    return { Authorization: 'Bearer ' + state.apiKey };
+  }
+
+  /** 构建请求体（按 Provider 类型分派） */
+  function buildPayload(provider, messages, temperature) {
+    if (provider.apiType === 'anthropic') {
+      var systemMsg = null;
+      var userMsgs = [];
+      for (var i = 0; i < messages.length; i++) {
+        if (messages[i].role === 'system') systemMsg = messages[i].content;
+        else userMsgs.push(messages[i]);
+      }
+      var payload = {
+        model: state.model || provider.defaultModel,
+        max_tokens: 8192,
+        temperature: temperature,
+        messages: userMsgs,
+        stream: true,
       };
-    } else {
-      return { url: 'https://api.deepseek.com/v1/chat/completions', model: state.model || 'deepseek-v4-flash', authHeader: `Bearer ${state.apiKey}` };
+      if (systemMsg) payload.system = systemMsg;
+      return payload;
+    }
+
+    // OpenAI-compatible (DeepSeek, Gemini, OpenAI)
+    var p = {
+      model: state.model || provider.defaultModel,
+      messages: messages,
+      stream: true,
+      temperature: temperature,
+      stream_options: { include_usage: true },
+    };
+
+    // Thinking mode — 仅支持 DeepSeek
+    if (provider.supportsThinking && provider.id === 'deepseek') {
+      if (state.thinkingMode === 'disabled') {
+        p.thinking = { type: 'disabled' };
+      } else if (state.thinkingMode === 'high') {
+        p.thinking = { type: 'enabled', budget_tokens: 2048 };
+      } else if (state.thinkingMode === 'max') {
+        p.thinking = { type: 'enabled', budget_tokens: 4096 };
+      }
+    }
+    return p;
+  }
+
+  // ═════════════════════════════════════════
+  // SSE 流式解析器 — 统一处理所有 Provider
+  // ═════════════════════════════════════════
+  function trackTokenUsage(parsed) {
+    // OpenAI-compatible: final chunk with usage
+    if (parsed.usage && parsed.usage.total_tokens > 0) {
+      var u = parsed.usage;
+      state.usageTokens.prompt += u.prompt_tokens || 0;
+      state.usageTokens.completion += u.completion_tokens || 0;
+      state.usageTokens.total += u.total_tokens || 0;
+      state.currentRoundUsage.prompt += u.prompt_tokens || 0;
+      state.currentRoundUsage.completion += u.completion_tokens || 0;
+      state.currentRoundUsage.total += u.total_tokens || 0;
+    }
+    // Anthropic: message_start + message_delta
+    if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+      var inp = parsed.message.usage.input_tokens || 0;
+      if (inp > 0) {
+        state.usageTokens.prompt += inp;
+        state.usageTokens.total += inp;
+        state.currentRoundUsage.prompt += inp;
+        state.currentRoundUsage.total += inp;
+      }
+    }
+    if (parsed.type === 'message_delta' && parsed.usage) {
+      var out = parsed.usage.output_tokens || 0;
+      if (out > 0) {
+        state.usageTokens.completion += out;
+        state.usageTokens.total += out;
+        state.currentRoundUsage.completion += out;
+        state.currentRoundUsage.total += out;
+      }
     }
   }
 
-  async function callDeepSeek(messages, onChunk, temperature = 0.5, retryCount = 0) {
+  /** Provider 特定的流式块处理器工厂 */
+  function getStreamHandlers(provider, onChunk) {
+    if (provider.apiType === 'anthropic') {
+      return {
+        processChunk: function (parsed, content) {
+          if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.text) {
+            content += parsed.delta.text;
+            if (onChunk) onChunk(content, '');
+          }
+          return content;
+        },
+        processFinal: function (content) { return content; },
+        hasReasoning: false,
+      };
+    }
+    // OpenAI-compatible
+    var reasoning = '';
+    return {
+      processChunk: function (parsed, content) {
+        var delta = parsed.choices && parsed.choices[0] ? parsed.choices[0].delta || {} : {};
+        if (delta.reasoning_content) reasoning += delta.reasoning_content;
+        if (delta.content) content += delta.content;
+        if (onChunk && (delta.reasoning_content || delta.content)) {
+          onChunk(content, reasoning);
+        }
+        return content;
+      },
+      processFinal: function (content) { return content || reasoning; },
+      hasReasoning: true,
+    };
+  }
+
+  /**
+   * 统一 SSE 流解析
+   * @param {ReadableStreamDefaultReader} reader
+   * @param {Function} processChunk - 处理每个 data 块的函数，返回更新后的 content
+   * @param {Function} onTokenUsage - 处理 token 用量统计
+   */
+  async function parseSSEStream(reader, processChunk, onTokenUsage) {
+    var decoder = new TextDecoder();
+    var content = '';
+    var buf = '';
+    var lastScrollTime = 0;
+
+    while (true) {
+      var readResult = await reader.read();
+      var done = readResult.done;
+      var value = readResult.value;
+      if (value) buf += decoder.decode(value, { stream: !done });
+      var lines = buf.split('\n');
+      if (!done) {
+        buf = lines.pop();
+      } else {
+        buf = '';
+      }
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        if (line.slice(0, 6) !== 'data: ') continue;
+        var data = line.slice(6).trim();
+        if (data === '[DONE]' || data === '') continue;
+        try {
+          var parsed = JSON.parse(data);
+          if (onTokenUsage) onTokenUsage(parsed);
+          content = processChunk(parsed, content);
+          var now = Date.now();
+          if (now - lastScrollTime > 200) {
+            var rp = getPanelRight();
+            if (rp) {
+              var distFromBottom = rp.scrollHeight - rp.scrollTop - rp.clientHeight;
+              if (distFromBottom < 200) rp.scrollTop = rp.scrollHeight;
+            }
+            lastScrollTime = now;
+          }
+        } catch (_) {
+          /* 流式解析单行失败不中断整体 */
+        }
+      }
+      if (done) break;
+    }
+    return content;
+  }
+
+  // ═════════════════════════════════════════
+  // callProviderApi — 统一 API 调用函数
+  // ═════════════════════════════════════════
+  async function callProviderApi(messages, onChunk, temperature, retryCount) {
+    if (retryCount === undefined) retryCount = 0;
     if (!state.apiKey) throw new Error('NO_KEY');
 
-    const signal = state.abortController ? state.abortController.signal : undefined;
-    const cfg = getProviderConfig();
-
-    if (cfg.isAnthropic) {
-      return callClaude(messages, onChunk, temperature, retryCount);
+    var signal = state.abortController ? state.abortController.signal : undefined;
+    var provider = findProvider(state.provider);
+    var url = buildApiUrl(provider);
+    var headers = { 'Content-Type': 'application/json' };
+    var authHeaders = buildAuthHeaders(provider);
+    for (var h in authHeaders) {
+      if (authHeaders.hasOwnProperty(h)) headers[h] = authHeaders[h];
     }
+    var payload = buildPayload(provider, messages, temperature);
 
-    const payload = { model: cfg.model, messages, stream: true, temperature };
-    if (!cfg.isAnthropic) payload.stream_options = { include_usage: true };
-    if (state.provider === 'deepseek') {
-      if (state.thinkingMode === 'disabled') {
-        payload.thinking = { type: 'disabled' };
-      } else if (state.thinkingMode === 'high') {
-        payload.thinking = { type: 'enabled', budget_tokens: 2048 };
-      } else if (state.thinkingMode === 'max') {
-        payload.thinking = { type: 'enabled', budget_tokens: 4096 };
-      }
-    }
-
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), API_TIMEOUT_MS);
-    const combinedSignal = signal
-      ? (() => {
-          const ac = new AbortController();
-          signal.addEventListener('abort', () => ac.abort());
-          timeoutController.signal.addEventListener('abort', () => ac.abort());
+    // 超时 + 中止信号组合
+    var timeoutController = new AbortController();
+    var timeoutId = setTimeout(function () { timeoutController.abort(); }, API_TIMEOUT_MS);
+    var combinedSignal = signal
+      ? (function () {
+          var ac = new AbortController();
+          signal.addEventListener('abort', function () { ac.abort(); });
+          timeoutController.signal.addEventListener('abort', function () { ac.abort(); });
           return ac.signal;
         })()
       : timeoutController.signal;
 
-    let resp;
+    var resp;
     try {
-      resp = await fetch(cfg.url, {
+      resp = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: cfg.authHeader },
+        headers: headers,
         body: JSON.stringify(payload),
         signal: combinedSignal,
       });
@@ -1933,175 +2248,69 @@
         throw new Error('请求超时，请重试');
       }
       if (retryCount < 1) {
-        await new Promise((r) => setTimeout(r, 1500));
-        return callDeepSeek(messages, onChunk, temperature, retryCount + 1);
+        await new Promise(function (r) { setTimeout(r, 1500); });
+        return callProviderApi(messages, onChunk, temperature, retryCount + 1);
       }
       throw new Error('网络请求失败，请检查网络连接');
     }
     clearTimeout(timeoutId);
 
     if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      const tip = API_ERROR_TIPS[resp.status];
-      const msg = tip || err.error?.message || `HTTP ${resp.status}`;
+      var errBody;
+      try { errBody = await resp.json(); } catch (_) { errBody = {}; }
+      var tip = API_ERROR_TIPS[resp.status];
+      var msg = tip || (errBody.error && errBody.error.message) || ('HTTP ' + resp.status);
       if (resp.status === 429 && retryCount < 2) {
-        await new Promise((r) => setTimeout(r, 3000 * (retryCount + 1)));
-        return callDeepSeek(messages, onChunk, temperature, retryCount + 1);
+        await new Promise(function (r) { setTimeout(r, 3000 * (retryCount + 1)); });
+        return callProviderApi(messages, onChunk, temperature, retryCount + 1);
       }
       throw new Error(msg);
     }
 
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let resultContent = '',
-      resultReasoning = '',
-      buf = '';
-    let lastScrollTime = 0;
+    var reader = resp.body.getReader();
+    var handlers = getStreamHandlers(provider, onChunk);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (value) buf += decoder.decode(value, { stream: !done });
-      let lines = buf.split('\n');
-      if (!done) {
-        buf = lines.pop();
-      } else {
-        buf = '';
-      }
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.usage && parsed.usage.total_tokens > 0) {
-            const u = parsed.usage;
-            state.usageTokens.prompt += u.prompt_tokens || 0;
-            state.usageTokens.completion += u.completion_tokens || 0;
-            state.usageTokens.total += u.total_tokens || 0;
-            state.currentRoundUsage.prompt += u.prompt_tokens || 0;
-            state.currentRoundUsage.completion += u.completion_tokens || 0;
-            state.currentRoundUsage.total += u.total_tokens || 0;
-          }
-          const delta = parsed.choices?.[0]?.delta || {};
-          if (delta.reasoning_content) resultReasoning += delta.reasoning_content;
-          if (delta.content) resultContent += delta.content;
-          if (onChunk && (delta.reasoning_content || delta.content)) {
-            onChunk(resultContent, resultReasoning);
-            const now = Date.now();
-            if (now - lastScrollTime > 200) {
-              const rightPanel = getPanelRight();
-              if (rightPanel) {
-                const distFromBottom = rightPanel.scrollHeight - rightPanel.scrollTop - rightPanel.clientHeight;
-                if (distFromBottom < 200) rightPanel.scrollTop = rightPanel.scrollHeight;
-              }
-              lastScrollTime = now;
-            }
-          }
-        } catch (e) {
-          /* P0-4: 流式解析单行失败不中断整体 */
-        }
-      }
-      if (done) break;
+    // Anthropic API (Claude) 需要先解析 system message
+    if (provider.apiType === 'anthropic') {
+      // Claude 使用 SSE stream 但格式不同：message_start 在第一个 chunk 中
+      var finalContent = await parseSSEStream(reader, function (parsed, content) {
+        return handlers.processChunk(parsed, content);
+      }, trackTokenUsage);
+      return handlers.processFinal(finalContent);
     }
-    return resultContent || resultReasoning;
+
+    // OpenAI-compatible (DeepSeek, Gemini, OpenAI)
+    var finalContent = await parseSSEStream(reader, function (parsed, content) {
+      return handlers.processChunk(parsed, content);
+    }, trackTokenUsage);
+    return handlers.processFinal(finalContent);
   }
 
-  // Claude 专用调用
-  async function callClaude(messages, onChunk, temperature, retryCount) {
-    const signal = state.abortController ? state.abortController.signal : undefined;
-    const systemMsg = messages.find((m) => m.role === 'system');
-    const userMsgs = messages.filter((m) => m.role !== 'system');
-    const payload = {
-      model: state.model || 'claude-sonnet-4-6',
-      max_tokens: 8192,
-      temperature,
-      messages: userMsgs,
-      ...(systemMsg ? { system: systemMsg.content } : {}),
-      stream: true,
-    };
-    let resp;
+  /**
+   * 测试 API 连接
+   * 发送一条极短消息验证凭证有效性
+   */
+  async function testApiConnection(providerId) {
+    var testProvider = findProvider(providerId || state.provider);
+    var originalProvider = state.provider;
+    if (providerId) state.provider = providerId;
     try {
-      resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': state.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify(payload),
-        signal,
-      });
+      await callProviderApi(
+        [
+          { role: 'system', content: 'You are a translation system.' },
+          { role: 'user', content: 'test' },
+        ],
+        null,
+        0.3,
+        0
+      );
+      state.lastTestedProvider = providerId || state.provider;
+      if (providerId) state.provider = originalProvider;
+      return { success: true };
     } catch (e) {
-      if (e.name === 'AbortError') {
-        if (signal && signal.aborted) throw new Error('USER_ABORT');
-        throw new Error('请求超时');
-      }
-      throw new Error('网络请求失败');
+      if (providerId) state.provider = originalProvider;
+      return { success: false, error: e.message };
     }
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${resp.status}`);
-    }
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let resultContent = '',
-      buf = '';
-    let lastScrollTime = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (value) buf += decoder.decode(value, { stream: !done });
-      let lines = buf.split('\n');
-      if (!done) {
-        buf = lines.pop();
-      } else {
-        buf = '';
-      }
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]' || data === '') continue;
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.type === 'message_start' && parsed.message?.usage) {
-            const u = parsed.message.usage;
-            const inp = u.input_tokens || 0;
-            if (inp > 0) {
-              state.usageTokens.prompt += inp;
-              state.usageTokens.total += inp;
-              state.currentRoundUsage.prompt += inp;
-              state.currentRoundUsage.total += inp;
-            }
-          }
-          if (parsed.type === 'message_delta' && parsed.usage) {
-            const u = parsed.usage;
-            const out = u.output_tokens || 0;
-            if (out > 0) {
-              state.usageTokens.completion += out;
-              state.usageTokens.total += out;
-              state.currentRoundUsage.completion += out;
-              state.currentRoundUsage.total += out;
-            }
-          }
-          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-            resultContent += parsed.delta.text;
-            if (onChunk) {
-              onChunk(resultContent, '');
-              const now = Date.now();
-              if (now - lastScrollTime > 200) {
-                const rp = getPanelRight();
-                if (rp && rp.scrollHeight - rp.scrollTop - rp.clientHeight < 200) rp.scrollTop = rp.scrollHeight;
-                lastScrollTime = now;
-              }
-            }
-          }
-        } catch (e) {
-          /* P0-4: 流式解析单行失败不中断整体 */
-        }
-      }
-      if (done) break;
-    }
-    return resultContent;
   }
 
   // ─────────────────────────────────────────
@@ -2572,7 +2781,7 @@
 
     let resA = '', resB = '', resC = '', resD = '', resF = '';
     await Promise.all([
-      callDeepSeek(
+      callProviderApi(
         [{ role: 'system', content: promptPathA(src, tgt) }, { role: 'user', content: buildUserMsg('语言学家', 'A') }],
         (f, re) => {
           updateUI(els.pa, f, re);
@@ -2580,22 +2789,22 @@
         },
         0.5
       ).then((res) => (resA = res)),
-      callDeepSeek(
+      callProviderApi(
         [{ role: 'system', content: promptPathB(src, tgt) }, { role: 'user', content: buildUserMsg('本土编辑', 'B') }],
         (f, re) => updateUI(els.pb, f, re),
         0.8
       ).then((res) => (resB = res)),
-      callDeepSeek(
+      callProviderApi(
         [{ role: 'system', content: promptPathC(src, tgt) }, { role: 'user', content: buildUserMsg('领域专家', 'C') }],
         (f, re) => updateUI(els.pc, f, re),
         0.6
       ).then((res) => (resC = res)),
-      callDeepSeek(
+      callProviderApi(
         [{ role: 'system', content: dynamicAgent.systemPrompt }, { role: 'user', content: buildUserMsg(dynamicAgent.name, 'D') }],
         (f, re) => updateUI(els.pd, f, re),
         0.7
       ).then((res) => (resD = res)),
-      callDeepSeek(
+      callProviderApi(
         [{ role: 'system', content: promptPathF(src, tgt) }, { role: 'user', content: buildUserMsg('风格镜像师', 'F') }],
         (f, re) => updateUI(els.pf, f, re),
         0.75
@@ -2689,7 +2898,7 @@
           ? `原文：\n${text}\n\nA路草稿：\n${results.A}\nB路草稿：\n${results.B}\nC路草稿：\n${results.C}\nD路草稿：\n${results.D}\nF路草稿（风格镜像师）：\n${results.F}\n\n请进行隐义诊断与二次重构建议。`
           : `原文：\n${text}\n\n本轮五路草稿已更新：\nA路：\n${results.A}\nB路：\n${results.B}\nC路：\n${results.C}\nD路：\n${results.D}\nF路：\n${results.F}\n\n【你上一轮的诊断记录】\n${lastPaths.E}\n\n【上轮综合最优译文】\n${lastPaths.synth}\n\n请评估本轮的更新是否已妥善处理了隐义，并给出最新的诊断与建议。`;
       phase2Calls.push(
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptPathE_PostProcess(src, tgt) }, { role: 'user', content: buildMsgE() }],
           (f, re) => updateUI(els.pe, f, re),
           0.75
@@ -2702,27 +2911,27 @@
 
     if (mode.critique) {
       phase2Calls.push(
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptCritique(src, tgt, '语言学家', '本土编辑', '领域专家') }, { role: 'user', content: `原文：\n${text}\n\n版本S（你自己\u00B7语言学家）：\n${results.A}\n\n版本X（B\u00B7本土编辑）：\n${results.B}\n\n版本Y（C\u00B7领域专家）：\n${results.C}` }],
           (f, re) => updateUI(els.ca, f, re),
           0.4
         ).then((res) => (critA = res)),
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptCritique(src, tgt, '本土编辑', '领域专家', dynamicAgent.name) }, { role: 'user', content: `原文：\n${text}\n\n版本S（你自己\u00B7本土编辑）：\n${results.B}\n\n版本X（C\u00B7领域专家）：\n${results.C}\n\n版本Y（D\u00B7${dynamicAgent.name}）：\n${results.D}` }],
           (f, re) => updateUI(els.cb, f, re),
           0.4
         ).then((res) => (critB = res)),
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptCritique(src, tgt, '领域专家', dynamicAgent.name, '风格镜像师') }, { role: 'user', content: `原文：\n${text}\n\n版本S（你自己\u00B7领域专家）：\n${results.C}\n\n版本X（D\u00B7${dynamicAgent.name}）：\n${results.D}\n\n版本Y（F\u00B7风格镜像师）：\n${results.F}` }],
           (f, re) => updateUI(els.cc, f, re),
           0.4
         ).then((res) => (critC = res)),
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptCritique(src, tgt, dynamicAgent.name, '语言学家', '本土编辑') }, { role: 'user', content: `原文：\n${text}\n\n版本S（你自己\u00B7${dynamicAgent.name}）：\n${results.D}\n\n版本X（A\u00B7语言学家）：\n${results.A}\n\n版本Y（B\u00B7本土编辑）：\n${results.B}` }],
           (f, re) => updateUI(els.cd, f, re),
           0.4
         ).then((res) => (critD = res)),
-        callDeepSeek(
+        callProviderApi(
           [{ role: 'system', content: promptCritique(src, tgt, '风格镜像师', '语言学家', '领域专家') }, { role: 'user', content: `原文：\n${text}\n\n版本S（你自己\u00B7风格镜像师）：\n${results.F}\n\n版本X（A\u00B7语言学家）：\n${results.A}\n\n版本Y（C\u00B7领域专家）：\n${results.C}` }],
           (f, re) => updateUI(els.cf, f, re),
           0.4
@@ -2749,7 +2958,7 @@
     const synthMsg = `原文：\n${text}\n\n版本A（语言学家）：\n${results.A}\n\n版本B（本土编辑）：\n${results.B}\n\n版本C（领域专家）：\n${results.C}\n\n版本D（${dynamicAgent.name}）：\n${results.D}\n\n版本F（风格镜像师）：\n${results.F}\n\n${resE ? `【版本E（隐义处理建议）】：\n${resE}\n\n` : ''}${critiques.A ? `━━ 交叉批判网络（含各路自审）━━\nA路自审 + A批B/C：\n${critiques.A}\n\nB路自审 + B批C/D：\n${critiques.B}\n\nC路自审 + C批D/F：\n${critiques.C}\n\nD路自审 + D批A/B：\n${critiques.D}\n\nF路自审 + F批A/C：\n${critiques.F}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` : ''} 裁决指引：请先评估各路草稿质量（包括F路的风格还原质量），动态选择最优主轴，融合各路优势，采纳批判中有具体建议的条目，确保最终译文兼顾信、达、雅三维并重现原文风格，输出最终最优译文及备忘录。（注意：请直接输出纯净译文，绝对不要带任何前缀）`;
 
     let rawSynth = '';
-    await callDeepSeek(
+    await callProviderApi(
       [{ role: 'system', content: promptSynth(src, tgt) }, { role: 'user', content: synthMsg }],
       (full, reasoning) => {
         rawSynth = full;
@@ -2816,7 +3025,7 @@
     auditEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
     let rawAudit = '';
-    await callDeepSeek(
+    await callProviderApi(
       [{ role: 'system', content: promptAudit(src, tgt) }, { role: 'user', content: `原文：\n${text}\n\n最终译文：\n${lastSynthResult}` }],
       (full, reasoning) => {
         rawAudit = full;
@@ -2961,7 +3170,7 @@
       const agentSec = document.getElementById('agentGenSection');
       agentSec.style.display = 'block';
 
-      const agentRaw = await callDeepSeek(
+      const agentRaw = await callProviderApi(
         [{ role: 'system', content: promptMetaAgent(src, tgt) }, { role: 'user', content: `源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本】\n${text}` }],
         null,
         0.7
@@ -3119,6 +3328,8 @@
     state.lastTranslation = {
       srcLang: src,
       tgtLang: tgt,
+      provider: state.provider,
+      providerName: getProviderName(state.provider),
       model: state.model,
       source: text,
       result: lastSynthResult,
@@ -3181,7 +3392,7 @@
 
       // 动态 Agent 生成
       let dynamicAgent = { name: '文化顾问', label: '语境适配', systemPrompt: injectCustomPrompt(`你是文化翻译专家，专注文化意象与地道表达的置换。仅输出译文本身，绝不带任何标题或前缀。`) };
-      const agentRaw = await callDeepSeek(
+      const agentRaw = await callProviderApi(
         [{ role: 'system', content: promptMetaAgent(src, tgt) }, { role: 'user', content: `源语言：${src}\n目标语言：${tgt}\n\n【待翻译文本片段】\n${chunks[i]}` }],
         null,
         0.7
@@ -3216,22 +3427,22 @@
       document.getElementById('roundsContainer').appendChild(chunkR);
       chunkR.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
-      const resA = callDeepSeek(
+      const resA = callProviderApi(
         [{ role: 'system', content: promptPathA(src, tgt) }, { role: 'user', content: `请将以下${src}文本翻译成${tgt}（必须直接输出纯净译文正文，绝对不要带任何前缀标签）：\n\n${chunks[i]}` }],
         (f, re) => updateUI(document.getElementById(`cpa${i}`), f, re),
         0.5
       );
-      const resB = callDeepSeek(
+      const resB = callProviderApi(
         [{ role: 'system', content: promptPathB(src, tgt) }, { role: 'user', content: `请将以下${src}文本翻译成${tgt}（必须直接输出纯净译文正文，绝对不要带任何前缀标签）：\n\n${chunks[i]}` }],
         (f, re) => updateUI(document.getElementById(`cpb${i}`), f, re),
         0.8
       );
-      const resC = callDeepSeek(
+      const resC = callProviderApi(
         [{ role: 'system', content: promptPathC(src, tgt) }, { role: 'user', content: `请将以下${src}文本翻译成${tgt}（必须直接输出纯净译文正文，绝对不要带任何前缀标签）：\n\n${chunks[i]}` }],
         (f, re) => updateUI(document.getElementById(`cpc${i}`), f, re),
         0.6
       );
-      const resD = callDeepSeek(
+      const resD = callProviderApi(
         [{ role: 'system', content: dynamicAgent.systemPrompt }, { role: 'user', content: `请将以下${src}文本翻译成${tgt}（必须直接输出纯净译文正文，绝对不要带任何前缀标签）：\n\n${chunks[i]}` }],
         (f, re) => updateUI(document.getElementById(`cpd${i}`), f, re),
         0.7
@@ -3245,7 +3456,7 @@
       const ctxSummary = mem.summary ? `\n\n${mem.summary}` : '';
       const synthMsg = `请综合以下${chunks.length > 1 ? `第${i + 1}/${chunks.length}段` : ''}的四个翻译版本，选出最优译文。\n\n原文：\n${chunks[i]}${ctxSummary}\n\n版本A（语言学家）：\n${rA}\n\n版本B（本土编辑）：\n${rB}\n\n版本C（领域专家）：\n${rC}\n\n版本D（${dynamicAgent.name}）：\n${rD}\n\n裁决指引：\n- 优先选择语义最准确、表达最自然的版本\n- 若多版本各有优势，可融合最佳部分\n- 必须直接输出纯净的译文正文，不要带任何前缀`;
       let rawSynth = '';
-      await callDeepSeek(
+      await callProviderApi(
         [{ role: 'system', content: promptSynth(src, tgt) }, { role: 'user', content: synthMsg }],
         (full) => {
           rawSynth = full;
@@ -3294,7 +3505,7 @@
     document.getElementById('auditContainer').appendChild(auditEl);
 
     let rawAudit = '';
-    await callDeepSeek(
+    await callProviderApi(
       [{ role: 'system', content: promptAudit(src, tgt) }, { role: 'user', content: `原文：\n${text}\n\n最终译文：\n${finalText}` }],
       (full, reasoning) => {
         rawAudit = full;
@@ -3397,7 +3608,7 @@
     _bilingualActive = true;
     if (bb) bb.style.color = 'var(--terracotta)';
   }
-  document.getElementById('bilingualBtn').addEventListener('click', doBilingualToggle);
+  document.getElementById('bilingualBtn')?.addEventListener('click', doBilingualToggle);
 
   // ═════════════════════════════════════════
   // 语音输入 v3（封装为函数，消除全局泄漏）
@@ -3410,6 +3621,8 @@
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     _recognition = new SpeechRecognition();
+    const voiceBtn = document.getElementById('voiceBtn');
+    if (voiceBtn) voiceBtn.style.display = '';
     _recognition.continuous = true;
     _recognition.interimResults = true;
 
@@ -3462,7 +3675,7 @@
       }
     };
 
-    document.getElementById('voiceBtn').addEventListener('click', () => {
+    document.getElementById('voiceBtn')?.addEventListener('click', () => {
       if (!_recognition) {
         showToast('当前浏览器不支持语音输入');
         return;
@@ -3539,7 +3752,8 @@
         document.getElementById('copyBtn').click();
       } else if (e.key.toLowerCase() === 's') {
         e.preventDefault();
-        document.getElementById('voiceBtn').click();
+        const voiceBtn = document.getElementById('voiceBtn');
+        if (voiceBtn) voiceBtn.click();
       } else if (e.key.toLowerCase() === 'm') {
         e.preventDefault();
         doBilingualToggle();
@@ -3560,14 +3774,14 @@
   });
 
   // ── 快捷键帮助面板 ──
-  document.getElementById('shortcutBtn').addEventListener('click', () => {
-    document.getElementById('shortcutPanel').classList.add('active');
+  document.getElementById('shortcutBtn')?.addEventListener('click', () => {
+    document.getElementById('shortcutPanel')?.classList.add('active');
   });
-  document.getElementById('shortcutClose').addEventListener('click', () => {
-    document.getElementById('shortcutPanel').classList.remove('active');
+  document.getElementById('shortcutClose')?.addEventListener('click', () => {
+    document.getElementById('shortcutPanel')?.classList.remove('active');
   });
-  document.getElementById('shortcutPanel').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('shortcutPanel')) document.getElementById('shortcutPanel').classList.remove('active');
+  document.getElementById('shortcutPanel')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('shortcutPanel')) document.getElementById('shortcutPanel')?.classList.remove('active');
   });
 
   // ═════════════════════════════════════════

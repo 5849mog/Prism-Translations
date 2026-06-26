@@ -773,6 +773,176 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 .save-btn:hover { background: #222220; transform: translateY(-1px); box-shadow: var(--shadow-md); }
 
 /* ════════════════════════════════════════
+   Provider 卡片网格 & 配置面板
+════════════════════════════════════════ */
+.provider-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.provider-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid var(--border-warm);
+  background: var(--ivory);
+  cursor: pointer;
+  transition: all 0.25s var(--ease-out-quart);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  min-height: 80px;
+}
+.provider-card:hover {
+  border-color: var(--ring-warm);
+  background: var(--warm-sand);
+  transform: translateY(-1px);
+}
+.provider-card.active {
+  border-color: var(--terracotta);
+  background: #fdf5f2;
+  box-shadow: 0 0 0 2px rgba(201,100,66,0.12);
+}
+.provider-card.active::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 20px; height: 20px;
+  background: linear-gradient(135deg, transparent 50%, var(--terracotta) 50%);
+  border-radius: 0 var(--r-md) 0 0;
+}
+.provider-card-icon {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  font-family: var(--mono);
+}
+.provider-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--near-black);
+  font-family: var(--serif);
+}
+.provider-card-models {
+  font-size: 10px;
+  color: var(--stone);
+  font-family: var(--mono);
+  letter-spacing: 0.2px;
+}
+.provider-card-status {
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  margin-top: 2px;
+}
+.provider-card-status.connected {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid #b0cfc2;
+}
+.provider-card-status.disconnected {
+  background: var(--warm-sand);
+  color: var(--stone);
+  border: 1px solid var(--border-warm);
+}
+.provider-config-panel {
+  background: var(--parchment);
+  border: 1px solid var(--border-cream);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  animation: fadeIn 0.25s ease;
+}
+.provider-config-header {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--near-black);
+  padding: 14px 18px;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--border-cream);
+}
+.provider-config-row {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-cream);
+}
+.provider-config-row:last-child {
+  border-bottom: none;
+}
+.provider-config-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--charcoal);
+  margin-bottom: 8px;
+}
+.provider-config-hint {
+  font-size: 10px;
+  color: var(--stone);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.custom-endpoint-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border-warm);
+  border-radius: var(--r-lg);
+  background: var(--white);
+  outline: none;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--charcoal);
+  transition: border-color 0.15s;
+}
+.custom-endpoint-input:focus {
+  border-color: var(--ring-warm);
+}
+.custom-endpoint-input::placeholder {
+  color: var(--warm-silver);
+}
+.provider-test-btn {
+  padding: 9px 18px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid var(--terracotta);
+  background: transparent;
+  color: var(--terracotta);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-family: var(--sans);
+}
+.provider-test-btn:hover {
+  background: var(--terracotta);
+  color: white;
+}
+.provider-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.provider-test-btn.testing {
+  background: var(--terracotta);
+  color: white;
+}
+.provider-test-result {
+  font-size: 11px;
+  color: var(--stone);
+  margin-left: 10px;
+  font-family: var(--mono);
+}
+.provider-test-result.success { color: var(--success); }
+.provider-test-result.error { color: var(--error); }
+
+/* ════════════════════════════════════════
    Toast & Spinner
 ════════════════════════════════════════ */
 .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(16px); background: var(--near-black); color: var(--warm-silver); font-size: 13px; padding: 11px 22px; border-radius: var(--r-full); opacity: 0; transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; white-space: nowrap; pointer-events: none; letter-spacing: 0.2px; display: flex; align-items: center; gap: 8px; }
@@ -1351,6 +1521,10 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
         <span class="history-badge" id="historyBadge">0</span>
         <span class="tooltip">翻译历史</span>
       </div>
+      <div class="icon-btn" id="shortcutBtn" title="快捷键" aria-label="快捷键">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/><path d="M15 9l-6 6"/></svg>
+        <span class="tooltip">快捷键</span>
+      </div>
       <div class="icon-btn" id="settingsBtn" title="设置" aria-label="设置">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
           <circle cx="12" cy="12" r="3"/>
@@ -1408,6 +1582,9 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
           <div class="input-actions">
             <button class="input-mini-btn" id="pasteBtn" title="粘贴" aria-label="粘贴文本">粘贴</button>
             <button class="input-mini-btn" id="clearBtn" aria-label="清空文本">清空</button>
+            <button class="input-mini-btn" id="voiceBtn" title="语音输入 (Ctrl+S)" aria-label="语音输入" style="display:none;">
+              <span id="voiceIcon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
+            </button>
           </div>
         </div>
       </div>
@@ -1447,6 +1624,9 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
             </button>
             <button class="action-btn" id="copyBtn">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>复制
+            </button>
+            <button class="action-btn" id="bilingualBtn" title="双语对照">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
             </button>
           </div>
         </div>
@@ -1678,37 +1858,71 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
   <div class="drawer-handle"></div>
   <div class="drawer-title">偏好设置</div>
 
+  <!-- Provider 卡片网格 -->
   <div class="setting-section">
     <div class="setting-section-label">API 服务商</div>
-    <div class="setting-row stacked">
-      <div>
-        <div class="setting-name">选择服务商</div>
-        <div class="setting-desc">DeepSeek 性价比最高；OpenAI 与 Claude 可用于对比测试。</div>
+    <div class="provider-grid" id="providerGrid">
+      <!-- 由 buildProviderCards() 动态生成 -->
+    </div>
+
+    <!-- 隐藏的下拉框（保持 JS 兼容） -->
+    <select id="providerSelect" style="display:none">
+      <option value="deepseek">DeepSeek</option>
+      <option value="gemini">Gemini</option>
+      <option value="openai">OpenAI</option>
+      <option value="claude">Claude</option>
+    </select>
+
+    <!-- 当前选中 Provider 的配置面板 -->
+    <div class="provider-config-panel" id="providerConfigPanel">
+      <div class="provider-config-header" id="providerConfigHeader">DeepSeek</div>
+
+      <div class="provider-config-row">
+        <div class="provider-config-label" id="apiKeyLabel">DeepSeek API 密钥</div>
+        <div class="key-field">
+          <input type="password" id="apiKeyInput" placeholder="在此输入 API 密钥" autocomplete="off" spellcheck="false"/>
+          <div class="key-eye" id="keyToggle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+        </div>
       </div>
-      <div class="select-wrap">
-        <select id="providerSelect">
-          <option value="deepseek">DeepSeek（性价比推荐）</option>
-          <option value="gemini">Google Gemini（翻译质量冠军 · 免费额度）</option>
-          <option value="openai">OpenAI（均衡通用）</option>
-          <option value="claude">Anthropic Claude（长文本专业）</option>
-        </select>
+
+      <div class="provider-config-row">
+        <div class="provider-config-label">选择模型</div>
+        <div class="select-wrap">
+          <select id="modelSelect">
+            <option value="deepseek-v4-flash" data-provider="deepseek">DeepSeek V4 Flash（快速 · 极具性价比）</option>
+            <option value="deepseek-v4-pro" data-provider="deepseek">DeepSeek V4 Pro（性能最强）</option>
+            <option value="gemini-2.5-flash" data-provider="gemini">Gemini 2.5 Flash（翻译冠军 · 免费额度）</option>
+            <option value="gemini-2.5-pro" data-provider="gemini">Gemini 2.5 Pro（推理最强）</option>
+            <option value="gpt-4.1" data-provider="openai">GPT-4.1（均衡通用）</option>
+            <option value="gpt-4.1-mini" data-provider="openai">GPT-4.1 Mini（快速轻量）</option>
+            <option value="claude-sonnet-4-6" data-provider="claude">Claude Sonnet 4.6（长文本专业）</option>
+            <option value="claude-haiku-4-5" data-provider="claude">Claude Haiku 4.5（轻量快速）</option>
+          </select>
+        </div>
+        <div class="provider-config-hint" id="modelSelectDesc">DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强</div>
+      </div>
+
+      <div class="provider-config-row" id="customEndpointRow">
+        <div class="provider-config-label">自定义端点（可选）</div>
+        <input class="custom-endpoint-input" id="customEndpointInput" type="text" placeholder="留空则使用默认 API 地址" autocomplete="off"/>
+        <div class="provider-config-hint">可用于反向代理、本地模型（如 http://localhost:11434/v1）或兼容 API</div>
+      </div>
+
+      <div class="provider-config-row">
+        <button class="provider-test-btn" id="testApiBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          测试连接
+        </button>
+        <span class="provider-test-result" id="testApiResult"></span>
       </div>
     </div>
   </div>
 
+  <!-- 引擎精度 & 思考模式 -->
   <div class="setting-section">
-    <div class="setting-section-label" id="apiKeyLabel">API 密钥</div>
-    <div class="key-field">
-      <input type="password" id="apiKeyInput" placeholder="在此输入 API 密钥" autocomplete="off" spellcheck="false"/>
-      <div class="key-eye" id="keyToggle">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </div>
-    </div>
-    <div class="key-note">密钥仅存储于本机浏览器本地存储中，从不上传服务器。</div>
-  </div>
-
-  <div class="setting-section">
-    <div class="setting-section-label">引擎精度</div>
+    <div class="setting-section-label">引擎配置</div>
     <div class="setting-row">
       <div>
         <div class="setting-name">迭代轮数</div>
@@ -1718,28 +1932,6 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
         <div class="num-btn" id="roundsMinus">−</div>
         <div class="num-val" id="roundsDisplay">2</div>
         <div class="num-btn" id="roundsPlus">+</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="setting-section">
-    <div class="setting-section-label">模型配置</div>
-    <div class="setting-row stacked">
-      <div>
-        <div class="setting-name">核心模型</div>
-        <div class="setting-desc" id="modelSelectDesc">根据服务商自动筛选可用模型</div>
-      </div>
-      <div class="select-wrap">
-        <select id="modelSelect">
-          <option value="deepseek-v4-flash" data-provider="deepseek">DeepSeek V4 Flash（快速 · 极具性价比）</option>
-          <option value="deepseek-v4-pro" data-provider="deepseek">DeepSeek V4 Pro（性能最强）</option>
-          <option value="gemini-2.5-flash" data-provider="gemini">Gemini 2.5 Flash（翻译冠军 · 免费额度）</option>
-          <option value="gemini-2.5-pro" data-provider="gemini">Gemini 2.5 Pro（推理最强）</option>
-          <option value="gpt-4.1" data-provider="openai">GPT-4.1（均衡通用）</option>
-          <option value="gpt-4.1-mini" data-provider="openai">GPT-4.1 Mini（快速轻量）</option>
-          <option value="claude-sonnet-4-6" data-provider="claude">Claude Sonnet 4.6（长文本专业）</option>
-          <option value="claude-haiku-4-5" data-provider="claude">Claude Haiku 4.5（轻量快速）</option>
-        </select>
       </div>
     </div>
     <div class="setting-row stacked" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-cream);">
@@ -1757,6 +1949,7 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
     </div>
   </div>
 
+  <!-- 翻译偏好 -->
   <div class="setting-section">
     <div class="setting-section-label">翻译风格偏好（可选）</div>
     <div class="custom-prompt-wrap">
@@ -1765,6 +1958,7 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
     </div>
   </div>
 
+  <!-- 术语表 -->
   <div class="setting-section">
     <div class="setting-section-label">专业术语表（Glossary）</div>
     <div class="custom-prompt-wrap">
@@ -1778,6 +1972,48 @@ body { font-family: var(--sans); background: var(--parchment); color: var(--near
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 示例文本弹窗 -->
+<div class="export-preview-modal" id="demoPanelModal">
+  <div class="export-preview-panel">
+    <div class="export-preview-header">
+      <span class="export-preview-title">试译一段</span>
+      <button class="history-close" id="demoPanelClose" title="关闭">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="export-preview-body" style="padding:20px 22px;font-family:var(--sans);background:var(--parchment);">
+      <div id="demoPanelGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 快捷键帮助面板 -->
+<div class="history-modal" id="shortcutPanel">
+  <div class="history-panel" style="max-width:420px;">
+    <div class="history-header">
+      <span class="history-title">⌨ 快捷键</span>
+      <button class="history-close" id="shortcutClose">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:var(--charcoal);">
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+Enter</kbd> 启动翻译</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+K</kbd> 打开设置</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+H</kbd> 历史记录</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+V</kbd> 粘贴文本</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+S</kbd> 语音输入</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+M</kbd> 双语对照</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+L</kbd> 清空全部</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+R</kbd> 语言对调</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+D</kbd> 示例文本</div>
+      <div><kbd style="background:var(--warm-sand);padding:2px 6px;border-radius:4px;font-size:11px;">Ctrl+X</kbd> 停止翻译</div>
+    </div>
+  </div>
+</div>
+
+<!-- 双语对照容器（由 JS 动态填充） -->
+<div id="bilingualView" style="display:none;"></div>
 
 <script src="prismtrans.js"></script>
 
