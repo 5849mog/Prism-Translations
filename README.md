@@ -165,24 +165,75 @@ D 路是 PrismTrans 的**独特设计**。在每次翻译开始前，系统会�
 
 ## 快速开始
 
-1. 克隆仓库
-2. **启动本地服务器**（ES modules 需要 HTTP 协议）：
+### 前置条件
 
-   ```bash
-   python -m http.server 8000
-   # 或使用 Node.js: npx serve .
-   # 或 VS Code Live Server
-   ```
+- **现代浏览器**：Chrome 100+ / Edge 100+ / Firefox 110+ / Safari 16+（ES Module + CSS @layer 支持）
+- **Python 3** 或 **Node.js 18+**（用于启动本地服务器）
+- **一个 LLM API 密钥**：推荐 Gemini Flash（免费额度充足），或 DeepSeek / Claude / OpenAI
 
-3. 打开浏览器访问 `http://localhost:8000`
-4. 点击右下角 **设置** → 填入你的 API 密钥
-5. 选择源语言和目标语言
-6. 粘贴文本或拖拽上传文件
-7. 点击 **启动翻译引擎**
+### 一步启动
 
-> **为什么要启动服务器？** PrismTrans Pro V6 已升级为 ES Modules 架构（`<script type="module">`），现代浏览器出于安全策略禁止 `file://` 协议加载模块文件，必须通过 HTTP 协议访问。
+```bash
+# 1. 克隆仓库
+git clone https://github.com/5849mog/Prism-Translations.git
+cd Prism-Translations
 
-> **API 选型建议**：Gemini Flash 系列提供充足免费额度，适合入门体验；DeepSeek 性价比最优，深度思考模式可控；Claude Sonnet 长文本专注能力顶尖；GPT 4.1 系列超长上下文无出其右。
+# 2. 启动本地服务器（任选其一）
+python -m http.server 8000        # Python
+# npx serve .                      # Node.js
+# 或用 VS Code Live Server 打开 index.html
+
+# 3. 打开浏览器
+open http://localhost:8000          # macOS
+# start http://localhost:8000       # Windows
+# xdg-open http://localhost:8000    # Linux
+```
+
+### 首次使用
+
+```
+① 点击右下角 ⚙️ 设置按钮
+② 选择 API 服务商 → 填入你的 API 密钥
+③ 选择大语言模型（推荐 Gemini Flash 或 DeepSeek V4 Flash）
+④ 点击「测试连接」确认密钥有效
+⑤ 保存并关闭设置
+```
+
+### 开始翻译
+
+```
+① 在左侧文本区粘贴或输入待翻译内容
+② 点击上方语言栏切换源语言 / 目标语言
+③ 点击「开始翻译」按钮（或按 Ctrl+Enter）
+④ 在右侧面板实时观看六路译者并行翻译、互评、裁决全过程
+⑤ 翻译完成后查看三维评分（忠实度 / 流畅度 / 地道度）与评语
+```
+
+### 示例速览
+
+想先看效果再配置？点击空状态页面的 **「试译一段」** 按钮，系统会载入预置的示例文本（科技演讲、文学经典、科幻巨著、技术文档、商务信函等），一键体验完整翻译流程。
+
+### 常见问题
+
+<details>
+<summary><b>为什么必须启动 HTTP 服务器？</b></summary>
+PrismTrans 使用 ES Modules 架构（<code>&lt;script type="module"&gt;</code>），现代浏览器出于安全策略禁止 <code>file://</code> 协议加载模块文件。必须通过 HTTP 协议访问。
+</details>
+
+<details>
+<summary><b>没有 API 密钥怎么办？</b></summary>
+推荐使用 Google Gemini Flash — 注册 Google AI Studio 即可获取免费额度，无需绑定支付方式。DeepSeek 注册即送 tokens，性价比极高。
+</details>
+
+<details>
+<summary><b>页面加载后按钮无响应？</b></summary>
+检查浏览器控制台（F12 → Console）是否有 404 错误。最常见的原因为 <code>file://</code> 直接打开而非通过 HTTP 服务器访问。确认地址栏显示 <code>http://localhost:8000</code> 而非 <code>file:///</code>。
+</details>
+
+<details>
+<summary><b>翻译速度慢或 API 报错？</b></summary>
+在设置中尝试切换 Provider 或模型。Gemini Flash 速度最快且免费；DeepSeek 在国内网络环境下连接更稳定。检查 API 密钥是否过期、配额是否耗尽。
+</details>
 
 ---
 
