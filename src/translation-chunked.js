@@ -182,7 +182,13 @@ export async function doTranslateChunked(text, src, tgt, setStatus, setProgress)
   const scoreLabels = ['忠', '流', '地'];
   if (scores) {
     scores.forEach((s, i) => {
+      const isExcellent = s >= 9;
       document.getElementById(`s${i}`).textContent = s;
+      if (isExcellent) {
+        document.getElementById(`s${i}`).classList.add('excellent');
+        document.getElementById(`si${i}`).classList.add('excellent');
+        document.getElementById(`sb${i}`).classList.add('excellent');
+      }
       setTimeout(() => {
         document.getElementById(`sb${i}`).style.width = s * 10 + '%';
         document.getElementById(`sb${i}`).style.transition = 'width 0.9s cubic-bezier(0.2,1,0.2,1)';
