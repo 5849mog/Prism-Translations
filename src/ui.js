@@ -521,72 +521,8 @@ function doClearAll() {
   document.getElementById('phaseTimer').textContent = '';
 }
 
-// ── 3D 彩蛋 ──
-function showEasterEgg() {
-  if (!window.THREE) return;
-  const eggModal = document.getElementById('easterEggModal');
-  const canvas = document.getElementById('eggCanvas');
-  eggModal.style.display = 'flex';
-  canvas.width = 400; canvas.height = 400;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setSize(400, 400);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-  camera.position.z = 3.2;
-  const group = new THREE.Group(); scene.add(group);
-  const geo = new THREE.OctahedronGeometry(1, 1);
-  const mat = new THREE.MeshPhongMaterial({ color: 0xc96442, shininess: 120, specular: 0xffffff, transparent: true, opacity: 0.88, flatShading: true });
-  const mesh = new THREE.Mesh(geo, mat); group.add(mesh);
-  const wireGeo = new THREE.WireframeGeometry(geo);
-  const wireMat = new THREE.LineBasicMaterial({ color: 0xfaf8f2, transparent: true, opacity: 0.08 });
-  group.add(new THREE.LineSegments(wireGeo, wireMat));
-  const particlesGeo = new THREE.BufferGeometry();
-  const pCount = 60;
-  const pPos = new Float32Array(pCount * 3);
-  for (let i = 0; i < pCount * 3; i++) pPos[i] = (Math.random() - 0.5) * 5;
-  particlesGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-  const particlesMat = new THREE.PointsMaterial({ color: 0xfaf8f2, size: 0.018, transparent: true, opacity: 0.5 });
-  group.add(new THREE.Points(particlesGeo, particlesMat));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-  const dirLight = new THREE.DirectionalLight(0xfff5e8, 0.8); dirLight.position.set(3, 3, 5); scene.add(dirLight);
-  const backLight = new THREE.DirectionalLight(0xc96442, 0.4); backLight.position.set(-3, -2, -4); scene.add(backLight);
-  let time = 0, rafId;
-  const texts = document.querySelectorAll('.egg-quote-text');
-  let currentText = 0;
-  function animate() {
-    rafId = requestAnimationFrame(animate);
-    time += 0.01;
-    mesh.rotation.y = time * 0.8;
-    mesh.rotation.x = Math.sin(time * 0.5) * 0.25;
-    const s = 1 + Math.sin(time * 1.5) * 0.06;
-    mesh.scale.set(s, s, s);
-    renderer.render(scene, camera);
-  }
-  const quoteInterval = setInterval(() => {
-    texts[currentText].classList.remove('active');
-    currentText = (currentText + 1) % texts.length;
-    texts[currentText].classList.add('active');
-  }, 3500);
-  setTimeout(() => texts[0].classList.add('active'), 200);
-  animate();
-  document.getElementById('eggCloseBtn').addEventListener('click', function closeEgg() {
-    eggModal.style.display = 'none';
-    cancelAnimationFrame(rafId);
-    clearInterval(quoteInterval);
-    renderer.dispose(); geo.dispose(); mat.dispose(); wireGeo.dispose(); wireMat.dispose(); particlesGeo.dispose(); particlesMat.dispose();
-    document.getElementById('eggCloseBtn').removeEventListener('click', closeEgg);
-  }, { once: true });
-  eggModal.addEventListener('click', function overlayClose(e) {
-    if (e.target === eggModal) {
-      eggModal.style.display = 'none';
-      cancelAnimationFrame(rafId);
-      clearInterval(quoteInterval);
-      renderer.dispose(); geo.dispose(); mat.dispose(); wireGeo.dispose(); wireMat.dispose(); particlesGeo.dispose(); particlesMat.dispose();
-      eggModal.removeEventListener('click', overlayClose);
-    }
-  });
-}
+
+
 
 // ═════════════════════════════════════════
 // 绑定所有事件监听器
@@ -850,33 +786,6 @@ export function setupEventListeners() {
 
   // ── 导出按钮 ──
   setupExportListeners();
-
-  // ── Konami Code ──
-  const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-  let _konamiIndex = 0;
-  let _konamiReady = false;
-
-  if (typeof THREE === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js';
-    s.onload = () => { _konamiReady = true; };
-    document.head.appendChild(s);
-  } else {
-    _konamiReady = true;
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (!_konamiReady) return;
-    if (e.key === KONAMI_CODE[_konamiIndex]) {
-      _konamiIndex++;
-      if (_konamiIndex === KONAMI_CODE.length) {
-        _konamiIndex = 0;
-        showEasterEgg();
-      }
-    } else {
-      _konamiIndex = 0;
-    }
-  });
 
   // ── 滚动提示 ──
   const rightPanel = getPanelRight();
