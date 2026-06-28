@@ -188,12 +188,19 @@ D 路是 PrismTrans 的**独特设计**。在每次翻译开始前，系统会�
 
 ## 技术栈
 
-- **纯前端架构**：Vanilla HTML / CSS / JavaScript (ES Modules)
-- **模块划分**：10 个独立模块，按职责分离（状态、工具、提供者、提示词、翻译引擎、UI、导出、文件解析等）
-- **零依赖**：无需 npm install，无需构建工具
-- **原生 API**：Fetch + Streams API 实现流式响应
-- **本地持久化**：localStorage 保存设置与历史
-- **错误处理**：HTTP 状态码细分提示（401/402/403/429/500/503）
+- **纯前端架构**：Vanilla HTML / CSS / JavaScript (ES Modules)，零构建工具
+- **JS 模块化**：15 个职责单一的 ES Module（状态管理、UI 事件、翻译编排、Provider 抽象、提示词系统、文件解析、导出引擎等）
+  - `translation.js` 主入口 → 拆分为 5 子模块（工具函数、DOM 辅助、阶段执行、分块流程、编排入口）
+- **CSS 模块化**：16 个功能域 CSS 文件，通过 `@layer` 显式控制层叠优先级
+  - 设计令牌 → 基础 → 布局 → 组件 → 动画 → 覆写，六层有序级联
+  - 组件级响应式设计，每个 CSS 模块自包含
+- **零运行时依赖**：无需 npm install，无需构建工具，纯浏览器原生
+- **流式 API**：Fetch + ReadableStream 实现流式逐词渲染
+- **多 Provider 抽象层**：统一接口对接 DeepSeek / Gemini / OpenAI / Claude 等 LLM API
+- **动态智能体**：Meta Agent 实时分析文本特征，动态生成专属翻译角色
+- **本地持久化**：localStorage 保存设置、密钥、历史记录、术语表
+- **精致动画系统**：25+ 项 CSS 微交互动画（`cubic-bezier` 缓动、Staggered 入场、Skeleton 骨架屏）
+- **错误处理**：HTTP 状态码细分提示（401/402/403/429/500/503）+ AbortController 安全中断
 
 ---
 
