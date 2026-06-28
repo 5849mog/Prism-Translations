@@ -217,7 +217,24 @@ open http://localhost:8000          # macOS
 
 <details>
 <summary><b>为什么必须启动 HTTP 服务器？</b></summary>
-PrismTrans 使用 ES Modules 架构（<code>&lt;script type="module"&gt;</code>），现代浏览器出于安全策略禁止 <code>file://</code> 协议加载模块文件。必须通过 HTTP 协议访问。
+<p></p>
+<p>PrismTrans 使用 <strong>ES Modules 架构</strong>——所有 JS 模块通过 <code>import</code> / <code>export</code> 语句互联。</p>
+
+<p>现代浏览器（Chrome、Firefox、Safari、Edge）出于安全策略，禁止 <code>file://</code> 协议加载模块文件。<br>
+当你双击 <code>index.html</code> 直接在本地打开时，地址栏以 <code>file://</code> 开头，浏览器会因跨源限制拒绝加载 <code>&lt;script type="module"&gt;</code>。</p>
+
+<p><strong>正确的打开方式</strong>：</p>
+
+<table>
+<tr><th>方式</th><th>命令</th></tr>
+<tr><td>Python</td><td><code>python -m http.server 8000</code></td></tr>
+<tr><td>Node.js</td><td><code>npx serve .</code></td></tr>
+<tr><td>VS Code</td><td>安装 Live Server 插件 → 右键 <code>index.html</code> → Open with Live Server</td></tr>
+</table>
+
+<p>启动后地址栏显示 <code>http://localhost:8000</code>（而非 <code>file:///</code>），模块加载正常，翻译引擎即可运行。</p>
+
+<p>同样的原理也适用于 CSS <code>@layer</code> 和 <code>@import</code> 机制——它们依赖 HTTP 源加载样式文件。</p>
 </details>
 
 <details>
