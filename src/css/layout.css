@@ -1,0 +1,89 @@
+/* ════════════════════════════════════════
+   移动端布局（默认）
+════════════════════════════════════════ */
+.app-wrap { display: flex; flex-direction: column; min-height: 100vh; }
+.main-body { display: flex; flex-direction: column; flex: 1; }
+.panel-left { display: flex; flex-direction: column; }
+.panel-right { display: flex; flex-direction: column; }
+/* 移动端隐藏桌面端底栏，桌面端隐藏移动端翻译按钮 */
+#leftFooterDesktop { display: none; }
+@media (min-width: 860px) {
+  #translateWrapMobile { display: none; }
+  #leftFooterDesktop { display: block; }
+}
+
+/* ════════════════════════════════════════
+   iPad 纵向 768-859px
+════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 859px) {
+  .input-section { padding: 20px 24px 12px; }
+  .left-footer { padding: 16px 24px 24px; }
+  .result-section { padding: 16px 24px 32px; }
+  .export-section { padding: 0 24px 24px; }
+  #sourceText { min-height: 200px; font-size: 16px; }
+}
+
+/* ════════════════════════════════════════
+   iPad 横向 / 小桌面 ≥ 860px（双栏分屏）
+════════════════════════════════════════ */
+@media (min-width: 860px) {
+  body { height: 100vh; overflow: hidden; background: #d8d6cb; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: radial-gradient(circle at 20% 50%, rgba(201,100,66,0.04) 0%, transparent 60%),
+                      radial-gradient(circle at 80% 20%, rgba(201,100,66,0.03) 0%, transparent 50%);
+  }
+  .app-wrap {
+    position: relative; z-index: 1; height: 100vh; width: 100%; max-width: 1800px;
+    display: flex; flex-direction: column; background: var(--ivory); box-shadow: var(--shadow-xl);
+  }
+  .main-body { flex-direction: row; overflow: hidden; flex: 1; min-height: 0; }
+  .panel-left {
+    width: 420px; flex-shrink: 0; border-right: 1px solid var(--border-cream);
+    background: var(--parchment); height: 100%; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .left-content { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
+  .left-footer { flex-shrink: 0; padding: 16px 24px 20px; background: var(--parchment); border-top: 1px solid var(--border-cream); }
+  .panel-right { flex: 1; overflow-y: auto; background: var(--ivory); height: 100%; scroll-behavior: smooth; }
+  .engine-inner { padding: 28px 36px 100px; }
+}
+
+/* iPad 横向精调 860-1023px */
+@media (min-width: 860px) and (max-width: 1023px) {
+  .panel-left { width: 380px; }
+  #sourceText { min-height: 200px; }
+}
+
+/* ════════════════════════════════════════
+   标准桌面 ≥ 1024px
+════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  .panel-left { width: 440px; }
+  #sourceText { min-height: 240px; font-size: 15px; }
+}
+
+/* ════════════════════════════════════════
+   宽屏桌面 ≥ 1280px（浮岛模式）
+════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  .panel-left { width: 480px; }
+  .app-wrap { margin: 1.5vh auto; height: 97vh; border-radius: var(--r-3xl); overflow: hidden; border: 1px solid var(--border-warm); }
+  .engine-inner { padding: 32px 48px 120px; }
+  #sourceText { min-height: 260px; }
+}
+
+/* ════════════════════════════════════════
+   超宽 ≥ 1440px
+════════════════════════════════════════ */
+@media (min-width: 1440px) {
+  .panel-left { width: 520px; }
+  #sourceText { min-height: 280px; }
+  .lang-display-name { font-size: 16px; }
+}
+
+/* ════════════════════════════════════════
+   极宽 ≥ 1680px
+════════════════════════════════════════ */
+@media (min-width: 1680px) {
+  .panel-left { width: 560px; }
+}

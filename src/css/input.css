@@ -1,0 +1,123 @@
+/* ════════════════════════════════════════
+   语言栏
+════════════════════════════════════════ */
+.lang-bar {
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px 20px; gap: 0;
+  background: var(--ivory); border-bottom: 1px solid var(--border-cream); flex-shrink: 0;
+}
+@media (min-width: 860px) { .lang-bar { padding: 14px 24px; } }
+.lang-display {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 6px 20px; cursor: pointer; position: relative;
+  transition: all 0.2s; border-radius: var(--r-sm);
+}
+.lang-display:hover { background: rgba(201,100,66,0.04); }
+.lang-display-name {
+  font-size: 15px; font-weight: 500; color: var(--near-black);
+  letter-spacing: 0.5px; font-family: var(--serif);
+}
+.lang-display-code {
+  font-size: 10px; color: var(--stone); margin-top: 3px;
+  letter-spacing: 1.5px; font-family: var(--mono); text-transform: uppercase;
+}
+.lang-arrow {
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: var(--warm-silver); cursor: pointer;
+  transition: all 0.4s; flex-shrink: 0; margin: 0 12px;
+}
+.lang-arrow:hover { color: var(--terracotta); transform: rotate(180deg); }
+.lang-arrow.swapping { transform: rotate(180deg); }
+
+/* ════════════════════════════════════════
+   输入区
+════════════════════════════════════════ */
+.input-section { padding: 16px 20px 12px; flex-shrink: 0; }
+@media (min-width: 860px) { .input-section { padding: 20px 24px 12px; } }
+.textarea-card {
+  background: var(--white); border: 1.5px solid var(--border-warm);
+  border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-xs);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.textarea-card:focus-within { border-color: var(--ring-warm); box-shadow: 0 0 0 3px rgba(180,175,165,0.15), var(--shadow-sm); }
+#sourceText {
+  width: 100%; min-height: 160px; padding: 16px 18px; background: transparent;
+  border: none; outline: none; resize: vertical;
+  font-family: var(--sans); font-size: 15px; line-height: 1.75; color: var(--near-black);
+}
+#sourceText::placeholder { color: var(--warm-silver); }
+.input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-top: 1px solid var(--border-cream); background: var(--parchment);
+}
+.char-count { font-size: 12px; color: var(--warm-silver); font-family: var(--mono); }
+.char-count.near-limit { color: var(--warning); }
+.char-count.at-limit { color: var(--error); }
+.input-actions { display: flex; gap: 4px; align-items: center; }
+.input-mini-btn { font-size: 11px; color: var(--stone); background: none; border: none; cursor: pointer; transition: all 0.15s; padding: 3px 8px; border-radius: var(--r-sm); }
+.input-mini-btn:hover { color: var(--terracotta); background: rgba(201,100,66,0.07); }
+.word-stats { display: flex; gap: 14px; padding: 8px 20px 0; font-size: 11px; color: var(--warm-silver); font-family: var(--mono); }
+@media (min-width: 860px) { .word-stats { padding: 8px 24px 0; } }
+.word-stat { display: flex; gap: 4px; align-items: center; }
+.word-stat span { color: var(--stone); }
+
+/* ════════════════════════════════════════
+   文件上传区
+════════════════════════════════════════ */
+.file-drop-zone {
+  margin: 0 20px 12px; border: 1.5px dashed var(--border-warm);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  background: var(--white); transition: all 0.18s; position: relative; overflow: hidden;
+}
+@media (min-width: 860px) { .file-drop-zone { margin: 0 24px 12px; } }
+.file-drop-zone:hover, .file-drop-zone.drag-over {
+  border-color: var(--terracotta); background: #fdf5f2;
+}
+.file-drop-icon { color: var(--stone); flex-shrink: 0; transition: color 0.18s; }
+.file-drop-zone:hover .file-drop-icon, .file-drop-zone.drag-over .file-drop-icon { color: var(--terracotta); }
+.file-drop-text { font-size: 12px; color: var(--stone); line-height: 1.4; }
+.file-drop-text strong { color: var(--charcoal); font-weight: 500; display: block; margin-bottom: 1px; }
+.file-drop-badge { margin-left: auto; font-size: 9px; color: var(--warm-silver); background: var(--warm-sand); padding: 2px 7px; border-radius: var(--r-full); letter-spacing: 0.3px; flex-shrink: 0; }
+#fileInput { display: none; }
+.file-loaded-bar {
+  display: none; margin: 0 20px 12px; padding: 9px 14px;
+  background: var(--success-bg); border: 1px solid #b0cfc2; border-radius: var(--r-lg);
+  font-size: 12px; color: var(--success); align-items: center; gap: 8px;
+}
+@media (min-width: 860px) { .file-loaded-bar { margin: 0 24px 12px; } }
+.file-loaded-bar.visible { display: flex; }
+.file-loaded-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-clear-btn { background: none; border: none; color: var(--stone); cursor: pointer; font-size: 11px; padding: 0 2px; flex-shrink: 0; transition: color 0.15s; }
+.file-clear-btn:hover { color: var(--error); }
+
+/* ════════════════════════════════════════
+   停止按钮 & 自动检测 chip
+════════════════════════════════════════ */
+.stop-btn {
+  width: 100%; padding: 15px 24px; background: #7a2a2a; color: var(--ivory);
+  border: none; border-radius: var(--r-lg); font-size: 14px; font-weight: 500;
+  cursor: pointer; letter-spacing: 0.5px; display: none; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.2s; font-family: var(--sans);
+}
+.stop-btn.visible { display: flex; }
+.stop-btn:hover { background: #922a2a; transform: translateY(-1px); }
+.lang-detect-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
+  color: var(--terracotta); background: #fdf5f2; border: 1px solid #eebfa6;
+  padding: 2px 8px; border-radius: var(--r-full); margin-left: 8px;
+  cursor: pointer; transition: all 0.15s; vertical-align: middle;
+  animation: fadeIn 0.25s ease;
+}
+.lang-detect-chip:hover { background: #f9ede7; }
+
+/* ════════════════════════════════════════
+   API 错误细化样式
+════════════════════════════════════════ */
+.error-detail {
+  font-size: 11px; color: var(--error); background: #fdf0ef;
+  border: 1px solid #f0b8b4; border-radius: var(--r-md);
+  padding: 8px 12px; margin-top: 6px; line-height: 1.5;
+  display: none;
+}
+.error-detail.visible { display: block; }

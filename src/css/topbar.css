@@ -1,0 +1,62 @@
+/* ════════════════════════════════════════
+   TOPBAR
+════════════════════════════════════════ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 54px; background: var(--parchment);
+  border-bottom: 1px solid var(--border-cream); flex-shrink: 0; z-index: 100;
+}
+@media (min-width: 860px) { .topbar { height: 58px; padding: 0 24px; } }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-mark {
+  width: 36px; height: 36px; background: var(--near-black); border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.logo-mark:hover { transform: rotate(22deg) scale(1.06); }
+.logo-text { font-family: var(--serif); font-size: 18px; font-weight: 500; letter-spacing: 0.2px; }
+.logo-sub { font-size: 10px; color: var(--stone); letter-spacing: 0.7px; text-transform: uppercase; display: block; margin-top: 1px; }
+.logo-version { display: inline-flex; align-items: center; font-size: 9px; background: var(--terracotta); color: white; padding: 1px 6px; border-radius: var(--r-full); margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px; }
+/* 桌面端模型指示芯片 */
+.api-status { display: none; }
+@media (min-width: 1024px) {
+  .api-status {
+    display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--olive);
+    font-family: var(--sans); letter-spacing: 0.3px;
+    pointer-events: none; user-select: none;
+  }
+  .api-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warm-silver); flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(120,115,105,0.15);
+    animation: statusBreathe 3s ease-in-out infinite;
+  }
+  .api-status-dot.connected {
+    background: var(--success);
+    box-shadow: 0 0 0 2px rgba(61,122,92,0.15);
+  }
+  @keyframes statusBreathe {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 2px rgba(61,122,92,0.15); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(61,122,92,0); }
+  }
+}
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-md); border: 1px solid var(--border-warm);
+  background: var(--ivory); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--olive); transition: all 0.15s; position: relative;
+}
+.icon-btn:hover { background: var(--warm-sand); color: var(--near-black); border-color: var(--ring-warm); }
+.icon-btn .tooltip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--near-black); color: var(--ivory); font-size: 11px; padding: 4px 9px;
+  border-radius: var(--r-sm); white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity 0.15s; letter-spacing: 0.2px;
+}
+.icon-btn:hover .tooltip { opacity: 1; }
+.history-badge {
+  position: absolute; top: -4px; right: -4px; width: 16px; height: 16px;
+  background: var(--terracotta); color: white; border-radius: 50%;
+  font-size: 9px; display: none; align-items: center; justify-content: center; font-weight: 600;
+}
+.history-badge.visible { display: flex; }

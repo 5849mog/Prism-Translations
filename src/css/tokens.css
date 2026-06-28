@@ -1,0 +1,49 @@
+/* ════════════════════════════════════════
+   设计令牌
+════════════════════════════════════════ */
+:root {
+  --near-black: #141413;
+  --terracotta: #c96442;
+  --coral: #d97757;
+  --coral-light: #e8956f;
+  --parchment: #f5f4ed;
+  --parchment-deep: #eeede4;
+  --ivory: #faf9f5;
+  --white: #ffffff;
+  --warm-sand: #e8e6dc;
+  --dark-surface: #30302e;
+  --charcoal: #4d4c48;
+  --olive: #5e5d59;
+  --stone: #87867f;
+  --warm-silver: #b0aea5;
+  --border-cream: #eeece4;
+  --border-warm: #e4e2d8;
+  --ring-warm: #ccc9be;
+  --success: #3d7a5c;
+  --success-bg: #edf5f0;
+  --warning: #b87333;
+  --error: #c0392b;
+  --implicit-ink: #6b4fa8;
+  --implicit-bg: #f2eefa;
+
+  --serif: 'Noto Serif SC', Georgia, serif;
+  --sans: 'Noto Sans SC', 'Arial', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+
+  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
+  --r-2xl: 24px; --r-3xl: 32px; --r-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 6px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --shadow-xl: 0 16px 56px rgba(0,0,0,0.13);
+  --shadow-coral: 0 4px 20px rgba(201,100,66,0.22);
+
+  /* ── 更精致的 Easing Curves ── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}

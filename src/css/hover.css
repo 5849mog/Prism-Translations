@@ -1,0 +1,11 @@
+/* ════════════════════════════════════════
+   Hover 增强（非触摸设备）
+════════════════════════════════════════ */
+@media (hover: hover) {
+  .icon-btn:hover { background: var(--warm-sand); }
+  .lang-display:hover { background: rgba(201,100,66,0.06); }
+  .translate-btn:hover:not(:disabled) { background: #1c1c1a; }
+  .action-btn:hover { background: var(--warm-sand); }
+  .action-btn.success:hover { background: #fdf6f4; }
+  .lang-item:hover { background: var(--parchment); }
+}
