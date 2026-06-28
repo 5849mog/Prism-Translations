@@ -321,7 +321,7 @@
 .score-item:nth-child(3) .score-num { animation-delay: 0.49s; }
 @keyframes scoreNumPop {
   from { opacity: 0; transform: scale(0.3) translateY(6px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 1; }
 }
 .score-num.excellent {
   animation: scoreNumPop 0.5s var(--ease-out-back) both, scoreExcellentGlow 1.5s ease-in-out 0.5s infinite alternate;
