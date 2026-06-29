@@ -3,7 +3,8 @@
  * ES Modules 架构入口
  */
 import { state } from './state.js';
-import { init, initVoiceInput, setupEventListeners } from './ui.js';
+import { init, setupEventListeners } from './ui.js';
+import { initVoiceInput } from './ui-voice.js';
 
 // 启动应用
 init();

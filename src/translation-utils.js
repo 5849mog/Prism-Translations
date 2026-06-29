@@ -1,7 +1,7 @@
 /**
  * 翻译工具函数 — 纯逻辑、零 DOM/API 依赖
  */
-import { LABEL_STRIP_RE } from './utils.js';
+import { LABEL_STRIP_RE } from './markdown.js';
 
 // ── 自适应模式 ──
 export const ADAPTIVE_MODES = [

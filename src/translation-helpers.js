@@ -2,30 +2,33 @@
  * 翻译辅助函数 — DOM 操作、持久化、历史记录
  */
 import { state } from './state.js';
+import { ID } from './dom-ids.js';
 import {
-  LABEL_STRIP_RE,
-  safeHtml, showToast, updateUI,
-  _markedLib, renderMarkdown, renderMarkdownStream, ensureMarked, ensureDOMPurify,
+  safeHtml, showToast,
 } from './utils.js';
+import {
+  LABEL_STRIP_RE, updateUI, renderToElement,
+} from './markdown.js';
+import { isUserAbort } from './errors.js';
 
 // ═══════════════════════════════════════════════════════════
 // UI 初始化
 // ═══════════════════════════════════════════════════════════
 
 export function initTranslationUI() {
-  document.getElementById('resultSection').classList.remove('active');
+  document.getElementById(ID.RESULT_SECTION).classList.remove('active');
   const initialLabelEl = document.querySelector('.result-label');
   initialLabelEl.innerHTML = '最终裁决译文';
   delete initialLabelEl.dataset.earlyPreview;
-  document.getElementById('finalResult').textContent = '';
-  document.getElementById('roundsContainer').innerHTML = '';
-  document.getElementById('auditContainer').innerHTML = '';
-  document.getElementById('exportSection').style.display = 'none';
-  document.getElementById('adaptiveBadge').style.display = 'none';
-  document.getElementById('sp0').textContent = '忠 —';
-  document.getElementById('sp1').textContent = '流 —';
-  document.getElementById('sp2').textContent = '地 —';
-  ['sp0', 'sp1', 'sp2'].forEach(id => document.getElementById(id).classList.remove('loaded'));
+  document.getElementById(ID.FINAL_RESULT).textContent = '';
+  document.getElementById(ID.ROUNDS_CONTAINER).innerHTML = '';
+  document.getElementById(ID.AUDIT_CONTAINER).innerHTML = '';
+  document.getElementById(ID.EXPORT_SECTION).style.display = 'none';
+  document.getElementById(ID.ADAPTIVE_BADGE).style.display = 'none';
+  document.getElementById(ID.SP0).textContent = '忠 —';
+  document.getElementById(ID.SP1).textContent = '流 —';
+  document.getElementById(ID.SP2).textContent = '地 —';
+  [ID.SP0, ID.SP1, ID.SP2].forEach(id => document.getElementById(id).classList.remove('loaded'));
 }
 
 export function createRoundDOM(r, dynamicAgent) {
@@ -64,7 +67,7 @@ export function createRoundDOM(r, dynamicAgent) {
       </div>
     </div>
   `;
-  document.getElementById('roundsContainer').appendChild(roundEl);
+  document.getElementById(ID.ROUNDS_CONTAINER).appendChild(roundEl);
   roundEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
   roundEl.querySelector('.round-toggle').addEventListener('click', (e) => {
@@ -97,16 +100,9 @@ export function createRoundDOM(r, dynamicAgent) {
 }
 
 export function showEarlyPreview(f) {
-  document.getElementById('resultSection').classList.add('active');
+  document.getElementById(ID.RESULT_SECTION).classList.add('active');
   const cleanedF = f.replace(LABEL_STRIP_RE, '');
-  if (_markedLib) {
-    document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
-  } else {
-    document.getElementById('finalResult').textContent = cleanedF;
-    ensureMarked().then(() => {
-      document.getElementById('finalResult').innerHTML = `<div class="md-content">${renderMarkdownStream(cleanedF)}</div>`;
-    });
-  }
+  renderToElement(document.getElementById(ID.FINAL_RESULT), cleanedF, true);
   const labelEl = document.querySelector('.result-label');
   if (!labelEl.dataset.earlyPreview) {
     labelEl.dataset.earlyPreview = 'true';
@@ -145,7 +141,7 @@ export function getCritiquesAboutMe(pathId, lastCritiques) {
 }
 
 // ── 保存翻译结果 ──
-export function saveTranslationResult(text, src, tgt, lastSynthResult, scores, remark, elapsed, mode, dynamicAgent, roundUsageSnapshots) {
+export function saveTranslationResult(text, src, tgt, lastSynthResult, scores, remark, elapsed, mode, dynamicAgent, roundUsageSnapshots, roundData) {
   const entry = {
     id: Date.now(),
     timestamp: new Date().toISOString(),
@@ -164,16 +160,28 @@ export function saveTranslationResult(text, src, tgt, lastSynthResult, scores, r
     result: lastSynthResult,
     scores, remark,
     src, tgt,
-    sourceText: text,
+    srcLang: src,
+    tgtLang: tgt,
+    source: text,
+    provider: state.provider,
+    model: state.model,
+    rounds: state.rounds,
     agent: dynamicAgent,
-    rounds: roundUsageSnapshots,
     mode: mode.key,
+    dynamicAgent,
+    thinkingMode: state.thinkingMode,
+    sourceLength: text?.length,
+    roundData,
   };
 }
 
 // ── 统一错误处理 ──
 export function handleTranslationError(err) {
-  if (err.name === 'AbortError') return;
+  if (err.name === 'AbortError' || isUserAbort(err)) return;
+  if (err.code === 'NO_KEY') {
+    showToast('请先在设置中填写 API 密钥');
+    return;
+  }
   const msg = err.message || String(err);
   showToast(msg.length > 80 ? msg.slice(0, 80) + '…' : msg);
 }

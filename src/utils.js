@@ -1,8 +1,10 @@
 /**
  * 工具函数 & 简单 DOM 操作
  */
-import { state, safeStore } from './state.js';
+import { state } from './state.js';
+import { safeStore } from './storage.js';
 import { LANGS } from './langs.js';
+import { ID } from './dom-ids.js';
 
 // ── 生产环境开关 ──
 export const PRODUCTION = true;
@@ -50,17 +52,10 @@ export function safeHtml(strings, ...values) {
     return result + str + val;
   }, '');
 }
-export function purify(dirty) {
-  if (typeof window.DOMPurify !== 'undefined') {
-    return window.DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true } });
-  }
-  return dirty;
-}
-
 // ── Toast ──
 let toastTimer;
 export function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
+  const t = document.getElementById(ID.TOAST);
   t.textContent = msg;
   t.className = 'toast' + (type ? ' ' + type : '');
   t.classList.add('show');
@@ -106,133 +101,38 @@ export async function copyToClipboard(text) {
   return { success: false, error: '剪贴板不可用' };
 }
 
-// ── Markdown 渲染 ──
-export let _markedLib = null;
-let _markedLoading = false;
-let _markedCallbacks = [];
-
-export function ensureDOMPurify() {
-  if (typeof window.DOMPurify !== 'undefined') return Promise.resolve();
-  return new Promise((resolve) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/dompurify@3.2.5/dist/purify.min.js';
-    s.onload = resolve;
-    s.onerror = resolve;
-    document.head.appendChild(s);
-  });
-}
-
-export function ensureMarked() {
-  return new Promise((resolve) => {
-    if (_markedLib) { resolve(_markedLib); return; }
-    _markedCallbacks.push(resolve);
-    if (_markedLoading) return;
-    _markedLoading = true;
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js';
-    s.onload = () => {
-      _markedLib = window.marked;
-      if (_markedLib) {
-        try {
-          _markedLib.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false, sanitize: false, smartypants: false, xhtml: false });
-        } catch (_) { /* silent */ }
-      }
-      while (_markedCallbacks.length) _markedCallbacks.shift()(_markedLib);
-    };
-    s.onerror = () => {
-      _markedLib = null;
-      while (_markedCallbacks.length) _markedCallbacks.shift()(null);
-    };
-    document.head.appendChild(s);
-  });
-}
-
-export function renderMarkdownStream(raw) {
-  if (!_markedLib || !raw) return escHtml(raw);
-  let text = raw;
-  const trailing = [];
-  const tail = text.slice(-200);
-  if ((tail.match(/\*\*/g) || []).length % 2 === 1) { text += '**'; trailing.push('**'); }
-  if ((tail.match(/`/g) || []).length % 2 === 1) { text += '`'; trailing.push('`'); }
-  const openBrackets = (text.match(/\[/g) || []).length;
-  const closeBrackets = (text.match(/\]/g) || []).length;
-  if (openBrackets > closeBrackets) { text += '](#)'; trailing.push('](#)'); }
-  let html = _markedLib.parse(text);
-  if (trailing.length > 0) {
-    for (const t of trailing) {
-      if (t === '**') html = html.replace(/<strong><\/strong>/g, '').replace(/<\/strong><strong>/g, '');
-      if (t === '`') html = html.replace(/<code><\/code>/g, '').replace(/<\/code><code>/g, '');
-    }
-  }
-  return purify(html);
-}
-
-export function renderMarkdown(raw) {
-  if (!_markedLib || !raw) return escHtml(raw || '');
-  try { return purify(_markedLib.parse(raw)); }
-  catch (_) { return escHtml(raw); }
-}
-
-// ── UI 更新（流式防幻觉）──
-export const LABEL_STRIP_RE = /^[\[【「]?(?:最优译文正文|最优译文|优化译文|最终译文|译文正文|译文|翻译结果|翻译如下|以下是译文|以下是翻译|以下译文|Translation|Final Translation|Here is the translation|隐含语义译文|隐义译文|输出译文|纯净译文|正文|输出结果|Result|Output|Translated text|翻译输出|译文输出)[]】」]?[:：]?\s*/i;
-
-export function updateUI(el, full, reasoning) {
-  let cleanFull = full.replace(LABEL_STRIP_RE, '');
-  if (reasoning && !el.hasAttribute('data-has-reasoning')) {
-    el.innerHTML = '<div class="reasoning-text"></div><div class="content-text md-content"></div>';
-    el.setAttribute('data-has-reasoning', 'true');
-  }
-  const isStreaming = el.classList.contains('streaming');
-  if (el.hasAttribute('data-has-reasoning')) {
-    el.querySelector('.reasoning-text').textContent = reasoning;
-    if (_markedLib) {
-      el.querySelector('.content-text').innerHTML = isStreaming ? renderMarkdownStream(cleanFull) : renderMarkdown(cleanFull);
-    } else {
-      el.querySelector('.content-text').textContent = cleanFull;
-      ensureMarked().then(() => updateUI(el, full, reasoning));
-    }
-  } else {
-    if (_markedLib) {
-      el.innerHTML = `<div class="md-content">${isStreaming ? renderMarkdownStream(cleanFull) : renderMarkdown(cleanFull)}</div>`;
-    } else {
-      el.textContent = cleanFull;
-      ensureMarked().then(() => updateUI(el, full, reasoning));
-    }
-  }
-}
-
 // ── 语言显示 ──
 export function updateLangDisplay() {
-  document.getElementById('srcLangName').textContent = state.srcLang.name;
-  document.getElementById('srcLangCode').textContent = state.srcLang.label;
-  document.getElementById('tgtLangName').textContent = state.tgtLang.name;
-  document.getElementById('tgtLangCode').textContent = state.tgtLang.label;
+  document.getElementById(ID.SRC_LANG_NAME).textContent = state.srcLang.name;
+  document.getElementById(ID.SRC_LANG_CODE).textContent = state.srcLang.label;
+  document.getElementById(ID.TGT_LANG_NAME).textContent = state.tgtLang.name;
+  document.getElementById(ID.TGT_LANG_CODE).textContent = state.tgtLang.label;
 }
 
 // ── 字数统计 ──
 export function updateWordStats() {
-  const text = document.getElementById('sourceText').value;
+  const text = document.getElementById(ID.SOURCE_TEXT).value;
   const len = text.length;
-  document.getElementById('charNum').textContent = len;
+  document.getElementById(ID.CHAR_NUM).textContent = len;
   const charEl = document.querySelector('.char-count');
   charEl.classList.toggle('near-limit', len > 6000 && len <= 7500);
   charEl.classList.toggle('at-limit', len > 7500);
   if (len > 0) {
-    document.getElementById('wordStats').style.display = 'flex';
+    document.getElementById(ID.WORD_STATS).style.display = 'flex';
     const words = text.trim().split(/\s+/).filter(Boolean).length;
     const paras = text.trim().split(/\n{2,}/).filter(Boolean).length;
-    document.getElementById('wordCount').textContent = words;
-    document.getElementById('paraCount').textContent = paras;
+    document.getElementById(ID.WORD_COUNT).textContent = words;
+    document.getElementById(ID.PARA_COUNT).textContent = paras;
   } else {
-    document.getElementById('wordStats').style.display = 'none';
+    document.getElementById(ID.WORD_STATS).style.display = 'none';
   }
 }
 
 // ── 按钮状态 ──
 export function updateTranslateBtnState() {
-  const hasText = document.getElementById('sourceText').value.trim().length > 0;
+  const hasText = document.getElementById(ID.SOURCE_TEXT).value.trim().length > 0;
   const hasKey = !!state.apiKey;
-  const btns = [document.getElementById('translateBtn'), document.getElementById('translateBtnDesktop')];
+  const btns = [document.getElementById(ID.TRANSLATE_BTN), document.getElementById(ID.TRANSLATE_BTN_DESKTOP)];
   btns.forEach((btn) => {
     if (!btn) return;
     if (!hasText || !hasKey) {
@@ -244,8 +144,8 @@ export function updateTranslateBtnState() {
       btn.title = '';
     }
   });
-  const dot = document.getElementById('apiStatusDot');
-  const text = document.getElementById('apiStatusText');
+  const dot = document.getElementById(ID.API_STATUS_DOT);
+  const text = document.getElementById(ID.API_STATUS_TEXT);
   if (dot && text) {
     if (hasKey) {
       dot.classList.add('connected');
@@ -259,13 +159,13 @@ export function updateTranslateBtnState() {
 
 // ── 设置抽屉 ──
 export function openDrawer() {
-  document.getElementById('settingsDrawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('active');
-  trapFocus(document.getElementById('settingsDrawer'));
+  document.getElementById(ID.SETTINGS_DRAWER).classList.add('open');
+  document.getElementById(ID.DRAWER_OVERLAY).classList.add('active');
+  trapFocus(document.getElementById(ID.SETTINGS_DRAWER));
 }
 export function closeDrawer() {
-  document.getElementById('settingsDrawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('active');
+  document.getElementById(ID.SETTINGS_DRAWER).classList.remove('open');
+  document.getElementById(ID.DRAWER_OVERLAY).classList.remove('active');
   releaseFocus();
 }
 
@@ -276,20 +176,20 @@ export function clearTextCache() {
 
 // ── Stop 按钮 ──
 export function showStopBtn() {
-  document.getElementById('stopBtn').classList.add('visible');
-  const d = document.getElementById('stopBtnDesktop');
+  document.getElementById(ID.STOP_BTN).classList.add('visible');
+  const d = document.getElementById(ID.STOP_BTN_DESKTOP);
   if (d) d.classList.add('visible');
 }
 export function hideStopBtn() {
-  document.getElementById('stopBtn').classList.remove('visible');
-  const d = document.getElementById('stopBtnDesktop');
+  document.getElementById(ID.STOP_BTN).classList.remove('visible');
+  const d = document.getElementById(ID.STOP_BTN_DESKTOP);
   if (d) d.classList.remove('visible');
 }
 
 // ── 计时器 ──
 export function startTimer() {
   state.startTime = Date.now();
-  const el = document.getElementById('phaseTimer');
+  const el = document.getElementById(ID.PHASE_TIMER);
   state.timerInterval = setInterval(() => {
     const s = Math.floor((Date.now() - state.startTime) / 1000);
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
@@ -297,7 +197,7 @@ export function startTimer() {
 }
 export function stopTimer() {
   clearInterval(state.timerInterval);
-  document.getElementById('phaseTimer').textContent = '';
+  document.getElementById(ID.PHASE_TIMER).textContent = '';
 }
 
 // ── 导出工具函数 ──
@@ -316,18 +216,18 @@ export function fmtTimestamp() {
 }
 export function getOptions() {
   return {
-    incSrc: document.getElementById('optIncludeSource').checked,
-    incScores: document.getElementById('optIncludeScores').checked,
-    incMeta: document.getElementById('optIncludeMeta').checked,
-    incProcess: document.getElementById('optIncludeProcess').checked,
-    incAgent: document.getElementById('optIncludeAgent').checked,
+    incSrc: document.getElementById(ID.OPT_INCLUDE_SOURCE).checked,
+    incScores: document.getElementById(ID.OPT_INCLUDE_SCORES).checked,
+    incMeta: document.getElementById(ID.OPT_INCLUDE_META).checked,
+    incProcess: document.getElementById(ID.OPT_INCLUDE_PROCESS).checked,
+    incAgent: document.getElementById(ID.OPT_INCLUDE_AGENT).checked,
   };
 }
 
 // ── 历史记录徽章 ──
 export function updateHistoryBadge() {
   const h = JSON.parse(localStorage.getItem('prism_history') || '[]');
-  const badge = document.getElementById('historyBadge');
+  const badge = document.getElementById(ID.HISTORY_BADGE);
   if (h.length > 0) {
     badge.textContent = h.length > 9 ? '9+' : h.length;
     badge.classList.add('visible');

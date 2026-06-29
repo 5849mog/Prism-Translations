@@ -1,38 +1,9 @@
 /**
- * 应用全局状态 & 常量
+ * 应用全局状态
+ *
+ * 存储函数已移至 ./storage.js：safeGet, safeStore, safeRemove, safeGetJSON, TEXT_CACHE_KEY, ...
  */
-export const TEXT_CACHE_KEY = 'prism_text_cache';
-export const WARN_THRESHOLD = 6000;
-export const HARD_LIMIT = 7500;
-export const API_TIMEOUT_MS = 120000;
-export const MAX_HISTORY_ITEMS = 30;
-
-export function safeGet(type, key, fallback) {
-  try {
-    const v = (type === 'session' ? sessionStorage : localStorage).getItem(key);
-    return v !== null ? v : fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-export function safeGetJSON(type, key, fallback) {
-  try {
-    const v = (type === 'session' ? sessionStorage : localStorage).getItem(key);
-    return v !== null ? JSON.parse(v) : fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-export function safeStore(type, key, value) {
-  try {
-    (type === 'session' ? sessionStorage : localStorage).setItem(key, value);
-  } catch (_) { /* silent degrade */ }
-}
-export function safeRemove(type, key) {
-  try {
-    (type === 'session' ? sessionStorage : localStorage).removeItem(key);
-  } catch (_) { }
-}
+import { safeGet, safeGetJSON } from './storage.js';
 
 export const state = {
   srcLang: null,     // will be set from langs.js

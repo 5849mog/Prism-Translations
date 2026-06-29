@@ -1,15 +1,24 @@
 /**
  * UI 管理器 — 事件绑定、初始化、模态框
+ *
+ * 领域模块拆分：
+ *   ui-demo.js      — 示例文本库 & 演示面板
+ *   ui-voice.js     — 语音输入
+ *   ui-history.js   — 历史记录面板
+ *   ui-settings.js  — Provider 设置 & 自动保存
  */
-import { state, safeStore, safeRemove, safeGet, safeGetJSON } from './state.js';
+import { state } from './state.js';
+import { safeStore, safeRemove, safeGet } from './storage.js';
 import { LANGS } from './langs.js';
 import {
   showToast, escHtml, safeHtml, trapFocus, releaseFocus, copyToClipboard,
   updateLangDisplay, updateWordStats, updateTranslateBtnState,
-  updateHistoryBadge, updateUI,
-  openDrawer, closeDrawer, getPanelRight, log,
-  _markedLib, renderMarkdown, renderMarkdownStream, ensureMarked, ensureDOMPurify,
+  updateHistoryBadge, openDrawer, closeDrawer, getPanelRight, log,
 } from './utils.js';
+import {
+  updateUI,
+  _markedLib, renderMarkdown, renderMarkdownStream, ensureMarked, ensureDOMPurify,
+} from './markdown.js';
 import {
   PROVIDER_REGISTRY, findProvider, getProviderName, getProviderDescription,
   getProviderSupportsThinking, getProviderModels, testApiConnection,
@@ -17,66 +26,31 @@ import {
 import { doTranslate, doStop } from './translation.js';
 import { handleFileSelect, loadFileText, detectLang, detectAndApplyLang } from './file-parser.js';
 import { setupExportListeners, currentExportFmt } from './export.js';
+import { showDemoPanel, hideDemoPanel } from './ui-demo.js';
+import { stopVoiceIfListening } from './ui-voice.js';
+import { renderHistoryList, closeHistoryModal } from './ui-history.js';
+import {
+  updateModelOptions, buildProviderCards, updateProviderConfigPanel,
+  commitSettings, autoSaveSettings,
+} from './ui-settings.js';
+import { ID } from './dom-ids.js';
 
 // ═════════════════════════════════════════
-// 示例文本库
+// 初始化
 // ═════════════════════════════════════════
-const DEMO_LIBRARY = [
-  {
-    key: 'speech', icon: '🎤', title: '科技演讲', desc: 'AI 发展主题，含引用与数据', tags: ['中→英', '正式'],
-    srcLang: 'zh', tgtLang: 'en',
-    text: `在世界人工智能大会的开幕式上，百度创始人李彦宏发表了题为《译者时代》的主旨演讲。他指出，大语言模型已经从"炫技"阶段迈入"应用"阶段，而译者（Agent）将成为连接用户与服务的核心枢纽。\n\n"未来的互联网将不再是你去搜索信息，而是译者主动为你完成任务。"李彦宏以医疗健康领域为例，阐述了 AI 译者如何帮助患者完成从症状描述、医院推荐到挂号预约的全流程服务。他强调，这一转变需要解决三大挑战：数据隐私保护、多模态交互能力、以及可解释性。\n\n演讲尾声，他引用了一句古希腊哲言："认识你自己。"并补充道，"而在 AI 时代，我们更需要让 AI 认识每一个独特的你。"`,
-  },
-  {
-    key: 'literature', icon: '📖', title: '文学经典', desc: '《小王子》法语原文，诗意与哲理', tags: ['法→中', '文学'],
-    srcLang: 'fr', tgtLang: 'zh',
-    text: `On ne voit bien qu'avec le coeur. L'essentiel est invisible pour les yeux.\n\nLes hommes ont oublié cette vérité, dit le renard. Mais tu ne dois pas l'oublier. Tu deviens responsable pour toujours de ce que tu as apprivoisé. Tu es responsable de ta rose...\n\nJe suis responsable de ma rose, répéta le petit prince, afin de se souvenir.`,
-  },
-  {
-    key: 'scifi', icon: '🚀', title: '科幻巨著', desc: '《三体》经典片段，硬科幻风格', tags: ['中→英', '叙事'],
-    srcLang: 'zh', tgtLang: 'en',
-    text: `汪淼觉得，来找他的这四个人是一个奇怪的组合：两名警察和两名军人。如果那两个军人是武警还正常一些，但这是两名陆军军官。\n\n汪淼第一眼就对来人没有好感。其实那名长得五大三粗的警官，让人家第一眼就喜欢的可能性也不大。另一名警官倒是很年轻，长的也挺帅。但汪淼一看就是那种少言寡语的人，从进到汪淼家开始，就没有说过一句话。\n\n"汪淼？"那名粗壮的警察问。"是我。""请跟我们走一趟。"`,
-  },
-  {
-    key: 'techdoc', icon: '⚙️', title: '技术文档', desc: 'API 接口说明，术语密集', tags: ['英→中', '技术'],
-    srcLang: 'en', tgtLang: 'zh',
-    text: `The RequestRateLimiter GatewayFilter factory uses a RateLimiter implementation to determine if the current request is allowed to proceed. If not, it returns HTTP 429 - Too Many Requests status.\n\nThe filter takes an optional keyResolver parameter and parameters specific to the rate limiter implementation (see Redis RateLimiter).\n\nKeyResolver is a functional interface that allows you to derive the key for limiting requests. The default implementation uses the Principal name from ServerWebExchange. KeyResolver is a bean that implements the KeyResolver interface.`,
-  },
-  {
-    key: 'business', icon: '💼', title: '商务信函', desc: '正式邮件，礼貌用语与格式', tags: ['英→中', '商务'],
-    srcLang: 'en', tgtLang: 'zh',
-    text: `Dear Dr. Chen,\n\nI hope this message finds you well. I am writing on behalf of Meridian Technologies to formally propose a strategic partnership between our organizations.\n\nFollowing our productive discussion at the Geneva Summit last month, our board has unanimously approved the framework for collaborative research in quantum encryption protocols. We believe that combining Meridian's hardware infrastructure with your team's cryptographic expertise would yield significant advancements in the field.\n\nWe would be honored to host you and your colleagues at our headquarters in Zurich on Thursday, 15th October, for a detailed presentation of our joint venture proposal. Please let us know your availability at your earliest convenience.\n\nYours sincerely,\nAlexandra Whitfield\nDirector of International Partnerships\nMeridian Technologies AG`,
-  },
-  {
-    key: 'poetry', icon: '🏮', title: '古典诗词', desc: '唐诗宋词，意境深远', tags: ['中→英', '文学'],
-    srcLang: 'zh', tgtLang: 'en',
-    text: `静夜思\n李白\n\n床前明月光，疑是地上霜。\n举头望明月，低头思故乡。\n\n——\n\n水调歌头·明月几时有（节选）\n苏轼\n\n明月几时有？把酒问青天。\n不知天上宫阙，今夕是何年。\n我欲乘风归去，又恐琼楼玉宇，高处不胜寒。\n起舞弄清影，何似在人间。`,
-  },
-  {
-    key: 'philosophy', icon: '🏛️', title: '哲学思辨', desc: '尼采片段，抽象深邃', tags: ['德→中', '哲学'],
-    srcLang: 'de', tgtLang: 'zh',
-    text: `Wer mit Ungeheuern kämpft, mag zusehn, dass er nicht dabei zum Ungeheuer wird. Und wenn du lange in einen Abgrund blickst, blickt der Abgrund auch in dich hinein.\n\nEs ist immer etwas Wahnsinn in der Liebe. Es ist aber auch immer etwas Vernunft im Wahnsinn.\n\nDer Mensch ist ein Seil, geknüpft zwischen Tier und Übermensch — ein Seil über einem Abgrunde.`,
-  },
-  {
-    key: 'multilang', icon: '🌐', title: '多语混杂', desc: '日韩英混排，测试语言检测', tags: ['混合', '检测'],
-    srcLang: 'ja', tgtLang: 'zh',
-    text: `AI 技術の発展は私達の生活を大きく変えました。特に 번역 분야에서 혁명적인 변화가 일어났습니다.\n\nThe convergence of neural networks and natural language processing has created unprecedented capabilities in machine translation. However, true mastery of language requires more than statistical patterns — it demands an understanding of culture, context, and the human condition.\n\n技术进步虽然惊人，但最终决定翻译质量的，依然是对语言背后文化的深刻理解】`,
-  },
-];
 
-// ── 初始化 ──
 export function init() {
   // Set src/tgt defaults
   state.srcLang = LANGS[0];
   state.tgtLang = LANGS[1];
 
-  document.getElementById('roundsDisplay').textContent = state.rounds;
-  if (state.apiKey) document.getElementById('apiKeyInput').value = state.apiKey;
-  document.getElementById('modelSelect').value = state.model;
-  document.getElementById('thinkingSelect').value = state.thinkingMode;
-  document.getElementById('providerSelect').value = state.provider;
-  if (state.customPrompt) document.getElementById('customPromptInput').value = state.customPrompt;
-  if (state.glossary) document.getElementById('glossaryInput').value = state.glossary;
+  document.getElementById(ID.ROUNDS_DISPLAY).textContent = state.rounds;
+  if (state.apiKey) document.getElementById(ID.API_KEY_INPUT).value = state.apiKey;
+  document.getElementById(ID.MODEL_SELECT).value = state.model;
+  document.getElementById(ID.THINKING_SELECT).value = state.thinkingMode;
+  document.getElementById(ID.PROVIDER_SELECT).value = state.provider;
+  if (state.customPrompt) document.getElementById(ID.CUSTOM_PROMPT_INPUT).value = state.customPrompt;
+  if (state.glossary) document.getElementById(ID.GLOSSARY_INPUT).value = state.glossary;
   updateLangDisplay();
   updateHistoryBadge();
   updateModelOptions();
@@ -84,7 +58,7 @@ export function init() {
   buildProviderCards();
   updateProviderConfigPanel(state.provider);
 
-  const chipEl = document.getElementById('modelChip');
+  const chipEl = document.getElementById(ID.MODEL_CHIP);
   if (chipEl) chipEl.textContent = state.model || 'deepseek-v4-flash';
 }
 
@@ -92,7 +66,7 @@ export function init() {
 (function restoreTextCache() {
   const cached = safeGet('session', 'prism_text_cache', null);
   if (cached && cached.trim()) {
-    const el = document.getElementById('sourceText');
+    const el = document.getElementById(ID.SOURCE_TEXT);
     if (el && !el.value.trim()) {
       el.value = cached;
       updateWordStats();
@@ -100,132 +74,28 @@ export function init() {
   }
 })();
 
-// ── Provider 模型联动 ──
-function updateModelOptions() {
-  const provider = document.getElementById('providerSelect').value;
-  const modelSelect = document.getElementById('modelSelect');
-  const allowedModels = getProviderModels(provider);
-  let hasVisible = false;
-  let firstVisible = null;
-  for (let i = 0; i < modelSelect.options.length; i++) {
-    const opt = modelSelect.options[i];
-    const optProvider = opt.getAttribute('data-provider');
-    const show = (optProvider && optProvider === provider) || allowedModels.indexOf(opt.value) !== -1;
-    opt.style.display = show ? '' : 'none';
-    opt.disabled = !show;
-    if (show) { hasVisible = true; if (!firstVisible) firstVisible = opt; }
-  }
-  const currentVal = modelSelect.value;
-  const currentOpt = modelSelect.querySelector('option[value="' + currentVal.replace(/"/g, '&quot;') + '"]');
-  if (!currentOpt || currentOpt.disabled) { if (firstVisible) modelSelect.value = firstVisible.value; }
-  const keyLabel = document.getElementById('apiKeyLabel');
-  if (keyLabel) keyLabel.textContent = getProviderName(provider) + ' API 密钥';
-  const modelDesc = document.getElementById('modelSelectDesc');
-  if (modelDesc) modelDesc.textContent = getProviderDescription(provider);
-  const thinkRow = document.getElementById('thinkingSelect') ? document.getElementById('thinkingSelect').closest('.setting-row.stacked') : null;
-  if (thinkRow) thinkRow.style.display = getProviderSupportsThinking(provider) ? '' : 'none';
-}
+// ═════════════════════════════════════════
+// 语言选择模态
+// ═════════════════════════════════════════
 
-// ── Provider 卡片 ──
-function buildProviderCards() {
-  const grid = document.getElementById('providerGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  PROVIDER_REGISTRY.forEach(p => {
-    const isActive = p.id === state.provider;
-    const hasKey = !!state.apiKey;
-    const isVerified = state.lastTestedProvider === p.id;
-    const card = document.createElement('div');
-    card.className = 'provider-card' + (isActive ? ' active' : '');
-    card.setAttribute('data-provider-id', p.id);
-    const statusClass = isVerified ? 'connected' : 'disconnected';
-    const statusText = isVerified ? '✓ 已验证' : (hasKey ? '○ 已配置' : '○ 未配置');
-    card.innerHTML =
-      '<div class="provider-card-icon">' + p.id.toUpperCase() + '</div>' +
-      '<div class="provider-card-name">' + escHtml(p.name) + '</div>' +
-      '<div class="provider-card-models">' + escHtml(p.models.join(' / ')) + '</div>' +
-      '<div class="provider-card-status ' + statusClass + '">' + statusText + '</div>';
-    card.addEventListener('click', function () {
-      if (state.provider === p.id) return;
-      state.provider = p.id;
-      document.getElementById('providerSelect').value = p.id;
-      updateModelOptions();
-      updateProviderConfigPanel(p.id);
-      updateTranslateBtnState();
-      autoSaveSettings();
-      grid.querySelectorAll('.provider-card').forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-    });
-    grid.appendChild(card);
-  });
-}
-
-function updateProviderConfigPanel(providerId) {
-  const p = findProvider(providerId);
-  if (!p) return;
-  const header = document.getElementById('providerConfigHeader');
-  if (header) header.textContent = p.name + ' · ' + p.description;
-  const label = document.getElementById('apiKeyLabel');
-  if (label) label.textContent = p.name + ' API 密钥';
-  const endpointInput = document.getElementById('customEndpointInput');
-  if (endpointInput && state.customBaseUrls) {
-    endpointInput.value = state.customBaseUrls[providerId] || '';
-  }
-  const endpointRow = document.getElementById('customEndpointRow');
-  if (endpointRow) endpointRow.style.display = p.supportsCustomEndpoint ? '' : 'none';
-  const resultEl = document.getElementById('testApiResult');
-  if (resultEl) { resultEl.textContent = ''; resultEl.className = 'provider-test-result'; }
-}
-
-// ── 设置自动保存 ──
-let autoSaveTimer = null;
-function commitSettings(key) {
-  state.apiKey = key;
-  state.model = document.getElementById('modelSelect').value;
-  state.thinkingMode = document.getElementById('thinkingSelect').value;
-  state.customPrompt = document.getElementById('customPromptInput').value.trim();
-  state.provider = document.getElementById('providerSelect').value;
-  state.glossary = document.getElementById('glossaryInput').value.trim();
-  safeStore('local', 'prism_key', key);
-  safeStore('local', 'prism_rounds', state.rounds);
-  safeStore('local', 'prism_model', state.model);
-  safeStore('local', 'prism_thinking', state.thinkingMode);
-  safeStore('local', 'prism_custom_prompt', state.customPrompt);
-  safeStore('local', 'prism_provider', state.provider);
-  safeStore('local', 'prism_glossary', state.glossary);
-  if (state.customBaseUrls) safeStore('local', 'prism_custom_base_urls', JSON.stringify(state.customBaseUrls));
-  buildProviderCards();
-  updateProviderConfigPanel(state.provider);
-  updateTranslateBtnState();
-}
-
-function autoSaveSettings() {
-  clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(() => {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    commitSettings(key);
-  }, 400);
-}
-
-// ── 语言选择模态 ──
 function openLangModal(forSrc) {
   state.pickingFor = forSrc ? 'src' : 'tgt';
-  document.getElementById('langModalTitle').textContent = forSrc ? '选择源语言' : '选择目标语言';
-  document.getElementById('langSearch').value = '';
+  document.getElementById(ID.LANG_MODAL_TITLE).textContent = forSrc ? '选择源语言' : '选择目标语言';
+  document.getElementById(ID.LANG_SEARCH).value = '';
   renderLangList('');
-  document.getElementById('langModal').classList.add('active');
-  trapFocus(document.getElementById('langModal'));
-  setTimeout(() => document.getElementById('langSearch').focus(), 150);
+  document.getElementById(ID.LANG_MODAL).classList.add('active');
+  trapFocus(document.getElementById(ID.LANG_MODAL));
+  setTimeout(() => document.getElementById(ID.LANG_SEARCH).focus(), 150);
 }
 function closeLangModal() {
-  document.getElementById('langModal').classList.remove('active');
+  document.getElementById(ID.LANG_MODAL).classList.remove('active');
   releaseFocus();
 }
 function renderLangList(q) {
   const active = state.pickingFor === 'src' ? state.srcLang : state.tgtLang;
   const ql = q.toLowerCase();
   const filtered = ql ? LANGS.filter(l => l.name.includes(q) || l.label.toLowerCase().includes(ql) || l.code.includes(ql)) : LANGS;
-  const list = document.getElementById('langList');
+  const list = document.getElementById(ID.LANG_LIST);
   list.innerHTML = '';
   filtered.forEach(l => {
     const el = document.createElement('div');
@@ -250,135 +120,19 @@ function renderLangList(q) {
   });
 }
 
-// ── 历史记录渲染 ──
-function renderHistoryList() {
-  const h = JSON.parse(localStorage.getItem('prism_history') || '[]');
-  const list = document.getElementById('historyList');
-  if (h.length === 0) {
-    list.innerHTML = '<div class="history-empty">暂无翻译历史</div>';
-    return;
-  }
-  list.innerHTML = '';
-  h.forEach(item => {
-    const el = document.createElement('div');
-    el.className = 'history-item';
-    const scoresHtml = item.scores
-      ? `<div style="margin-top:4px;display:flex;gap:3px;">${['忠', '流', '地']
-          .map((l, i) => `<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`)
-          .join('')}</div>`
-      : '';
-    const remarkHtml = item.remark
-      ? `<div style="font-size:10px;color:var(--stone);margin-top:4px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escHtml(item.remark.slice(0, 80))}${item.remark.length > 80 ? '...' : ''}</div>`
-      : '';
+// ═════════════════════════════════════════
+// 双语对照
+// ═════════════════════════════════════════
 
-    el.innerHTML =
-      '<div class="history-item-meta">' +
-        '<div class="history-langs">' + escHtml(item.srcCode) + ' → ' + escHtml(item.tgtCode) + '</div>' +
-        '<div class="history-time">' + escHtml(item.time) + '</div>' +
-        scoresHtml +
-      '</div>' +
-      '<div class="history-item-content">' +
-        '<div class="history-src">' + escHtml(item.src.slice(0, 60)) + (item.src.length > 60 ? '...' : '') + '</div>' +
-        '<div class="history-tgt">' + escHtml(item.tgt.slice(0, 60)) + (item.tgt.length > 60 ? '...' : '') + '</div>' +
-        remarkHtml +
-      '</div>' +
-      '<div class="history-actions">' +
-        '<button class="history-use-btn" data-id="' + item.id + '">使用</button>' +
-        '<button class="history-del-btn" data-id="' + item.id + '">删除</button>' +
-      '</div>';
-    const useBtn = el.querySelector('.history-use-btn');
-    const delBtn = el.querySelector('.history-del-btn');
-    useBtn.addEventListener('click', () => {
-      document.getElementById('sourceText').value = item.src;
-      document.getElementById('charNum').textContent = item.src.length;
-      const srcL = LANGS.find(l => l.code === item.srcCode) || LANGS[0];
-      const tgtL = LANGS.find(l => l.code === item.tgtCode) || LANGS[1];
-      state.srcLang = srcL;
-      state.tgtLang = tgtL;
-      updateLangDisplay();
-      closeHistoryModal();
-      updateWordStats();
-      updateTranslateBtnState();
-      safeStore('session', 'prism_text_cache', item.src);
-      showToast('已加载历史记录', 'success');
-    });
-    delBtn.addEventListener('click', () => {
-      let nh = JSON.parse(localStorage.getItem('prism_history') || '[]').filter(x => x.id !== item.id);
-      try { localStorage.setItem('prism_history', JSON.stringify(nh.slice(0, 30))); } catch (_) { }
-      updateHistoryBadge();
-      renderHistoryList();
-    });
-    list.appendChild(el);
-  });
-}
-function closeHistoryModal() {
-  document.getElementById('historyModal').classList.remove('active');
-  releaseFocus();
-}
-
-// ── Demo 面板 ──
-function showDemoPanel() {
-  const modal = document.getElementById('demoPanelModal');
-  const grid = document.getElementById('demoPanelGrid');
-  if (!grid.dataset.built) {
-    grid.innerHTML = DEMO_LIBRARY.map(d =>
-      `<button class="demo-card" data-key="${d.key}" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:14px;border:1.5px solid var(--border-cream);border-radius:var(--r-lg);background:var(--ivory);cursor:pointer;transition:all 0.2s;gap:6px;position:relative;overflow:hidden;">
-        <div style="font-size:22px;margin-bottom:2px;">${d.icon}</div>
-        <div style="font-size:13px;font-weight:600;color:var(--near-black);font-family:var(--sans);">${escHtml(d.title)}</div>
-        <div style="font-size:10px;color:var(--stone);line-height:1.4;">${escHtml(d.desc)}</div>
-        <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">${d.tags.map(t => `<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-full);background:var(--warm-sand);color:var(--olive);font-family:var(--mono);">${escHtml(t)}</span>`).join('')}</div>
-        <div style="position:absolute;top:0;right:0;width:40px;height:40px;background:linear-gradient(135deg,transparent 50%,var(--terracotta) 50%);border-radius:0 0 0 var(--r-lg);opacity:0;transition:opacity 0.2s;" class="demo-card-corner"></div>
-      </button>`
-    ).join('');
-    grid.querySelectorAll('.demo-card').forEach(card => {
-      card.addEventListener('mouseenter', () => {
-        card.style.borderColor = 'var(--terracotta)';
-        card.style.transform = 'translateY(-2px)';
-        card.style.boxShadow = 'var(--shadow-md)';
-        card.querySelector('.demo-card-corner').style.opacity = '0.8';
-      });
-      card.addEventListener('mouseleave', () => {
-        card.style.borderColor = 'var(--border-cream)';
-        card.style.transform = '';
-        card.style.boxShadow = '';
-        card.querySelector('.demo-card-corner').style.opacity = '0';
-      });
-      card.addEventListener('click', () => loadDemoText(card.dataset.key));
-    });
-    grid.dataset.built = 'true';
-  }
-  modal.style.display = 'flex';
-}
-function hideDemoPanel() {
-  document.getElementById('demoPanelModal').style.display = 'none';
-}
-function loadDemoText(key) {
-  const demo = DEMO_LIBRARY.find(d => d.key === key);
-  if (!demo) return;
-  const srcL = LANGS.find(l => l.code === demo.srcLang) || LANGS[0];
-  const tgtL = LANGS.find(l => l.code === demo.tgtLang) || LANGS[1];
-  state.srcLang = srcL;
-  state.tgtLang = tgtL;
-  updateLangDisplay();
-  document.getElementById('sourceText').value = demo.text;
-  updateWordStats();
-  updateTranslateBtnState();
-  safeStore('session', 'prism_text_cache', demo.text);
-  hideDemoPanel();
-  showToast(`${demo.icon} ${demo.title} 已加载 · ${demo.tags[0]}`, 'success');
-  doTranslate();
-}
-
-// ── 双语对照 ──
 let _bilingualActive = false;
 function doBilingualToggle() {
   if (!state.lastTranslation?.result) {
     showToast('请完成一次翻译后使用');
     return;
   }
-  const bv = document.getElementById('bilingualView');
-  const fr = document.getElementById('finalResult');
-  const bb = document.getElementById('bilingualBtn');
+  const bv = document.getElementById(ID.BILINGUAL_VIEW);
+  const fr = document.getElementById(ID.FINAL_RESULT);
+  const bb = document.getElementById(ID.BILINGUAL_BTN);
   if (_bilingualActive) {
     bv.style.display = 'none'; fr.style.display = ''; _bilingualActive = false;
     if (bb) bb.style.color = '';
@@ -404,185 +158,104 @@ function doBilingualToggle() {
   if (bb) bb.style.color = 'var(--terracotta)';
 }
 
-// ── 语音输入 ──
-let _recognition = null;
-let _isVoiceListening = false;
-let finalTranscript = '';
+// ═════════════════════════════════════════
+// 清空
+// ═════════════════════════════════════════
 
-export function initVoiceInput() {
-  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  _recognition = new SpeechRecognition();
-  const voiceBtn = document.getElementById('voiceBtn');
-  if (voiceBtn) voiceBtn.style.display = '';
-  _recognition.continuous = true;
-  _recognition.interimResults = true;
-
-  _recognition.onresult = (event) => {
-    let interim = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) finalTranscript += t;
-      else interim += t;
-    }
-    const el = document.getElementById('sourceText');
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const before = el.value.substring(0, start);
-    const after = el.value.substring(end);
-    const ins = finalTranscript || interim;
-    el.value = before + ins + after;
-    const newPos = start + ins.length;
-    el.setSelectionRange(newPos, newPos);
-    updateWordStats();
-    updateTranslateBtnState();
-    safeStore('session', 'prism_text_cache', el.value);
-    if (finalTranscript) { interim = ''; finalTranscript = ''; }
-  };
-
-  _recognition.onerror = (event) => {
-    log.warn('语音识别错误:', event.error);
-    if (event.error === 'not-allowed') { showToast('麦克风权限被拒绝'); _isVoiceListening = false; updateVoiceBtnState(); }
-  };
-
-  _recognition.onend = () => {
-    if (_isVoiceListening) {
-      try { _recognition.start(); } catch (e) { log.warn('语音识别重启失败:', e); _isVoiceListening = false; updateVoiceBtnState(); }
-    }
-  };
-
-  document.getElementById('voiceBtn')?.addEventListener('click', () => {
-    if (!_recognition) { showToast('当前浏览器不支持语音输入'); return; }
-    if (_isVoiceListening) {
-      _isVoiceListening = false;
-      try { _recognition.stop(); } catch (e) { log.warn('停止失败:', e); }
-      updateVoiceBtnState();
-      showToast('语音输入已停止');
-    } else {
-      finalTranscript = '';
-      _isVoiceListening = true;
-      _recognition.start();
-      updateVoiceBtnState();
-      showToast('语音输入已启动，请说话...');
-    }
-  });
-}
-
-function updateVoiceBtnState() {
-  const btn = document.getElementById('voiceBtn');
-  const icon = document.getElementById('voiceIcon');
-  if (!btn || !icon) return;
-  if (_isVoiceListening) {
-    btn.classList.add('active'); btn.classList.remove('pulse');
-    icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v0a3 3 0 0 1 5.12-2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
-  } else {
-    btn.classList.remove('active'); btn.classList.add('pulse');
-    icon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
-  }
-}
-
-// ── 清空 ──
 function doClearAll() {
-  document.getElementById('sourceText').value = '';
+  document.getElementById(ID.SOURCE_TEXT).value = '';
   updateWordStats();
   updateTranslateBtnState();
   safeRemove('session', 'prism_text_cache');
-  document.getElementById('finalResult').textContent = '';
-  document.getElementById('bilingualView').style.display = 'none';
-  document.getElementById('finalResult').style.display = '';
+  document.getElementById(ID.FINAL_RESULT).textContent = '';
+  document.getElementById(ID.BILINGUAL_VIEW).style.display = 'none';
+  document.getElementById(ID.FINAL_RESULT).style.display = '';
   _bilingualActive = false;
-  const bilingualBtn = document.getElementById('bilingualBtn');
+  const bilingualBtn = document.getElementById(ID.BILINGUAL_BTN);
   if (bilingualBtn) bilingualBtn.style.color = '';
   state.lastTranslation = null;
-  finalTranscript = '';
-  if (_isVoiceListening) {
-    _isVoiceListening = false;
-    try { _recognition.stop(); } catch (_) { }
-    updateVoiceBtnState();
-  }
-  document.getElementById('resultSection').classList.remove('active');
+  stopVoiceIfListening();
+  document.getElementById(ID.RESULT_SECTION).classList.remove('active');
   const labelEl = document.querySelector('.result-label');
   labelEl.innerHTML = '最终裁决译文';
   delete labelEl.dataset.earlyPreview;
-  document.getElementById('enginePanel').classList.remove('active');
-  document.getElementById('roundsContainer').innerHTML = '';
-  document.getElementById('auditContainer').innerHTML = '';
-  document.getElementById('agentGenSection').style.display = 'none';
-  document.getElementById('agentGenBadge').textContent = '进行中';
-  document.getElementById('agentGenBadge').classList.remove('done');
-  document.getElementById('agentGenBody').style.display = 'none';
-  document.getElementById('agentGenTitle').textContent = '量身定制第四位译者...';
-  document.getElementById('exportSection').style.display = 'none';
-  document.getElementById('sp0').textContent = '忠 —';
-  document.getElementById('sp1').textContent = '流 —';
-  document.getElementById('sp2').textContent = '地 —';
-  ['sp0', 'sp1', 'sp2'].forEach(id => document.getElementById(id).classList.remove('loaded'));
+  document.getElementById(ID.ENGINE_PANEL).classList.remove('active');
+  document.getElementById(ID.ROUNDS_CONTAINER).innerHTML = '';
+  document.getElementById(ID.AUDIT_CONTAINER).innerHTML = '';
+  document.getElementById(ID.AGENT_GEN_SECTION).style.display = 'none';
+  document.getElementById(ID.AGENT_GEN_BADGE).textContent = '进行中';
+  document.getElementById(ID.AGENT_GEN_BADGE).classList.remove('done');
+  document.getElementById(ID.AGENT_GEN_BODY).style.display = 'none';
+  document.getElementById(ID.AGENT_GEN_TITLE).textContent = '量身定制第四位译者...';
+  document.getElementById(ID.EXPORT_SECTION).style.display = 'none';
+  document.getElementById(ID.SP0).textContent = '忠 —';
+  document.getElementById(ID.SP1).textContent = '流 —';
+  document.getElementById(ID.SP2).textContent = '地 —';
+  [ID.SP0, ID.SP1, ID.SP2].forEach(id => document.getElementById(id).classList.remove('loaded'));
   clearInterval(state.timerInterval);
-  document.getElementById('phaseTimer').textContent = '';
+  document.getElementById(ID.PHASE_TIMER).textContent = '';
 }
 
-
-
-
 // ═════════════════════════════════════════
-// 绑定所有事件监听器
+// 事件绑定
 // ═════════════════════════════════════════
+
 export function setupEventListeners() {
   // ── 翻译按钮 ──
-  document.getElementById('translateBtn').addEventListener('click', doTranslate);
-  const translateBtnDesktop = document.getElementById('translateBtnDesktop');
+  document.getElementById(ID.TRANSLATE_BTN).addEventListener('click', doTranslate);
+  const translateBtnDesktop = document.getElementById(ID.TRANSLATE_BTN_DESKTOP);
   if (translateBtnDesktop) translateBtnDesktop.addEventListener('click', doTranslate);
 
   // ── 停止按钮 ──
-  document.getElementById('stopBtn').addEventListener('click', doStop);
+  document.getElementById(ID.STOP_BTN).addEventListener('click', doStop);
   document.addEventListener('click', e => { if (e.target.closest('#stopBtnDesktop')) doStop(); });
 
   // ── 清空 ──
-  document.getElementById('clearBtn').addEventListener('click', doClearAll);
+  document.getElementById(ID.CLEAR_BTN).addEventListener('click', doClearAll);
 
   // ── 语言选择 ──
-  document.getElementById('srcLangBtn').addEventListener('click', () => openLangModal(true));
-  document.getElementById('tgtLangBtn').addEventListener('click', () => openLangModal(false));
-  document.getElementById('langModalBack').addEventListener('click', closeLangModal);
-  document.getElementById('langModal').addEventListener('click', e => { if (e.target === document.getElementById('langModal')) closeLangModal(); });
-  document.getElementById('langSearch').addEventListener('input', function () { renderLangList(this.value.trim()); });
+  document.getElementById(ID.SRC_LANG_BTN).addEventListener('click', () => openLangModal(true));
+  document.getElementById(ID.TGT_LANG_BTN).addEventListener('click', () => openLangModal(false));
+  document.getElementById(ID.LANG_MODAL_BACK).addEventListener('click', closeLangModal);
+  document.getElementById(ID.LANG_MODAL).addEventListener('click', e => { if (e.target === document.getElementById(ID.LANG_MODAL)) closeLangModal(); });
+  document.getElementById(ID.LANG_SEARCH).addEventListener('input', function () { renderLangList(this.value.trim()); });
 
   // ── 语言对调 ──
-  document.getElementById('swapBtn').addEventListener('click', () => {
-    const btn = document.getElementById('swapBtn');
+  document.getElementById(ID.SWAP_BTN).addEventListener('click', () => {
+    const btn = document.getElementById(ID.SWAP_BTN);
     btn.classList.add('swapping');
     setTimeout(() => btn.classList.remove('swapping'), 300);
     [state.srcLang, state.tgtLang] = [state.tgtLang, state.srcLang];
     updateLangDisplay();
     if (state.lastTranslation?.result) {
-      document.getElementById('sourceText').value = state.lastTranslation.result;
+      document.getElementById(ID.SOURCE_TEXT).value = state.lastTranslation.result;
       updateWordStats();
       updateTranslateBtnState();
-      document.getElementById('resultSection').classList.remove('active');
-      document.getElementById('enginePanel').classList.remove('active');
-      document.getElementById('roundsContainer').innerHTML = '';
-      document.getElementById('auditContainer').innerHTML = '';
-      document.getElementById('exportSection').style.display = 'none';
+      document.getElementById(ID.RESULT_SECTION).classList.remove('active');
+      document.getElementById(ID.ENGINE_PANEL).classList.remove('active');
+      document.getElementById(ID.ROUNDS_CONTAINER).innerHTML = '';
+      document.getElementById(ID.AUDIT_CONTAINER).innerHTML = '';
+      document.getElementById(ID.EXPORT_SECTION).style.display = 'none';
     }
   });
 
   // ── 文本输入 ──
-  document.getElementById('sourceText').addEventListener('input', function () {
+  document.getElementById(ID.SOURCE_TEXT).addEventListener('input', function () {
     updateWordStats();
     if (this.value.length > 20) detectAndApplyLang(this.value);
     safeStore('session', 'prism_text_cache', this.value);
     updateTranslateBtnState();
   });
 
-  document.getElementById('sourceText').addEventListener('keydown', e => {
+  document.getElementById(ID.SOURCE_TEXT).addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doTranslate(); }
   });
 
   // ── 粘贴 ──
-  document.getElementById('pasteBtn').addEventListener('click', async () => {
+  document.getElementById(ID.PASTE_BTN).addEventListener('click', async () => {
     try {
       const text = await navigator.clipboard.readText();
-      document.getElementById('sourceText').value = text;
+      document.getElementById(ID.SOURCE_TEXT).value = text;
       updateWordStats();
       updateTranslateBtnState();
       safeStore('session', 'prism_text_cache', text);
@@ -591,8 +264,8 @@ export function setupEventListeners() {
   });
 
   // ── 文件上传 ──
-  const fileDropZone = document.getElementById('fileDropZone');
-  const fileInput = document.getElementById('fileInput');
+  const fileDropZone = document.getElementById(ID.FILE_DROP_ZONE);
+  const fileInput = document.getElementById(ID.FILE_INPUT);
   fileDropZone.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
   fileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files || []);
@@ -607,31 +280,31 @@ export function setupEventListeners() {
     const file = e.dataTransfer.files[0];
     if (file) handleFileSelect(file);
   });
-  document.getElementById('fileClearBtn').addEventListener('click', e => {
+  document.getElementById(ID.FILE_CLEAR_BTN).addEventListener('click', e => {
     e.stopPropagation();
-    document.getElementById('fileLoadedBar').classList.remove('visible');
-    document.getElementById('fileInput').value = '';
+    document.getElementById(ID.FILE_LOADED_BAR).classList.remove('visible');
+    document.getElementById(ID.FILE_INPUT).value = '';
     showToast('已移除文件');
   });
 
   // ── API 输入 ──
-  document.getElementById('apiKeyInput')?.addEventListener('input', updateTranslateBtnState);
+  document.getElementById(ID.API_KEY_INPUT)?.addEventListener('input', updateTranslateBtnState);
 
   // ── 设置 ──
-  document.getElementById('settingsBtn').addEventListener('click', openDrawer);
-  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
-  document.getElementById('roundsMinus').addEventListener('click', () => {
-    if (state.rounds > 1) { state.rounds--; document.getElementById('roundsDisplay').textContent = state.rounds; }
+  document.getElementById(ID.SETTINGS_BTN).addEventListener('click', openDrawer);
+  document.getElementById(ID.DRAWER_OVERLAY).addEventListener('click', closeDrawer);
+  document.getElementById(ID.ROUNDS_MINUS).addEventListener('click', () => {
+    if (state.rounds > 1) { state.rounds--; document.getElementById(ID.ROUNDS_DISPLAY).textContent = state.rounds; }
   });
-  document.getElementById('roundsPlus').addEventListener('click', () => {
-    if (state.rounds < 5) { state.rounds++; document.getElementById('roundsDisplay').textContent = state.rounds; }
+  document.getElementById(ID.ROUNDS_PLUS).addEventListener('click', () => {
+    if (state.rounds < 5) { state.rounds++; document.getElementById(ID.ROUNDS_DISPLAY).textContent = state.rounds; }
   });
-  document.getElementById('keyToggle').addEventListener('click', () => {
-    const inp = document.getElementById('apiKeyInput');
+  document.getElementById(ID.KEY_TOGGLE).addEventListener('click', () => {
+    const inp = document.getElementById(ID.API_KEY_INPUT);
     inp.type = inp.type === 'password' ? 'text' : 'password';
   });
-  document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-    const key = document.getElementById('apiKeyInput').value.trim();
+  document.getElementById(ID.SAVE_SETTINGS_BTN).addEventListener('click', () => {
+    const key = document.getElementById(ID.API_KEY_INPUT).value.trim();
     if (!key) { showToast('请输入 API 密钥'); return; }
     commitSettings(key);
     showToast('设置已保存', 'success');
@@ -639,7 +312,7 @@ export function setupEventListeners() {
   });
 
   // ── Provider 联动 ──
-  document.getElementById('providerSelect').addEventListener('change', function () {
+  document.getElementById(ID.PROVIDER_SELECT).addEventListener('change', function () {
     state.provider = this.value;
     updateModelOptions();
     updateProviderConfigPanel(state.provider);
@@ -652,22 +325,22 @@ export function setupEventListeners() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', autoSaveSettings);
   });
-  document.getElementById('apiKeyInput')?.addEventListener('input', autoSaveSettings);
-  document.getElementById('roundsMinus')?.addEventListener('click', () => setTimeout(autoSaveSettings, 50));
-  document.getElementById('roundsPlus')?.addEventListener('click', () => setTimeout(autoSaveSettings, 50));
+  document.getElementById(ID.API_KEY_INPUT)?.addEventListener('input', autoSaveSettings);
+  document.getElementById(ID.ROUNDS_MINUS)?.addEventListener('click', () => setTimeout(autoSaveSettings, 50));
+  document.getElementById(ID.ROUNDS_PLUS)?.addEventListener('click', () => setTimeout(autoSaveSettings, 50));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
   // ── 自定义端点 ──
-  document.getElementById('customEndpointInput')?.addEventListener('input', function () {
+  document.getElementById(ID.CUSTOM_ENDPOINT_INPUT)?.addEventListener('input', function () {
     if (!state.customBaseUrls) state.customBaseUrls = {};
     state.customBaseUrls[state.provider] = this.value.trim() || '';
     safeStore('local', 'prism_custom_base_urls', JSON.stringify(state.customBaseUrls));
   });
 
   // ── 测试连接 ──
-  document.getElementById('testApiBtn')?.addEventListener('click', async function () {
-    const btn = document.getElementById('testApiBtn');
-    const resultEl = document.getElementById('testApiResult');
+  document.getElementById(ID.TEST_API_BTN)?.addEventListener('click', async function () {
+    const btn = document.getElementById(ID.TEST_API_BTN);
+    const resultEl = document.getElementById(ID.TEST_API_RESULT);
     if (!state.apiKey) {
       resultEl.textContent = '❌ 请先填写 API 密钥';
       resultEl.className = 'provider-test-result error'; return;
@@ -696,14 +369,14 @@ export function setupEventListeners() {
   });
 
   // ── 历史记录 ──
-  document.getElementById('historyBtn').addEventListener('click', () => {
+  document.getElementById(ID.HISTORY_BTN).addEventListener('click', () => {
     renderHistoryList();
-    document.getElementById('historyModal').classList.add('active');
-    trapFocus(document.getElementById('historyModal'));
+    document.getElementById(ID.HISTORY_MODAL).classList.add('active');
+    trapFocus(document.getElementById(ID.HISTORY_MODAL));
   });
-  document.getElementById('historyClose').addEventListener('click', closeHistoryModal);
-  document.getElementById('historyModal').addEventListener('click', e => { if (e.target === document.getElementById('historyModal')) closeHistoryModal(); });
-  document.getElementById('historyClearAll').addEventListener('click', () => {
+  document.getElementById(ID.HISTORY_CLOSE).addEventListener('click', closeHistoryModal);
+  document.getElementById(ID.HISTORY_MODAL).addEventListener('click', e => { if (e.target === document.getElementById(ID.HISTORY_MODAL)) closeHistoryModal(); });
+  document.getElementById(ID.HISTORY_CLEAR_ALL).addEventListener('click', () => {
     if (!confirm('确认清空全部翻译历史？')) return;
     safeRemove('local', 'prism_history');
     updateHistoryBadge();
@@ -711,19 +384,19 @@ export function setupEventListeners() {
   });
 
   // ── Demo ──
-  document.getElementById('demoBtn')?.addEventListener('click', showDemoPanel);
-  document.getElementById('demoPanelClose')?.addEventListener('click', hideDemoPanel);
-  document.getElementById('demoPanelModal')?.addEventListener('click', e => { if (e.target === document.getElementById('demoPanelModal')) hideDemoPanel(); });
+  document.getElementById(ID.DEMO_BTN)?.addEventListener('click', showDemoPanel);
+  document.getElementById(ID.DEMO_PANEL_CLOSE)?.addEventListener('click', hideDemoPanel);
+  document.getElementById(ID.DEMO_PANEL_MODAL)?.addEventListener('click', e => { if (e.target === document.getElementById(ID.DEMO_PANEL_MODAL)) hideDemoPanel(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('demoPanelModal').style.display === 'flex') hideDemoPanel();
+    if (e.key === 'Escape' && document.getElementById(ID.DEMO_PANEL_MODAL).style.display === 'flex') hideDemoPanel();
   });
 
   // ── 复制 & 朗读 ──
   let isSpeaking = false;
-  document.getElementById('copyBtn').addEventListener('click', async () => {
-    const text = document.getElementById('finalResult').textContent;
+  document.getElementById(ID.COPY_BTN).addEventListener('click', async () => {
+    const text = document.getElementById(ID.FINAL_RESULT).textContent;
     if (!text) return;
-    const btn = document.getElementById('copyBtn');
+    const btn = document.getElementById(ID.COPY_BTN);
     const result = await copyToClipboard(text);
     if (result.success) {
       btn.classList.add('success');
@@ -737,33 +410,33 @@ export function setupEventListeners() {
     }
   });
 
-  document.getElementById('speakBtn').addEventListener('click', () => {
+  document.getElementById(ID.SPEAK_BTN).addEventListener('click', () => {
     if (!window.speechSynthesis) { showToast('当前浏览器不支持朗读'); return; }
-    if (isSpeaking) { speechSynthesis.cancel(); isSpeaking = false; document.getElementById('speakBtn').style.color = ''; return; }
-    const text = document.getElementById('finalResult').textContent;
+    if (isSpeaking) { speechSynthesis.cancel(); isSpeaking = false; document.getElementById(ID.SPEAK_BTN).style.color = ''; return; }
+    const text = document.getElementById(ID.FINAL_RESULT).textContent;
     if (!text) { showToast('暂无译文可朗读'); return; }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = state.tgtLang.code + '-' + state.tgtLang.code.toUpperCase();
-    u.onend = () => { isSpeaking = false; document.getElementById('speakBtn').style.color = ''; };
-    u.onerror = () => { isSpeaking = false; document.getElementById('speakBtn').style.color = ''; };
+    u.onend = () => { isSpeaking = false; document.getElementById(ID.SPEAK_BTN).style.color = ''; };
+    u.onerror = () => { isSpeaking = false; document.getElementById(ID.SPEAK_BTN).style.color = ''; };
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
     isSpeaking = true;
-    document.getElementById('speakBtn').style.color = 'var(--terracotta)';
+    document.getElementById(ID.SPEAK_BTN).style.color = 'var(--terracotta)';
   });
 
   // ── 双语对照 ──
-  document.getElementById('bilingualBtn')?.addEventListener('click', doBilingualToggle);
+  document.getElementById(ID.BILINGUAL_BTN)?.addEventListener('click', doBilingualToggle);
 
   // ── 快捷键面板 ──
-  document.getElementById('shortcutBtn')?.addEventListener('click', () => {
-    document.getElementById('shortcutPanel')?.classList.add('active');
+  document.getElementById(ID.SHORTCUT_BTN)?.addEventListener('click', () => {
+    document.getElementById(ID.SHORTCUT_PANEL)?.classList.add('active');
   });
-  document.getElementById('shortcutClose')?.addEventListener('click', () => {
-    document.getElementById('shortcutPanel')?.classList.remove('active');
+  document.getElementById(ID.SHORTCUT_CLOSE)?.addEventListener('click', () => {
+    document.getElementById(ID.SHORTCUT_PANEL)?.classList.remove('active');
   });
-  document.getElementById('shortcutPanel')?.addEventListener('click', e => {
-    if (e.target === document.getElementById('shortcutPanel')) document.getElementById('shortcutPanel')?.classList.remove('active');
+  document.getElementById(ID.SHORTCUT_PANEL)?.addEventListener('click', e => {
+    if (e.target === document.getElementById(ID.SHORTCUT_PANEL)) document.getElementById(ID.SHORTCUT_PANEL)?.classList.remove('active');
   });
 
   // ── 快捷键系统 ──
@@ -771,13 +444,13 @@ export function setupEventListeners() {
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
         case 'k': e.preventDefault(); openDrawer(); break;
-        case 'h': e.preventDefault(); renderHistoryList(); document.getElementById('historyModal').classList.add('active'); trapFocus(document.getElementById('historyModal')); break;
-        case 'v': e.preventDefault(); document.getElementById('pasteBtn').click(); break;
-        case 'c': e.preventDefault(); document.getElementById('copyBtn').click(); break;
-        case 's': e.preventDefault(); document.getElementById('voiceBtn')?.click(); break;
+        case 'h': e.preventDefault(); renderHistoryList(); document.getElementById(ID.HISTORY_MODAL).classList.add('active'); trapFocus(document.getElementById(ID.HISTORY_MODAL)); break;
+        case 'v': e.preventDefault(); document.getElementById(ID.PASTE_BTN).click(); break;
+        case 'c': e.preventDefault(); document.getElementById(ID.COPY_BTN).click(); break;
+        case 's': e.preventDefault(); document.getElementById(ID.VOICE_BTN)?.click(); break;
         case 'm': e.preventDefault(); doBilingualToggle(); break;
         case 'l': e.preventDefault(); doClearAll(); break;
-        case 'r': e.preventDefault(); document.getElementById('swapBtn').click(); break;
+        case 'r': e.preventDefault(); document.getElementById(ID.SWAP_BTN).click(); break;
         case 'd': e.preventDefault(); showDemoPanel(); break;
         case 'x': e.preventDefault(); doStop(); break;
       }

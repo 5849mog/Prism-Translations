@@ -1,9 +1,11 @@
 /**
  * 文件上传 & 解析引擎
  */
-import { state, TEXT_CACHE_KEY, safeStore } from './state.js';
+import { state } from './state.js';
+import { TEXT_CACHE_KEY, safeStore } from './storage.js';
 import { LANGS, LANG_DETECT_PATTERNS } from './langs.js';
 import { showToast, updateWordStats, updateTranslateBtnState, updateLangDisplay } from './utils.js';
+import { ID } from './dom-ids.js';
 
 // ── CDN 多源容错配置 ──
 const CDN_LIBS = {
@@ -69,7 +71,7 @@ async function loadCdn(name) {
 // ── 解析状态提示 ──
 let _fileStatusTimer = null;
 function setFileStatus(msg) {
-  const el = document.getElementById('toast');
+  const el = document.getElementById(ID.TOAST);
   if (!el) return;
   el.textContent = msg;
   el.className = 'toast';
@@ -80,7 +82,7 @@ function setFileStatus(msg) {
 function clearFileStatus() {
   clearTimeout(_fileStatusTimer);
   _fileStatusTimer = setTimeout(() => {
-    const el = document.getElementById('toast');
+    const el = document.getElementById(ID.TOAST);
     if (el) el.classList.remove('show');
   }, 800);
 }
@@ -200,12 +202,12 @@ async function parseZipXmlWithCdn(arrayBuffer, fileFilter, label) {
 
 // ── 文件加载 ──
 export function loadFileText(text, filename) {
-  document.getElementById('sourceText').value = text;
+  document.getElementById(ID.SOURCE_TEXT).value = text;
   updateWordStats();
   updateTranslateBtnState();
   safeStore('session', TEXT_CACHE_KEY, text);
-  document.getElementById('fileLoadedName').textContent = filename;
-  document.getElementById('fileLoadedBar').classList.add('visible');
+  document.getElementById(ID.FILE_LOADED_NAME).textContent = filename;
+  document.getElementById(ID.FILE_LOADED_BAR).classList.add('visible');
   detectAndApplyLang(text);
   showToast(`已加载：${filename}`, 'success');
 }
@@ -313,7 +315,7 @@ export function detectAndApplyLang(text) {
   if (!detected) return;
   if (detected.code === state.srcLang.code) return;
   const charCountEl = document.querySelector('.char-count');
-  const existingChip = document.getElementById('detectChip');
+  const existingChip = document.getElementById(ID.DETECT_CHIP);
   if (existingChip) existingChip.remove();
   const chip = document.createElement('span');
   chip.id = 'detectChip';
