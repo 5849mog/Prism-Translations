@@ -105,7 +105,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: #e8e6dc;
+  color: var(--code-text);
   font-size: 0.82em;
   line-height: 1.7;
   display: block;
@@ -193,8 +193,8 @@
   color: var(--charcoal);
   font-size: 0.9em;
 }
-.md-content tr:nth-child(even) { background: rgba(245,244,237,0.4); }
-.md-content tr:hover { background: rgba(245,244,237,0.8); }
+.md-content tr:nth-child(even) { background: color-mix(in srgb, var(--parchment) 40%, transparent); }
+.md-content tr:hover { background: color-mix(in srgb, var(--parchment) 80%, transparent); }
 
 /* 图片 */
 .md-content img {
@@ -215,3 +215,43 @@
 .md-memo p { margin: 0.4em 0; }
 .md-memo ul > li { margin: 0.2em 0; }
 .md-memo pre { padding: 10px 12px; }
+
+/* ════════════════════════════════════════
+   双语对照表（由 ui.js 动态生成）
+   wrapper 承担横向滚动，长 URL 不再撑破页面
+════════════════════════════════════════ */
+.bilingual-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-cream);
+  border-radius: var(--r-lg);
+}
+.bilingual-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.bilingual-table th {
+  background: var(--parchment);
+  font-family: var(--serif);
+  font-weight: 600;
+  color: var(--charcoal);
+  font-size: 12px;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-warm);
+}
+.bilingual-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-cream);
+  vertical-align: top;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.bilingual-table td .md-content { font-size: 13px; }
+.bilingual-table td:first-child { color: var(--stone); }
+.bilingual-table tr:nth-child(even) td { background: color-mix(in srgb, var(--parchment) 40%, transparent); }
+.bilingual-table tr:last-child td { border-bottom: none; }

@@ -282,7 +282,11 @@ async function parseSSEStream(reader, processChunk, onTokenUsage) {
           const rp = getPanelRight();
           if (rp) {
             const distFromBottom = rp.scrollHeight - rp.scrollTop - rp.clientHeight;
-            if (distFromBottom < 200) rp.scrollTop = rp.scrollHeight;
+            // 仅当用户本来就在底部时跟随滚动，上滑回看时不打断
+            if (distFromBottom < 200) {
+              // instant：避免与容器 scroll-behavior:smooth 互相打断造成抖动
+              rp.scrollTo({ top: rp.scrollHeight, behavior: 'instant' });
+            }
           }
           lastScrollTime = now;
         }

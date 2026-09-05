@@ -3,12 +3,50 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>棱镜译 · PrismTrans Pro V6</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<meta name="description" content="棱镜译 — 多智能体协作翻译引擎：六路专家并发翻译、互相批判、择优融合">
+<meta name="theme-color" content="#f5f4ed" id="metaThemeColor">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/prism.svg">
+<link rel="apple-touch-icon" href="icons/prism.svg">
 
-<link rel="stylesheet" href="src/css/index.css">
+<!-- 主题：渲染前解析（localStorage 记忆 → 系统偏好 → 浅色），避免暗色闪烁 -->
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('prism_theme'); } catch (_) {}
+    if (t !== 'dark' && t !== 'light') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    if (t === 'dark') document.documentElement.dataset.theme = 'dark';
+  })();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet"></noscript>
+
+<!-- 样式：按 @layer 层序并行加载（替代 @import 串行阻塞链） -->
+<style>@layer tokens, base, layout, components, animations, overrides;</style>
+<link rel="stylesheet" href="src/css/tokens.css" layer="tokens">
+<link rel="stylesheet" href="src/css/base.css" layer="base">
+<link rel="stylesheet" href="src/css/layout.css" layer="layout">
+<link rel="stylesheet" href="src/css/topbar.css" layer="components">
+<link rel="stylesheet" href="src/css/input.css" layer="components">
+<link rel="stylesheet" href="src/css/translate.css" layer="components">
+<link rel="stylesheet" href="src/css/result.css" layer="components">
+<link rel="stylesheet" href="src/css/engine.css" layer="components">
+<link rel="stylesheet" href="src/css/empty-state.css" layer="components">
+<link rel="stylesheet" href="src/css/modals.css" layer="components">
+<link rel="stylesheet" href="src/css/drawer.css" layer="components">
+<link rel="stylesheet" href="src/css/toast.css" layer="components">
+<link rel="stylesheet" href="src/css/markdown.css" layer="components">
+<link rel="stylesheet" href="src/css/mobile.css" layer="components">
+<link rel="stylesheet" href="src/css/animations.css" layer="animations">
+<link rel="stylesheet" href="src/css/hover.css" layer="overrides">
+<link rel="stylesheet" href="src/css/a11y.css" layer="overrides">
 
 </head>
 <body>
@@ -19,9 +57,9 @@
     <div class="logo">
       <div class="logo-mark">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="#faf9f5" stroke-width="1.2"/>
-          <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="#c96442" stroke-width="0.9"/>
-          <circle cx="9" cy="9" r="1.8" fill="#faf9f5"/>
+          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="var(--ivory)" stroke-width="1.2"/>
+          <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="var(--terracotta)" stroke-width="0.9"/>
+          <circle cx="9" cy="9" r="1.8" fill="var(--ivory)"/>
         </svg>
       </div>
       <div>
@@ -34,6 +72,10 @@
     </div>
     <div class="topbar-right">
       <div class="api-status" id="apiStatus"><span class="api-status-dot" id="apiStatusDot"></span><span id="apiStatusText">API 未配置</span></div>
+      <div class="icon-btn" id="themeBtn" title="切换深浅主题" aria-label="切换深浅主题">
+        <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <span class="tooltip">切换主题</span>
+      </div>
       <div class="icon-btn" id="historyBtn" title="翻译历史" aria-label="翻译历史">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><path d="M3 3v4h4"/></svg>
         <span class="history-badge" id="historyBadge">0</span>
@@ -150,6 +192,7 @@
         </div>
         <div class="result-body">
           <div id="finalResult"></div>
+          <div id="bilingualView" style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -207,6 +250,9 @@
         </button>
         <button class="export-icon-btn" id="exportCopyBtn" title="复制到剪贴板">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+        <button class="export-icon-btn" id="exportShareBtn" title="系统分享">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         </button>
       </div>
     </div>
@@ -268,9 +314,9 @@
     <div class="empty-prism-wrap">
       <div class="empty-prism">
         <svg width="36" height="36" viewBox="0 0 18 18" fill="none">
-          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="#d1cfc5" stroke-width="1.2"/>
-          <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="#c96442" stroke-width="0.9"/>
-          <circle cx="9" cy="9" r="1.8" fill="#e8e6dc"/>
+          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="var(--border-warm)" stroke-width="1.2"/>
+          <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="var(--terracotta)" stroke-width="0.9"/>
+          <circle cx="9" cy="9" r="1.8" fill="var(--warm-sand)"/>
         </svg>
       </div>
     </div>
@@ -313,7 +359,7 @@
         </div>
       </div>
       <div class="empty-feature">
-        <div class="empty-feature-dot" style="background:#3d9a6e;"></div>
+        <div class="empty-feature-dot f"></div>
         <div>
           <div class="empty-feature-name">己 · 风格摹写</div>
           <div class="empty-feature-text">还原作者声音与修辞，实现文体风格等效迁移</div>
@@ -321,12 +367,12 @@
       </div>
     </div>
     <!-- 一键体验 -->
-    <div style="margin-top:20px;width:100%;max-width:300px;">
-      <button id="demoBtn" style="width:100%;padding:12px 16px;border-radius:var(--r-lg);border:1.5px solid var(--terracotta);background:transparent;color:var(--terracotta);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;font-family:var(--sans);letter-spacing:0.3px;">
+    <div class="empty-cta">
+      <button id="demoBtn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         试译一段
       </button>
-      <div style="font-size:10px;color:var(--warm-silver);text-align:center;margin-top:6px;letter-spacing:0.2px;">贴入一段多语言文本，看完整翻译过程</div>
+      <div class="empty-cta-note">贴入一段多语言文本，看完整翻译过程</div>
     </div>
     <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动</div>
   </div>
@@ -501,7 +547,7 @@
       </button>
     </div>
     <div class="export-preview-body" style="padding:20px 22px;font-family:var(--sans);background:var(--parchment);">
-      <div id="demoPanelGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+      <div id="demoPanelGrid"></div>
     </div>
   </div>
 </div>
@@ -530,8 +576,19 @@
   </div>
 </div>
 
-<!-- 双语对照容器（由 JS 动态填充） -->
-<div id="bilingualView" style="display:none;"></div>
+<!-- 确认对话框（替代原生 confirm，移动端体验一致） -->
+<div class="history-modal" id="confirmModal" role="dialog" aria-modal="true" aria-label="确认操作">
+  <div class="history-panel confirm-panel">
+    <div class="confirm-body">
+      <div class="confirm-title" id="confirmTitle">确认操作</div>
+      <div class="confirm-desc" id="confirmDesc"></div>
+    </div>
+    <div class="confirm-actions">
+      <button class="action-btn" id="confirmCancelBtn">取消</button>
+      <button class="confirm-danger-btn" id="confirmOkBtn">确认</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="src/main.js"></script>
 

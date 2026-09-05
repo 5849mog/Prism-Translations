@@ -73,7 +73,8 @@ export async function doTranslate() {
   let totalSteps = 1;
   const setProgress = (n) => {
     const pct = Math.round((n / totalSteps) * 100);
-    document.getElementById(ID.PROGRESS_FILL).style.width = pct + '%';
+    // scaleX 而非 width：合成器动画，进度增长不再触发整行重排
+    document.getElementById(ID.PROGRESS_FILL).style.transform = `scaleX(${pct / 100})`;
     document.getElementById(ID.PROGRESS_PCT).textContent = pct + '%';
   };
   const setStatus = (msg) => { document.getElementById(ID.PHASE_STATUS).textContent = msg; };
@@ -202,8 +203,8 @@ ${text}
       if (r < mode.rounds - 1) {
         const body = document.getElementById(`rbody${r}`);
         const icon = body.parentElement.querySelector('.round-toggle-icon');
-        body.style.maxHeight = body.scrollHeight + 'px';
-        setTimeout(() => { body.style.maxHeight = '0px'; icon.classList.add('collapsed'); }, 3000);
+        // 折叠交给 grid-template-rows 0fr 过渡（见 engine.css），无需 JS 量高
+        setTimeout(() => { body.classList.add('collapsed'); icon.classList.add('collapsed'); }, 3000);
       }
     }
 
@@ -218,6 +219,7 @@ ${text}
     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
     setStatus(`翻译完成 · 耗时 ${elapsed < 60 ? elapsed + 's' : Math.floor(elapsed / 60) + 'm' + (elapsed % 60) + 's'}`);
     stopTimer();
+    navigator.vibrate?.([30, 40, 60]);
 
     const finalLabelEl = document.querySelector('.result-label');
     if (finalLabelEl.dataset.earlyPreview) {
@@ -240,6 +242,7 @@ ${text}
   } catch (err) {
     stopTimer();
     handleTranslationError(err);
+    navigator.vibrate?.(80);
   } finally {
     state.running = false;
     state.abortController = null;

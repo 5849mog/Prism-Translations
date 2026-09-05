@@ -1,0 +1,26 @@
+{
+  "name": "棱镜译 PrismTrans Pro",
+  "short_name": "棱镜译",
+  "description": "多智能体协作翻译引擎 — 六路专家并发翻译、互相批判、择优融合",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f4ed",
+  "theme_color": "#f5f4ed",
+  "icons": [
+    {
+      "src": "icons/prism.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/prism.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

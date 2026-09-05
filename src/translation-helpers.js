@@ -42,28 +42,30 @@ export function createRoundDOM(r, dynamicAgent) {
       <svg class="round-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-left:auto;color:var(--stone);"><path d="m6 9 6 6 6-6"/></svg>
     </div>
     <div class="round-body" id="rbody${r}">
-      <div class="paths-row">
-        <div class="path-item"><div class="path-label"><span>甲 · 语言学家</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pa${r}"></div></div>
-        <div class="path-item"><div class="path-label"><span>乙 · 本土编辑</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pb${r}"></div></div>
-        <div class="path-item"><div class="path-label"><span>丙 · 领域专家</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pc${r}"></div></div>
-        <div class="path-item path-item--dynamic"><div class="path-label"><span>D · ${dynamicAgent.name}</span><span class="path-lock path-lock--dynamic">动态</span></div><div class="path-text streaming" id="pd${r}"></div></div>
-        <div class="path-item path-item--implicit"><div class="path-label"><span>戊 · 隐义探微</span><span class="path-lock path-lock--implicit">后处理</span></div><div class="path-text streaming" id="pe${r}"></div></div>
-        <div class="path-item path-item--style"><div class="path-label"><span>己 · 风格摹写</span><span class="path-lock path-lock--style">并发</span></div><div class="path-text streaming" id="pf${r}"></div></div>
-      </div>
-      <div class="critique-row">
-        <div class="critique-item"><div class="critique-label">甲 审 乙/丙</div><div class="critique-text streaming" id="ca${r}"></div></div>
-        <div class="critique-item"><div class="critique-label">乙 审 丙/丁</div><div class="critique-text streaming" id="cb${r}"></div></div>
-        <div class="critique-item"><div class="critique-label">丙 审 丁/己</div><div class="critique-text streaming" id="cc${r}"></div></div>
-        <div class="critique-item"><div class="critique-label">丁 审 甲/乙</div><div class="critique-text streaming" id="cd${r}"></div></div>
-        <div class="critique-item"><div class="critique-label">己 审 甲/丙</div><div class="critique-text streaming" id="cf${r}"></div></div>
-      </div>
-      <div class="synth-row">
-        <div class="synth-label"><span class="synth-label-text">综合裁决</span><span class="synth-lock">首席裁决</span></div>
-        <div class="synth-text streaming" id="synth${r}"></div>
-      </div>
-      <div class="memo-row" id="memo-row${r}" style="display:none">
-        <div class="memo-label">迭代备忘录</div>
-        <div class="memo-text" id="memo${r}"></div>
+      <div class="round-body-inner">
+        <div class="paths-row">
+          <div class="path-item"><div class="path-label"><span>甲 · 语言学家</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pa${r}"></div></div>
+          <div class="path-item"><div class="path-label"><span>乙 · 本土编辑</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pb${r}"></div></div>
+          <div class="path-item"><div class="path-label"><span>丙 · 领域专家</span><span class="path-lock">并发</span></div><div class="path-text streaming" id="pc${r}"></div></div>
+          <div class="path-item path-item--dynamic"><div class="path-label"><span>D · ${dynamicAgent.name}</span><span class="path-lock path-lock--dynamic">动态</span></div><div class="path-text streaming" id="pd${r}"></div></div>
+          <div class="path-item path-item--implicit"><div class="path-label"><span>戊 · 隐义探微</span><span class="path-lock path-lock--implicit">后处理</span></div><div class="path-text streaming" id="pe${r}"></div></div>
+          <div class="path-item path-item--style"><div class="path-label"><span>己 · 风格摹写</span><span class="path-lock path-lock--style">并发</span></div><div class="path-text streaming" id="pf${r}"></div></div>
+        </div>
+        <div class="critique-row">
+          <div class="critique-item"><div class="critique-label">甲 审 乙/丙</div><div class="critique-text streaming" id="ca${r}"></div></div>
+          <div class="critique-item"><div class="critique-label">乙 审 丙/丁</div><div class="critique-text streaming" id="cb${r}"></div></div>
+          <div class="critique-item"><div class="critique-label">丙 审 丁/己</div><div class="critique-text streaming" id="cc${r}"></div></div>
+          <div class="critique-item"><div class="critique-label">丁 审 甲/乙</div><div class="critique-text streaming" id="cd${r}"></div></div>
+          <div class="critique-item"><div class="critique-label">己 审 甲/丙</div><div class="critique-text streaming" id="cf${r}"></div></div>
+        </div>
+        <div class="synth-row">
+          <div class="synth-label"><span class="synth-label-text">综合裁决</span><span class="synth-lock">首席裁决</span></div>
+          <div class="synth-text streaming" id="synth${r}"></div>
+        </div>
+        <div class="memo-row" id="memo-row${r}" style="display:none">
+          <div class="memo-label">迭代备忘录</div>
+          <div class="memo-text" id="memo${r}"></div>
+        </div>
       </div>
     </div>
   `;
@@ -74,14 +76,8 @@ export function createRoundDOM(r, dynamicAgent) {
     if (e.target.closest('.round-badge')) return;
     const body = roundEl.querySelector('.round-body');
     const icon = roundEl.querySelector('.round-toggle-icon');
-    const isCollapsed = body.style.maxHeight === '0px';
-    if (isCollapsed) {
-      body.style.maxHeight = body.scrollHeight + 'px';
-      icon.classList.remove('collapsed');
-    } else {
-      body.style.maxHeight = '0px';
-      icon.classList.add('collapsed');
-    }
+    body.classList.toggle('collapsed');
+    icon.classList.toggle('collapsed', body.classList.contains('collapsed'));
   });
   return {
     pa: document.getElementById(`pa${r}`),
@@ -99,7 +95,13 @@ export function createRoundDOM(r, dynamicAgent) {
   };
 }
 
-export function showEarlyPreview(f) {
+// ── A 路草稿的"初步结果"预览 ──
+// 每个 SSE delta 都重渲 FINAL_RESULT 是双份渲染开销，降频到 800ms 一次
+let _lastEarlyPreview = 0;
+export function showEarlyPreview(f, { force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - _lastEarlyPreview < 800) return;
+  _lastEarlyPreview = now;
   document.getElementById(ID.RESULT_SECTION).classList.add('active');
   const cleanedF = f.replace(LABEL_STRIP_RE, '');
   renderToElement(document.getElementById(ID.FINAL_RESULT), cleanedF, true);

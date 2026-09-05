@@ -10,7 +10,7 @@
 .lang-display {
   display: flex; flex-direction: column; align-items: center;
   padding: 6px 20px; cursor: pointer; position: relative;
-  transition: all 0.2s; border-radius: var(--r-sm);
+  transition: background-color 0.2s var(--ease-out-quart), transform 0.2s var(--ease-out-back); border-radius: var(--r-sm);
 }
 .lang-display:hover { background: rgba(201,100,66,0.04); }
 .lang-display-name {
@@ -23,8 +23,8 @@
 }
 .lang-arrow {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; color: var(--warm-silver); cursor: pointer;
-  transition: all 0.4s; flex-shrink: 0; margin: 0 12px;
+  border-radius: 50%; color: var(--warm-silver); cursor: pointer; position: relative;
+  transition: color 0.3s var(--ease-out-quart), transform 0.4s var(--ease-out-back); flex-shrink: 0; margin: 0 12px;
 }
 .lang-arrow:hover { color: var(--terracotta); transform: rotate(180deg); }
 .lang-arrow.swapping { transform: rotate(180deg); }
@@ -43,7 +43,7 @@
 #sourceText {
   width: 100%; min-height: 160px; padding: 16px 18px; background: transparent;
   border: none; outline: none; resize: vertical;
-  font-family: var(--sans); font-size: 15px; line-height: 1.75; color: var(--near-black);
+  font-family: var(--sans); font-size: 16px; line-height: 1.75; color: var(--near-black);
 }
 #sourceText::placeholder { color: var(--warm-silver); }
 .input-footer {
@@ -54,8 +54,8 @@
 .char-count.near-limit { color: var(--warning); }
 .char-count.at-limit { color: var(--error); }
 .input-actions { display: flex; gap: 4px; align-items: center; }
-.input-mini-btn { font-size: 11px; color: var(--stone); background: none; border: none; cursor: pointer; transition: all 0.15s; padding: 3px 8px; border-radius: var(--r-sm); }
-.input-mini-btn:hover { color: var(--terracotta); background: rgba(201,100,66,0.07); }
+.input-mini-btn { font-size: 11px; color: var(--stone); background: none; border: none; cursor: pointer; transition: color 0.15s, background-color 0.15s, transform 0.06s; padding: 3px 8px; border-radius: var(--r-sm); }
+.input-mini-btn:hover { color: var(--terracotta); background: color-mix(in srgb, var(--terracotta) 7%, transparent); }
 .word-stats { display: flex; gap: 14px; padding: 8px 20px 0; font-size: 11px; color: var(--warm-silver); font-family: var(--mono); }
 @media (min-width: 860px) { .word-stats { padding: 8px 24px 0; } }
 .word-stat { display: flex; gap: 4px; align-items: center; }
@@ -68,55 +68,55 @@
   margin: 0 20px 12px; border: 1.5px dashed var(--border-warm);
   border-radius: var(--r-lg); padding: 14px 16px;
   display: flex; align-items: center; gap: 10px; cursor: pointer;
-  background: var(--white); transition: all 0.18s; position: relative; overflow: hidden;
+  background: var(--white); transition: border-color 0.18s, background-color 0.18s, transform 0.18s, box-shadow 0.18s; position: relative; overflow: hidden;
 }
 @media (min-width: 860px) { .file-drop-zone { margin: 0 24px 12px; } }
 .file-drop-zone:hover, .file-drop-zone.drag-over {
-  border-color: var(--terracotta); background: #fdf5f2;
+  border-color: var(--terracotta); background: var(--terracotta-tint);
 }
 .file-drop-icon { color: var(--stone); flex-shrink: 0; transition: color 0.18s; }
 .file-drop-zone:hover .file-drop-icon, .file-drop-zone.drag-over .file-drop-icon { color: var(--terracotta); }
 .file-drop-text { font-size: 12px; color: var(--stone); line-height: 1.4; }
 .file-drop-text strong { color: var(--charcoal); font-weight: 500; display: block; margin-bottom: 1px; }
-.file-drop-badge { margin-left: auto; font-size: 9px; color: var(--warm-silver); background: var(--warm-sand); padding: 2px 7px; border-radius: var(--r-full); letter-spacing: 0.3px; flex-shrink: 0; }
+.file-drop-badge { margin-left: auto; font-size: 10px; color: var(--warm-silver); background: var(--warm-sand); padding: 2px 7px; border-radius: var(--r-full); letter-spacing: 0.3px; flex-shrink: 0; }
 #fileInput { display: none; }
 .file-loaded-bar {
   display: none; margin: 0 20px 12px; padding: 9px 14px;
-  background: var(--success-bg); border: 1px solid #b0cfc2; border-radius: var(--r-lg);
+  background: var(--success-bg); border: 1px solid var(--success-border); border-radius: var(--r-lg);
   font-size: 12px; color: var(--success); align-items: center; gap: 8px;
 }
 @media (min-width: 860px) { .file-loaded-bar { margin: 0 24px 12px; } }
 .file-loaded-bar.visible { display: flex; }
 .file-loaded-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-clear-btn { background: none; border: none; color: var(--stone); cursor: pointer; font-size: 11px; padding: 0 2px; flex-shrink: 0; transition: color 0.15s; }
+.file-clear-btn { background: none; border: none; color: var(--stone); cursor: pointer; font-size: 11px; padding: 12px 10px; margin: -9px -6px -9px 0; flex-shrink: 0; transition: color 0.15s; }
 .file-clear-btn:hover { color: var(--error); }
 
 /* ════════════════════════════════════════
    停止按钮 & 自动检测 chip
 ════════════════════════════════════════ */
 .stop-btn {
-  width: 100%; padding: 15px 24px; background: #7a2a2a; color: var(--ivory);
+  width: 100%; padding: 15px 24px; background: var(--stop-bg); color: #fff;
   border: none; border-radius: var(--r-lg); font-size: 14px; font-weight: 500;
   cursor: pointer; letter-spacing: 0.5px; display: none; align-items: center; justify-content: center; gap: 8px;
-  transition: all 0.2s; font-family: var(--sans);
+  transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s; font-family: var(--sans);
 }
 .stop-btn.visible { display: flex; }
-.stop-btn:hover { background: #922a2a; transform: translateY(-1px); }
+.stop-btn:hover { background: var(--stop-bg-hover); transform: translateY(-1px); }
 .lang-detect-chip {
   display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
-  color: var(--terracotta); background: #fdf5f2; border: 1px solid #eebfa6;
+  color: var(--terracotta); background: var(--terracotta-tint); border: 1px solid var(--terracotta-border);
   padding: 2px 8px; border-radius: var(--r-full); margin-left: 8px;
-  cursor: pointer; transition: all 0.15s; vertical-align: middle;
+  cursor: pointer; transition: background-color 0.15s, color 0.15s; vertical-align: middle;
   animation: fadeIn 0.25s ease;
 }
-.lang-detect-chip:hover { background: #f9ede7; }
+.lang-detect-chip:hover { background: var(--terracotta-tint-strong); }
 
 /* ════════════════════════════════════════
    API 错误细化样式
 ════════════════════════════════════════ */
 .error-detail {
-  font-size: 11px; color: var(--error); background: #fdf0ef;
-  border: 1px solid #f0b8b4; border-radius: var(--r-md);
+  font-size: 11px; color: var(--error); background: var(--error-tint);
+  border: 1px solid var(--error-border); border-radius: var(--r-md);
   padding: 8px 12px; margin-top: 6px; line-height: 1.5;
   display: none;
 }

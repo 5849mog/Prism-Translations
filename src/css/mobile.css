@@ -1,0 +1,71 @@
+/* ════════════════════════════════════════
+   移动端增强（≤859px 生效 + 全局触屏优化）
+
+   原则：
+   1. 触控目标 ≥ 44px —— 优先用 ::after 扩展热区（视觉不变），
+      文本按钮用 padding（视觉随行）
+   2. 软键盘、安全区、窄屏布局在此统一处理
+════════════════════════════════════════ */
+
+/* ── 窄屏滚动容器：防止滚动链误触发浏览器手势 ── */
+.drawer, .history-list, .lang-list, .export-preview-body { overscroll-behavior: contain; }
+body { overflow-x: hidden; }
+
+/* ── 窄屏进度行：状态文字独占一行，避免挤压抖动 ── */
+@media (max-width: 859.9px) {
+  .phase-progress-row { flex-wrap: wrap; row-gap: 8px; }
+  .phase-status-text { flex-basis: 100%; }
+
+  /* ── 文本按钮：加高到 44px 触控标准 ── */
+  .input-mini-btn { font-size: 13px; padding: 13px 14px; }
+  .input-actions { gap: 2px; }
+  .file-clear-btn { font-size: 13px; padding: 14px 12px; }
+
+  .history-use-btn, .history-del-btn { font-size: 12px; padding: 12px 16px; }
+  .history-clear-all { padding: 14px 0 14px 16px; }
+
+  .action-btn { padding: 10px 14px; font-size: 12px; }
+  .export-fmt-btn { padding: 13px 10px; font-size: 12px; }
+  .export-icon-btn { width: 44px; }
+  .export-preview-copy-btn, .export-preview-dl-btn { padding: 13px 16px; }
+
+  .lang-display { padding: 12px 20px; }
+
+  /* ── 图标按钮：::after 扩展热区至 44px，视觉尺寸不变 ── */
+  .icon-btn::after { content: ''; position: absolute; inset: -5px; }
+
+  /* 复选框加大 */
+  .export-opt-check { gap: 7px; font-size: 12px; }
+  .export-opt-check input[type="checkbox"] { width: 18px; height: 18px; }
+  .export-opt-check span { padding: 10px 0; }
+
+  /* 顶栏：移动端隐藏快捷键面板入口（触屏无 Ctrl），历史/设置保留 */
+  #shortcutBtn { display: none; }
+}
+
+/* ── 平板横屏微调（860-1023 的图标按钮热区同样补足） ── */
+@media (min-width: 860px) and (max-width: 1023px) {
+  .icon-btn::after { content: ''; position: absolute; inset: -5px; }
+}
+
+/* ── 触屏通用：粘贴降级提示由 JS 处理；此处给可滚动列表惯性感 ── */
+.left-content, .panel-right { -webkit-overflow-scrolling: touch; }
+
+/* ── 触屏设备：中和位移型 hover（避免点按后元素"粘"在悬停态） ── */
+@media (hover: none) {
+  .lang-arrow:hover { transform: none; }
+  .logo-mark:hover { transform: none; }
+  .provider-card:hover { transform: none; }
+  .empty-feature:hover { transform: none; }
+  .translate-btn:hover:not(:disabled) { transform: none; }
+  .save-btn:hover, .export-btn:hover, .export-preview-dl-btn:hover, .stop-btn:hover { transform: none; }
+}
+
+/* ── 窄屏下 token 输入行不换行挤压 ── */
+@media (max-width: 400px) {
+  .provider-grid { grid-template-columns: 1fr; }
+  .num-control { gap: 8px; }
+  .setting-section { padding: 16px 18px; }
+  .drawer-title { padding: 16px 18px 10px; }
+  .save-btn { margin: 14px 18px 30px; width: calc(100% - 36px); }
+}

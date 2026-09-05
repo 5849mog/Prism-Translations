@@ -39,7 +39,8 @@ function triggerDownload(content, mime, ext) {
   a.href = url;
   a.download = `prismtrans_${langPair}_${dateStr}.${ext}`;
   a.click();
-  URL.revokeObjectURL(url);
+  // iOS Safari 的下载在 click 后异步进行，同步 revoke 会竞态失败
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 // ── 导出预览 ──
@@ -122,6 +123,29 @@ export function setupExportListeners() {
     if (!result) return;
     const r = await copyToClipboard(result.content);
     showToast(r.success ? '已复制到剪贴板 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
+  });
+
+  // ── 系统分享（移动端调起分享面板；桌面/不支持时降级为复制） ──
+  document.getElementById(ID.EXPORT_SHARE_BTN)?.addEventListener('click', async () => {
+    const result = buildExportContent(currentExportFmt);
+    if (!result) return;
+    const t = state.lastTranslation;
+    const title = t ? `棱镜译 · ${t.srcLang} → ${t.tgtLang}` : '棱镜译翻译报告';
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [new File([result.content], `report.${result.ext}`, { type: result.mime })] })) {
+        const file = new File([result.content], `prismtrans_${Date.now()}.${result.ext}`, { type: result.mime });
+        await navigator.share({ files: [file], title });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title, text: result.content });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return; // 用户取消分享
+    }
+    const r = await copyToClipboard(result.content);
+    showToast(r.success ? '当前环境不支持分享，已复制到剪贴板 ✓' : '复制失败，请手动复制', r.success ? 'success' : 'error');
   });
 
   document.getElementById(ID.EXPORT_PREVIEW_BTN).addEventListener('click', () => {

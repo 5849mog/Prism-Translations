@@ -20,7 +20,7 @@ export function renderHistoryList() {
     el.className = 'history-item';
     const scoresHtml = item.scores
       ? `<div style="margin-top:4px;display:flex;gap:3px;">${['忠', '流', '地']
-          .map((l, i) => `<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:#f9ede7;color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`)
+          .map((l, i) => `<span style="font-size:10px;padding:1px 5px;border-radius:9999px;background:var(--terracotta-tint-strong);color:var(--terracotta);font-family:var(--mono);">${l}${item.scores[i]}</span>`)
           .join('')}</div>`
       : '';
     const remarkHtml = item.remark

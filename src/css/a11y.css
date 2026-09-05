@@ -1,0 +1,35 @@
+/* ════════════════════════════════════════
+   无障碍 — 动效减弱偏好
+   用户系统开启"减弱动态效果"时：
+   - 所有循环动画停跑（infinite 只跑一次即停在终态）
+   - 过渡时长归零（不再有位移动画）
+   - 平滑滚动改为即时滚动
+════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* 常驻装饰动画直接关停 */
+  .empty-prism-wrap::before,
+  .empty-prism-wrap::after,
+  .empty-prism,
+  .api-status-dot,
+  .progress-fill::after,
+  .progress-fill {
+    animation: none !important;
+  }
+  /* 入场动画基线：避免 opacity:0 起始态在动画关闭后不可见 */
+  .path-item, .critique-item, .score-item, .empty-feature {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .score-num { animation: none !important; }
+  /* 悬停位移关闭，保留色彩反馈 */
+  .empty-feature:hover { transform: none; }
+  .round-card:hover, .agent-gen-card:hover, .audit-card:hover, .chunk-progress-card:hover { transform: none; }
+  .translate-btn:hover:not(:disabled), .save-btn:hover, .export-btn:hover, .stop-btn:hover { transform: none; }
+}

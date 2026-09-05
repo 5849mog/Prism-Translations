@@ -111,11 +111,52 @@ export const LABEL_STRIP_RE = /^[\[【「]?(?:最优译文正文|最优译文|�
 /**
  * 统一的流式 UI 更新（带推理过程 + 标签剥离 + 懒加载 marked）
  *
+ * 流式节流：每个 SSE delta 都会调用本函数，若每次都全量
+ * marked.parse + DOMPurify + innerHTML 替换，11 路并发流下是 O(n²)
+ * 渲染开销。这里对同一元素做 80ms 合帧（rAF 对齐），流式结束后
+ * （元素已无 .streaming 类）的最终渲染立即执行，保证收尾无延迟。
+ *
  * @param {HTMLElement} el      目标元素
  * @param {string}      full    完整/累积文本
  * @param {string}      [reasoning]  推理过程文本
  */
+const _STREAM_INTERVAL_MS = 80;
+const _streamState = new WeakMap();
+
 export function updateUI(el, full, reasoning) {
+  // 非流式（最终渲染）→ 立即执行并清理该元素的节流状态
+  if (!el.classList.contains('streaming')) {
+    const st = _streamState.get(el);
+    if (st) { clearTimeout(st.timer); _streamState.delete(el); }
+    _updateUIDirect(el, full, reasoning);
+    return;
+  }
+  const st = _streamState.get(el);
+  if (!st) {
+    // 该元素第一次收到内容：立即渲染，给出即时反馈
+    const fresh = { full, reasoning, last: performance.now(), timer: 0 };
+    _streamState.set(el, fresh);
+    _updateUIDirect(el, full, reasoning);
+    return;
+  }
+  // 已有挂起内容：只更新数据，等节流器统一刷新
+  st.full = full;
+  st.reasoning = reasoning;
+  if (st.timer) return;
+  const wait = Math.max(0, _STREAM_INTERVAL_MS - (performance.now() - st.last));
+  st.timer = setTimeout(() => {
+    st.timer = 0;
+    st.last = performance.now();
+    // 用 rAF 对齐绘制时机，避免在帧中段触发大量布局
+    requestAnimationFrame(() => {
+      const cur = _streamState.get(el);
+      if (!cur) return;
+      _updateUIDirect(el, cur.full, cur.reasoning);
+    });
+  }, wait);
+}
+
+function _updateUIDirect(el, full, reasoning) {
   let cleanFull = full.replace(LABEL_STRIP_RE, '');
   if (reasoning && !el.hasAttribute('data-has-reasoning')) {
     el.innerHTML = '<div class="reasoning-text"></div><div class="content-text md-content"></div>';

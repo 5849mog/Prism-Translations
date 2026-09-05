@@ -73,6 +73,7 @@ export const ID = Object.freeze(/** @type {const} */ ({
   EXPORT_BTN_LABEL: 'exportBtnLabel',
   EXPORT_PREVIEW_BTN: 'exportPreviewBtn',
   EXPORT_COPY_BTN: 'exportCopyBtn',
+  EXPORT_SHARE_BTN: 'exportShareBtn',
 
   // ── Export Preview Modal ──
   EXPORT_PREVIEW_MODAL: 'exportPreviewModal',

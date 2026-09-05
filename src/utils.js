@@ -24,16 +24,38 @@ function _onTabKey(e) {
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
-export function trapFocus(container) {
+/**
+ * 锁定 Tab 焦点在容器内
+ * @param {HTMLElement} container
+ * @param {object} [opts]
+ * @param {boolean} [opts.autoFocus=true] 是否自动聚焦第一个可聚焦元素
+ *        （设置抽屉传 false：移动端打开即弹软键盘会盖住抽屉）
+ */
+export function trapFocus(container, { autoFocus = true } = {}) {
   releaseFocus();
   _trapContainer = container;
   document.addEventListener('keydown', _onTabKey);
+  if (!autoFocus) return;
   const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
   if (focusable.length) setTimeout(() => focusable[0].focus(), 100);
 }
 export function releaseFocus() {
   _trapContainer = null;
   document.removeEventListener('keydown', _onTabKey);
+}
+
+// ── 软键盘避让：visualViewport 写入 --kb-height，抽屉随之平移 ──
+export function setupKeyboardAvoid() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const update = () => {
+    // 键盘弹起时 vv.height 变小，与 window.innerHeight 的差值即键盘遮挡高度
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-height', Math.round(overlap) + 'px');
+  };
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  update();
 }
 
 // ── DOM 引用缓存 ──
@@ -161,12 +183,78 @@ export function updateTranslateBtnState() {
 export function openDrawer() {
   document.getElementById(ID.SETTINGS_DRAWER).classList.add('open');
   document.getElementById(ID.DRAWER_OVERLAY).classList.add('active');
-  trapFocus(document.getElementById(ID.SETTINGS_DRAWER));
+  // 不自动聚焦：抽屉第一个可聚焦元素是 API 密钥输入框，
+  // 移动端会立刻弹出软键盘盖住抽屉；用户点击输入框时再聚焦
+  trapFocus(document.getElementById(ID.SETTINGS_DRAWER), { autoFocus: false });
 }
 export function closeDrawer() {
-  document.getElementById(ID.SETTINGS_DRAWER).classList.remove('open');
+  const drawer = document.getElementById(ID.SETTINGS_DRAWER);
+  drawer.classList.remove('open');
+  drawer.style.transform = '';
+  drawer.style.transition = '';
   document.getElementById(ID.DRAWER_OVERLAY).classList.remove('active');
   releaseFocus();
+}
+
+// ── 抽屉下滑手势关闭（移动端底部抽屉标配） ──
+export function setupDrawerSwipe() {
+  const drawer = document.getElementById(ID.SETTINGS_DRAWER);
+  const handle = drawer.querySelector('.drawer-handle');
+  if (!handle) return;
+  let startY = 0, dy = 0, dragging = false;
+  handle.addEventListener('pointerdown', (e) => {
+    if (!drawer.classList.contains('open')) return;
+    dragging = true;
+    startY = e.clientY;
+    dy = 0;
+    drawer.style.transition = 'none';
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    dy = Math.max(0, e.clientY - startY);
+    drawer.style.transform = `translateX(-50%) translateY(${dy}px)`;
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    drawer.style.transition = '';
+    drawer.style.transform = '';
+    if (dy > 72) closeDrawer();
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+// ── 确认对话框（替代原生 confirm，移动端观感一致） ──
+export function confirmDialog(desc, { title = '确认操作', okText = '确认' } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    const ok = document.getElementById('confirmOkBtn');
+    const cancel = document.getElementById('confirmCancelBtn');
+    if (!modal || !ok || !cancel) { resolve(window.confirm(desc)); return; }
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent = desc;
+    ok.textContent = okText;
+    const done = (val) => {
+      modal.classList.remove('active');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onEsc);
+      resolve(val);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    const onBackdrop = (e) => { if (e.target === modal) done(false); };
+    const onEsc = (e) => { if (e.key === 'Escape') done(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onEsc);
+    modal.classList.add('active');
+    setTimeout(() => ok.focus(), 80);
+  });
 }
 
 // ── 文本缓存 ──

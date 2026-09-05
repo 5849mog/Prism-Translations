@@ -27,9 +27,9 @@ export function createAuditCard(title, badge) {
     </div>
     <div class="audit-body">
       <div class="score-row">
-        <div class="score-item" id="si0"><span class="score-num" id="s0">—</span><span class="score-label">${SCORE_FULL_LABELS[0]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb0" style="width:0%"></div></div></div>
-        <div class="score-item" id="si1"><span class="score-num" id="s1">—</span><span class="score-label">${SCORE_FULL_LABELS[1]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb1" style="width:0%"></div></div></div>
-        <div class="score-item" id="si2"><span class="score-num" id="s2">—</span><span class="score-label">${SCORE_FULL_LABELS[2]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb2" style="width:0%"></div></div></div>
+        <div class="score-item" id="si0"><span class="score-num" id="s0">—</span><span class="score-label">${SCORE_FULL_LABELS[0]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb0"></div></div></div>
+        <div class="score-item" id="si1"><span class="score-num" id="s1">—</span><span class="score-label">${SCORE_FULL_LABELS[1]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb1"></div></div></div>
+        <div class="score-item" id="si2"><span class="score-num" id="s2">—</span><span class="score-label">${SCORE_FULL_LABELS[2]}</span><div class="score-bar-wrap"><div class="score-bar" id="sb2"></div></div></div>
       </div>
       <div class="audit-remark streaming" id="auditRemark"></div>
     </div>
@@ -55,9 +55,9 @@ export function renderScores(scores) {
         siEl.classList.add('excellent');
         sbEl.classList.add('excellent');
       }
+      // scaleX 由 CSS transition 驱动（engine.css），不再内联覆盖
       setTimeout(() => {
-        sbEl.style.width = s * 10 + '%';
-        sbEl.style.transition = 'width 0.9s cubic-bezier(0.2,1,0.2,1)';
+        sbEl.style.transform = `scaleX(${s / 10})`;
       }, i * 180);
       const spEl = document.getElementById(`sp${i}`);
       spEl.textContent = `${SCORE_SHORT_LABELS[i]} ${s}`;

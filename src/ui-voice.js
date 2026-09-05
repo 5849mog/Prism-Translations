@@ -11,13 +11,26 @@ let _recognition = null;
 let _isVoiceListening = false;
 let _finalTranscript = '';
 
+// iOS Safari 的 continuous + onend 自动重启组合不可靠（数秒即断），
+// 移动端改用单次识别 + 手动重启
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+const VOICE_ERROR_TIPS = {
+  'not-allowed': '麦克风权限被拒绝，请在浏览器设置中允许',
+  'service-not-allowed': '语音服务不可用，请检查系统权限',
+  'network': '语音服务网络异常，请检查网络后重试',
+  'audio-capture': '未检测到麦克风设备',
+  'no-speech': '没有听到说话，请再试一次',
+  'aborted': '',
+};
+
 export function initVoiceInput() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   _recognition = new SpeechRecognition();
   const voiceBtn = document.getElementById(ID.VOICE_BTN);
   if (voiceBtn) voiceBtn.style.display = '';
-  _recognition.continuous = true;
+  _recognition.continuous = !_isIOS;
   _recognition.interimResults = true;
 
   _recognition.onresult = (event) => {
@@ -44,17 +57,28 @@ export function initVoiceInput() {
 
   _recognition.onerror = (event) => {
     log.warn('语音识别错误:', event.error);
-    if (event.error === 'not-allowed') { showToast('麦克风权限被拒绝'); _isVoiceListening = false; updateVoiceBtnState(); }
+    const tip = VOICE_ERROR_TIPS[event.error];
+    if (tip) showToast(tip, event.error === 'no-speech' ? '' : 'error');
+    if (event.error !== 'no-speech' && event.error !== 'aborted') {
+      _isVoiceListening = false;
+      updateVoiceBtnState();
+    }
   };
 
   _recognition.onend = () => {
-    if (_isVoiceListening) {
-      try { _recognition.start(); } catch (e) { log.warn('语音识别重启失败:', e); _isVoiceListening = false; updateVoiceBtnState(); }
+    if (!_isVoiceListening) return;
+    if (_isIOS) {
+      // iOS：单次识别结束即停止，交给用户再次点击（避免无限重启循环）
+      _isVoiceListening = false;
+      updateVoiceBtnState();
+      return;
     }
+    try { _recognition.start(); } catch (e) { log.warn('语音识别重启失败:', e); _isVoiceListening = false; updateVoiceBtnState(); }
   };
 
   document.getElementById(ID.VOICE_BTN)?.addEventListener('click', () => {
     if (!_recognition) { showToast('当前浏览器不支持语音输入'); return; }
+    if (!window.isSecureContext) { showToast('语音输入需要 HTTPS 环境'); return; }
     if (_isVoiceListening) {
       _isVoiceListening = false;
       try { _recognition.stop(); } catch (e) { log.warn('停止失败:', e); }

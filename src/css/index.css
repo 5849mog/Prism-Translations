@@ -1,3 +1,11 @@
+/* ════════════════════════════════════════
+   样式清单
+   注意：index.html 现已改为按层序逐个 <link> 加载下列文件
+   （消除 @import 串行阻塞链）。本文件保留作为清单与本地开发备用入口。
+
+   层序（后者覆盖前者）：
+     tokens → base → layout → components → animations → overrides
+════════════════════════════════════════ */
 @layer tokens, base, layout, components, animations, overrides;
 
 @import url('./tokens.css') layer(tokens);
@@ -12,6 +20,8 @@
 @import url('./modals.css') layer(components);
 @import url('./drawer.css') layer(components);
 @import url('./toast.css') layer(components);
+@import url('./markdown.css') layer(components);
+@import url('./mobile.css') layer(components);
 @import url('./animations.css') layer(animations);
 @import url('./hover.css') layer(overrides);
-@import url('./markdown.css') layer(components);
+@import url('./a11y.css') layer(overrides);

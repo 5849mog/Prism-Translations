@@ -60,36 +60,24 @@ export function showDemoPanel() {
   const grid = document.getElementById(ID.DEMO_PANEL_GRID);
   if (!grid.dataset.built) {
     grid.innerHTML = DEMO_LIBRARY.map(d =>
-      `<button class="demo-card" data-key="${d.key}" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:14px;border:1.5px solid var(--border-cream);border-radius:var(--r-lg);background:var(--ivory);cursor:pointer;transition:all 0.2s;gap:6px;position:relative;overflow:hidden;">
-        <div style="font-size:22px;margin-bottom:2px;">${d.icon}</div>
-        <div style="font-size:13px;font-weight:600;color:var(--near-black);font-family:var(--sans);">${escHtml(d.title)}</div>
-        <div style="font-size:10px;color:var(--stone);line-height:1.4;">${escHtml(d.desc)}</div>
-        <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">${d.tags.map(t => `<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-full);background:var(--warm-sand);color:var(--olive);font-family:var(--mono);">${escHtml(t)}</span>`).join('')}</div>
-        <div style="position:absolute;top:0;right:0;width:40px;height:40px;background:linear-gradient(135deg,transparent 50%,var(--terracotta) 50%);border-radius:0 0 0 var(--r-lg);opacity:0;transition:opacity 0.2s;" class="demo-card-corner"></div>
+      `<button class="demo-card" data-key="${d.key}">
+        <div class="demo-card-icon">${d.icon}</div>
+        <div class="demo-card-title">${escHtml(d.title)}</div>
+        <div class="demo-card-desc">${escHtml(d.desc)}</div>
+        <div class="demo-card-tags">${d.tags.map(t => `<span class="demo-card-tag">${escHtml(t)}</span>`).join('')}</div>
+        <div class="demo-card-corner"></div>
       </button>`
     ).join('');
     grid.querySelectorAll('.demo-card').forEach(card => {
-      card.addEventListener('mouseenter', () => {
-        card.style.borderColor = 'var(--terracotta)';
-        card.style.transform = 'translateY(-2px)';
-        card.style.boxShadow = 'var(--shadow-md)';
-        card.querySelector('.demo-card-corner').style.opacity = '0.8';
-      });
-      card.addEventListener('mouseleave', () => {
-        card.style.borderColor = 'var(--border-cream)';
-        card.style.transform = '';
-        card.style.boxShadow = '';
-        card.querySelector('.demo-card-corner').style.opacity = '0';
-      });
       card.addEventListener('click', () => loadDemoText(card.dataset.key));
     });
     grid.dataset.built = 'true';
   }
-  modal.style.display = 'flex';
+  modal.classList.add('active');
 }
 
 export function hideDemoPanel() {
-  document.getElementById(ID.DEMO_PANEL_MODAL).style.display = 'none';
+  document.getElementById(ID.DEMO_PANEL_MODAL).classList.remove('active');
 }
 
 export function loadDemoText(key) {

@@ -14,6 +14,7 @@ import {
   showToast, escHtml, safeHtml, trapFocus, releaseFocus, copyToClipboard,
   updateLangDisplay, updateWordStats, updateTranslateBtnState,
   updateHistoryBadge, openDrawer, closeDrawer, getPanelRight, log,
+  setupKeyboardAvoid, setupDrawerSwipe, confirmDialog,
 } from './utils.js';
 import {
   updateUI,
@@ -201,6 +202,30 @@ function doClearAll() {
 // ═════════════════════════════════════════
 
 export function setupEventListeners() {
+  // ── 移动端：软键盘避让 & 抽屉下滑手势 ──
+  setupKeyboardAvoid();
+  setupDrawerSwipe();
+
+  // ── 深浅主题切换 ──
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const metaTheme = document.getElementById('metaThemeColor');
+  const SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  const applyTheme = (dark) => {
+    if (dark) document.documentElement.dataset.theme = 'dark';
+    else delete document.documentElement.dataset.theme;
+    if (themeIcon) themeIcon.innerHTML = `<g>${dark ? MOON : SUN}</g>`;
+    if (metaTheme) metaTheme.setAttribute('content', dark ? '#211f1c' : '#f5f4ed');
+    try { localStorage.setItem('prism_theme', dark ? 'dark' : 'light'); } catch (_) {}
+  };
+  themeBtn?.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme !== 'dark');
+  });
+  // 初始化按钮图标与 meta 主题色（内联脚本已设置 data-theme）
+  if (themeIcon) themeIcon.innerHTML = `<g>${document.documentElement.dataset.theme === 'dark' ? MOON : SUN}</g>`;
+  if (metaTheme) metaTheme.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#211f1c' : '#f5f4ed');
+
   // ── 翻译按钮 ──
   document.getElementById(ID.TRANSLATE_BTN).addEventListener('click', doTranslate);
   const translateBtnDesktop = document.getElementById(ID.TRANSLATE_BTN_DESKTOP);
@@ -260,7 +285,11 @@ export function setupEventListeners() {
       updateTranslateBtnState();
       safeStore('session', 'prism_text_cache', text);
       showToast('已粘贴', 'success');
-    } catch (_) { showToast('无法访问剪贴板'); }
+    } catch (_) {
+      // Firefox 等不支持 readText：引导用户用系统粘贴
+      showToast('浏览器未授权读取剪贴板，请长按输入框选择粘贴');
+      document.getElementById(ID.SOURCE_TEXT).focus();
+    }
   });
 
   // ── 文件上传 ──
@@ -376,8 +405,9 @@ export function setupEventListeners() {
   });
   document.getElementById(ID.HISTORY_CLOSE).addEventListener('click', closeHistoryModal);
   document.getElementById(ID.HISTORY_MODAL).addEventListener('click', e => { if (e.target === document.getElementById(ID.HISTORY_MODAL)) closeHistoryModal(); });
-  document.getElementById(ID.HISTORY_CLEAR_ALL).addEventListener('click', () => {
-    if (!confirm('确认清空全部翻译历史？')) return;
+  document.getElementById(ID.HISTORY_CLEAR_ALL).addEventListener('click', async () => {
+    const ok = await confirmDialog('将删除全部翻译历史，且无法恢复。', { title: '清空全部历史', okText: '清空' });
+    if (!ok) return;
     safeRemove('local', 'prism_history');
     updateHistoryBadge();
     renderHistoryList();
@@ -388,7 +418,7 @@ export function setupEventListeners() {
   document.getElementById(ID.DEMO_PANEL_CLOSE)?.addEventListener('click', hideDemoPanel);
   document.getElementById(ID.DEMO_PANEL_MODAL)?.addEventListener('click', e => { if (e.target === document.getElementById(ID.DEMO_PANEL_MODAL)) hideDemoPanel(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById(ID.DEMO_PANEL_MODAL).style.display === 'flex') hideDemoPanel();
+    if (e.key === 'Escape' && document.getElementById(ID.DEMO_PANEL_MODAL).classList.contains('active')) hideDemoPanel();
   });
 
   // ── 复制 & 朗读 ──
@@ -442,6 +472,14 @@ export function setupEventListeners() {
   // ── 快捷键系统 ──
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey) {
+      // 有文字选中或焦点在输入框时，放行浏览器默认复制行为
+      // （否则在原文里按 Ctrl+C 复制的却是译文）
+      if (e.key.toLowerCase() === 'c') {
+        const sel = window.getSelection();
+        const active = document.activeElement;
+        const inField = active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT');
+        if ((sel && String(sel).length > 0) || inField) return;
+      }
       switch (e.key.toLowerCase()) {
         case 'k': e.preventDefault(); openDrawer(); break;
         case 'h': e.preventDefault(); renderHistoryList(); document.getElementById(ID.HISTORY_MODAL).classList.add('active'); trapFocus(document.getElementById(ID.HISTORY_MODAL)); break;
@@ -460,18 +498,8 @@ export function setupEventListeners() {
   // ── 导出按钮 ──
   setupExportListeners();
 
-  // ── 滚动提示 ──
-  const rightPanel = getPanelRight();
-  if (rightPanel) {
-    rightPanel.addEventListener('scroll', () => {
-      const h = document.querySelector('.scroll-hint');
-      if (!h) return;
-      if (rightPanel.scrollTop > 50) { h.style.opacity = '0'; h.style.pointerEvents = 'none'; }
-      else { h.style.opacity = '1'; h.style.pointerEvents = ''; }
-    });
-  }
-
   // ── 双击滚轮保护 ──
+  const rightPanel = getPanelRight();
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   if (!isMac && rightPanel) {
     rightPanel.addEventListener('wheel', (e) => {

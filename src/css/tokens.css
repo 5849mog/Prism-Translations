@@ -1,49 +1,145 @@
 /* ════════════════════════════════════════
    设计令牌
+   —— 色彩全部使用 OKLCH（感知均匀），派生色用 color-mix 生成，
+      暗色模式只需翻转物理令牌，所有派生色/组件自动适配
 ════════════════════════════════════════ */
 :root {
-  --near-black: #141413;
-  --terracotta: #c96442;
-  --coral: #d97757;
-  --coral-light: #e8956f;
-  --parchment: #f5f4ed;
-  --parchment-deep: #eeede4;
-  --ivory: #faf9f5;
+  /* ── 物理色板（浅色 · 羊皮纸与陶土） ── */
+  --near-black: oklch(19.1% 0.002 106.6);
+  --terracotta: oklch(61.7% 0.1375 39);
+  --coral: oklch(67.2% 0.1308 38.8);
+  --coral-light: oklch(74.6% 0.1132 45.2);
+  --parchment: oklch(96.6% 0.0093 100);
+  --parchment-deep: oklch(94.4% 0.012 101.5);
+  --ivory: oklch(98.2% 0.0054 95.1);
   --white: #ffffff;
-  --warm-sand: #e8e6dc;
-  --dark-surface: #30302e;
-  --charcoal: #4d4c48;
-  --olive: #5e5d59;
-  --stone: #87867f;
-  --warm-silver: #b0aea5;
-  --border-cream: #eeece4;
-  --border-warm: #e4e2d8;
-  --ring-warm: #ccc9be;
-  --success: #3d7a5c;
-  --success-bg: #edf5f0;
-  --warning: #b87333;
-  --error: #c0392b;
-  --implicit-ink: #6b4fa8;
-  --implicit-bg: #f2eefa;
+  --warm-sand: oklch(92.4% 0.0135 97.5);
+  --dark-surface: oklch(30.8% 0.0035 106.6);
+  --charcoal: oklch(41.6% 0.0067 95.2);
+  --olive: oklch(47.8% 0.0064 95.2);
+  --stone: oklch(61.9% 0.0104 100.1);
+  --warm-silver: oklch(75% 0.0129 96.5);
+  --border-cream: oklch(94.2% 0.0109 95.2);
+  --border-warm: oklch(91.2% 0.0136 97.5);
+  --ring-warm: oklch(83.5% 0.0154 94.2);
+  --success: oklch(53% 0.0801 160.5);
+  --warning: oklch(61.8% 0.1171 60.4);
+  --error: oklch(54.3% 0.174 29.7);
+  --implicit-ink: oklch(50% 0.1378 295.5);
+  --backdrop: oklch(87% 0.011 100);            /* 桌面浮岛模式的页面底色 */
 
+  /* ── 派生色（跟随物理令牌自动适配暗色） ── */
+  --terracotta-tint: color-mix(in srgb, var(--coral) 6%, var(--white));
+  --terracotta-tint-strong: color-mix(in srgb, var(--coral) 10%, var(--white));
+  --terracotta-border: color-mix(in srgb, var(--coral) 30%, var(--white));
+  --success-bg: color-mix(in srgb, var(--success) 8%, var(--white));
+  --success-border: color-mix(in srgb, var(--success) 30%, var(--white));
+  --success-bright: color-mix(in srgb, var(--success) 72%, var(--white));
+  --warning-tint: color-mix(in srgb, var(--warning) 8%, var(--white));
+  --warning-border: color-mix(in srgb, var(--warning) 32%, var(--white));
+  --error-tint: color-mix(in srgb, var(--error) 4%, var(--white));
+  --error-border: color-mix(in srgb, var(--error) 28%, var(--white));
+  --implicit-bg: color-mix(in srgb, var(--implicit-ink) 7%, var(--white));
+  --implicit-border: color-mix(in srgb, var(--implicit-ink) 30%, var(--white));
+  --surface-dynamic: color-mix(in srgb, var(--coral) 2.5%, var(--white));
+  --surface-implicit: color-mix(in srgb, var(--implicit-ink) 4%, var(--white));
+  --surface-style: color-mix(in srgb, var(--success) 4%, var(--white));
+  --memo-bg: color-mix(in srgb, var(--terracotta) 3%, var(--white));
+  --near-black-hover: color-mix(in srgb, var(--near-black) 92%, var(--white));
+  --phase-strip-bg: color-mix(in srgb, var(--parchment) 88%, transparent);
+  --scrim: color-mix(in srgb, var(--near-black) 42%, transparent);
+
+  /* ── 双主题恒定色（不随暗色翻转） ── */
+  --code-text: oklch(92.4% 0.0135 97.5);       /* 深色代码块内的文字 */
+  --stop-bg: oklch(44% 0.105 27);
+  --stop-bg-hover: oklch(50% 0.12 27);
+  --toast-bg: oklch(19.1% 0.002 106.6);
+  --toast-text: oklch(75% 0.0129 96.5);
+  --toast-success-bg: oklch(45% 0.075 160);
+  --toast-error-bg: oklch(42% 0.10 28);
+
+  /* ── 语义层（组件应优先引用语义名） ── */
+  --color-primary: var(--terracotta);
+  --color-primary-hover: color-mix(in oklch, var(--terracotta) 88%, var(--near-black));
+  --color-bg: var(--parchment);
+  --color-surface: var(--ivory);
+  --color-surface-raised: var(--white);
+  --color-text: var(--near-black);
+  --color-text-secondary: var(--charcoal);
+  --color-text-muted: var(--stone);
+  --color-text-faint: var(--warm-silver);
+  --color-border: var(--border-warm);
+  --color-border-subtle: var(--border-cream);
+  --color-focus: var(--ring-warm);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-ink: var(--implicit-ink);
+
+  /* ── 字体 ── */
   --serif: 'Noto Serif SC', Georgia, serif;
   --sans: 'Noto Sans SC', 'Arial', system-ui, sans-serif;
   --mono: 'DM Mono', monospace;
 
+  /* ── 字号阶梯（消灭随意值与微字号） ── */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+  --text-2xl: 18px;
+  --text-3xl: 22px;
+
+  /* ── 圆角 ── */
   --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
   --r-2xl: 24px; --r-3xl: 32px; --r-full: 9999px;
 
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-sm: 0 1px 6px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
-  --shadow-xl: 0 16px 56px rgba(0,0,0,0.13);
-  --shadow-coral: 0 4px 20px rgba(201,100,66,0.22);
+  /* ── 阴影 ── */
+  --shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
+  --shadow-sm: 0 1px 6px oklch(0% 0 0 / 0.05);
+  --shadow-md: 0 4px 16px oklch(0% 0 0 / 0.07);
+  --shadow-lg: 0 8px 32px oklch(0% 0 0 / 0.10);
+  --shadow-xl: 0 16px 56px oklch(0% 0 0 / 0.13);
+  --shadow-coral: 0 4px 20px color-mix(in srgb, var(--terracotta) 22%, transparent);
 
-  /* ── 更精致的 Easing Curves ── */
+  /* ── 动效缓动（唯一取值来源，禁止裸 cubic-bezier） ── */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* ── 层级 ── */
+  --z-topbar: 100; --z-overlay: 200; --z-drawer: 201;
+  --z-modal: 400; --z-lang: 500; --z-preview: 600; --z-toast: 999;
+}
+
+/* ════════════════════════════════════════
+   暗色模式 — 暖炭黑
+   由 index.html 内联脚本在渲染前设置 data-theme（跟随系统 + 手动切换记忆）
+════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --near-black: oklch(93% 0.008 95);
+  --terracotta: oklch(70% 0.125 42);
+  --coral: oklch(74% 0.12 44);
+  --coral-light: oklch(80% 0.10 48);
+  --parchment: oklch(22.5% 0.007 85);
+  --parchment-deep: oklch(20% 0.007 85);
+  --ivory: oklch(26% 0.007 88);
+  --white: oklch(30% 0.008 88);
+  --warm-sand: oklch(33% 0.011 90);
+  --dark-surface: oklch(24% 0.006 90);
+  --charcoal: oklch(80% 0.01 95);
+  --olive: oklch(72% 0.012 95);
+  --stone: oklch(62% 0.012 95);
+  --warm-silver: oklch(48% 0.012 95);
+  --border-cream: oklch(31% 0.009 90);
+  --border-warm: oklch(36% 0.011 90);
+  --ring-warm: oklch(46% 0.018 85);
+  --success: oklch(70% 0.10 160);
+  --warning: oklch(72% 0.115 65);
+  --error: oklch(66% 0.16 28);
+  --implicit-ink: oklch(70% 0.12 296);
+  --backdrop: oklch(17% 0.007 85);
 }
