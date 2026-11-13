@@ -31,7 +31,7 @@ export function buildMarkdown(t, opts) {
     md += `| 翻译模式 | ${modeNames[t.mode] || t.mode || '—'} |\n`;
     md += `| 迭代轮次 | ${t.rounds || 1} 轮 |\n`;
     if (t.dynamicAgent?.name) md += `| 专属译者 丁 | ${t.dynamicAgent.name}（${t.dynamicAgent.label}）|\n`;
-    if (t.thinkingMode && t.thinkingMode !== 'disabled') md += `| 深度思考 | ${t.thinkingMode === 'high' ? '已启用（预算 2K）' : '已启用（预算 4K）'} |\n`;
+    if (t.thinkingMode && t.thinkingMode !== 'disabled') md += `| 深度思考 | ${'已启用（' + t.thinkingMode + '）'} |\n`;
     md += `| 耗时 | ${elapsed} |\n`;
     md += `| 原文字数 | ${t.charCount || t.source?.length || '—'} 字 |\n`;
     if (t.customPrompt) md += `| 自定义指令 | \`${t.customPrompt.slice(0, 80)}${t.customPrompt.length > 80 ? '...' : ''}\` |\n`;

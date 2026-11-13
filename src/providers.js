@@ -3,17 +3,16 @@
  */
 import { state } from './state.js';
 import { API_TIMEOUT_MS } from './storage.js';
-import { getPanelRight } from './utils.js';
 import { Err, apiError, isNetworkError } from './errors.js';
 
 // ── Provider 注册表 ──
 export const PROVIDER_REGISTRY = Object.freeze([
   {
-    id: 'deepseek', name: 'DeepSeek', defaultModel: 'deepseek-v4-flash',
+    id: 'deepseek', name: 'DeepSeek', defaultModel: 'deepseek-flash',
     baseUrl: 'https://api.deepseek.com', endpoint: '/v1/chat/completions',
     authScheme: 'Bearer', apiType: 'openai',
     supportsThinking: true, supportsCustomEndpoint: true,
-    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    models: ['deepseek-flash', 'deepseek-v4-pro'],
     description: 'DeepSeek V4 系列 — Flash 极具性价比，Pro 性能最强',
     features: ['streaming', 'thinking', 'usage_tokens'],
   },
@@ -39,7 +38,7 @@ export const PROVIDER_REGISTRY = Object.freeze([
     id: 'claude', name: 'Claude', defaultModel: 'claude-sonnet-4-6',
     baseUrl: 'https://api.anthropic.com', endpoint: '/v1/messages',
     authScheme: 'x-api-key', apiType: 'anthropic',
-    supportsThinking: true, supportsCustomEndpoint: true,
+    supportsThinking: false, supportsCustomEndpoint: true,
     models: ['claude-sonnet-4-6', 'claude-haiku-4-5'],
     description: 'Claude 系列 — Sonnet 长文本专业，Haiku 轻量快速',
     extraHeaders: {
@@ -126,8 +125,11 @@ export function buildPayload(provider, messages, temperature) {
   };
   if (provider.supportsThinking && provider.id === 'deepseek') {
     if (state.thinkingMode === 'disabled') p.thinking = { type: 'disabled' };
-    else if (state.thinkingMode === 'high') p.thinking = { type: 'enabled', budget_tokens: 2048 };
-    else if (state.thinkingMode === 'max') p.thinking = { type: 'enabled', budget_tokens: 4096 };
+    else if (['low', 'high', 'max'].includes(state.thinkingMode)) {
+      p.thinking = { type: 'enabled' };
+      p.reasoning_effort = state.thinkingMode;
+      delete p.temperature;
+    }
   }
   return p;
 }
@@ -251,12 +253,11 @@ async function _doFetch(messages, temperature, signal) {
   return { resp, provider };
 }
 
-// ── SSE 流解析（含自动滚动） ──
+// ── SSE 流解析 ──
 async function parseSSEStream(reader, processChunk, onTokenUsage) {
   const decoder = new TextDecoder();
   let content = '';
   let buf = '';
-  let lastScrollTime = 0;
 
   while (true) {
     const readResult = await reader.read();
@@ -277,19 +278,6 @@ async function parseSSEStream(reader, processChunk, onTokenUsage) {
         const parsed = JSON.parse(data);
         if (onTokenUsage) onTokenUsage(parsed);
         content = processChunk(parsed, content);
-        const now = Date.now();
-        if (now - lastScrollTime > 200) {
-          const rp = getPanelRight();
-          if (rp) {
-            const distFromBottom = rp.scrollHeight - rp.scrollTop - rp.clientHeight;
-            // 仅当用户本来就在底部时跟随滚动，上滑回看时不打断
-            if (distFromBottom < 200) {
-              // instant：避免与容器 scroll-behavior:smooth 互相打断造成抖动
-              rp.scrollTo({ top: rp.scrollHeight, behavior: 'instant' });
-            }
-          }
-          lastScrollTime = now;
-        }
       } catch (_) { /* skip malformed chunk */ }
     }
     if (done) break;

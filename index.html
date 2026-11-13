@@ -455,7 +455,7 @@
         <div class="provider-config-label">选择模型</div>
         <div class="select-wrap">
           <select id="modelSelect">
-            <option value="deepseek-v4-flash" data-provider="deepseek">DeepSeek V4 Flash（快速 · 极具性价比）</option>
+            <option value="deepseek-flash" data-provider="deepseek">DeepSeek Flash（快速）</option>
             <option value="deepseek-v4-pro" data-provider="deepseek">DeepSeek V4 Pro（性能最强）</option>
             <option value="gemini-2.5-flash" data-provider="gemini">Gemini 2.5 Flash（翻译冠军 · 免费额度）</option>
             <option value="gemini-2.5-pro" data-provider="gemini">Gemini 2.5 Pro（推理最强）</option>
@@ -501,11 +501,12 @@
     <div class="setting-row stacked" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-cream);">
       <div>
         <div class="setting-name">思考模式</div>
-        <div class="setting-desc">开启原生思维链，推理深度越高，细节与风格还原越惊艳。</div>
+        <div class="setting-desc">控制 DeepSeek 的推理强度；开启思考会增加耗时和用量。</div>
       </div>
       <div class="select-wrap">
         <select id="thinkingSelect">
           <option value="disabled">关闭（Non-thinking）</option>
+          <option value="low">开启 - 低深度（Low）</option>
           <option value="high">开启 - 高深度（High）</option>
           <option value="max">开启 - 极深度（Max）</option>
         </select>

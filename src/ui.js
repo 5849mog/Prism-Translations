@@ -60,7 +60,7 @@ export function init() {
   updateProviderConfigPanel(state.provider);
 
   const chipEl = document.getElementById(ID.MODEL_CHIP);
-  if (chipEl) chipEl.textContent = state.model || 'deepseek-v4-flash';
+  if (chipEl) chipEl.textContent = state.model || 'deepseek-flash';
 }
 
 // ── 文本缓存恢复 ──

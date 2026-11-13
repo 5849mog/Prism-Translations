@@ -70,7 +70,7 @@ export function createRoundDOM(r, dynamicAgent) {
     </div>
   `;
   document.getElementById(ID.ROUNDS_CONTAINER).appendChild(roundEl);
-  roundEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  roundEl.querySelectorAll('.path-text, .critique-text, .synth-text, .memo-text').forEach(el => { el.tabIndex = 0; el.setAttribute('role', 'region'); el.setAttribute('aria-label', el.parentElement.querySelector('.path-label, .critique-label, .synth-label, .memo-label')?.textContent.trim() || '翻译内容'); });
 
   roundEl.querySelector('.round-toggle').addEventListener('click', (e) => {
     if (e.target.closest('.round-badge')) return;
