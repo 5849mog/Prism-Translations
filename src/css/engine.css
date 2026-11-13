@@ -215,3 +215,7 @@
 .round-section .streaming::after { animation: prism-cursor 1.8s ease-in-out infinite; }
 @keyframes prism-cursor { 0%, 100% { opacity: .35; } 50% { opacity: .85; } }
 @media (prefers-reduced-motion: reduce) { .round-section .streaming::after { animation: none; } }
+
+.update-notice { position: fixed; z-index: 300; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 14px; padding: 11px 13px 11px 16px; border: 1px solid var(--border-warm); border-radius: 12px; background: var(--ivory); color: var(--near-black); box-shadow: var(--shadow-xl); font-size: 13px; }
+.update-notice button { border: 0; border-radius: 8px; padding: 8px 12px; background: var(--near-black); color: var(--ivory); font: inherit; cursor: pointer; }
+.update-notice button:disabled { opacity: .45; cursor: default; }
