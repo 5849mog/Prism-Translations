@@ -9,7 +9,7 @@ const FILES = [
     'export','export-formats','file-parser','markdown','translation','translation-chunked',
     'translation-helpers','translation-phases','translation-utils'].map(name => `src/${name}.js`),
   ...['tokens','base','layout','topbar','input','translate','result','engine','empty-state',
-    'modals','drawer','toast','markdown','mobile','animations','hover','a11y'].map(name => `src/css/${name}.css`),
+    'modals','drawer','toast','markdown','mobile','animations','hover','a11y','modern'].map(name => `src/css/${name}.css`),
 ];
 
 function hasWork() {
