@@ -93,3 +93,6 @@
 .export-preview-copy-btn:hover { background: var(--warm-sand); }
 .export-preview-dl-btn { border: none; background: var(--near-black); color: var(--ivory); }
 .export-preview-dl-btn:hover { background: var(--near-black-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+/* 长译文在结果框中阅读，避免流式预览撑长页面。 */
+#finalResult { max-height: 45vh; max-height: 45dvh; overflow-y: auto; overscroll-behavior: contain; }

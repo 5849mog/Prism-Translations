@@ -10,7 +10,7 @@ export const state = {
   tgtLang: null,     // will be set from langs.js
   rounds: parseInt(safeGet('local', 'prism_rounds', '2')),
   apiKey: safeGet('local', 'prism_key', ''),
-  model: safeGet('local', 'prism_model', 'deepseek-v4-flash'),
+  model: ({'deepseek-v4-flash': 'deepseek-flash', 'deepseek-v4-flash-vision-exp': 'deepseek-flash'}[safeGet('local', 'prism_model', 'deepseek-flash')] || safeGet('local', 'prism_model', 'deepseek-flash')),
   thinkingMode: safeGet('local', 'prism_thinking', 'disabled'),
   customPrompt: safeGet('local', 'prism_custom_prompt', ''),
   provider: safeGet('local', 'prism_provider', 'deepseek'),

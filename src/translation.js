@@ -67,7 +67,6 @@ export async function doTranslate() {
   initTranslationUI();
   const enginePanel = document.getElementById(ID.ENGINE_PANEL);
   enginePanel.classList.add('active');
-  getPanelRight().scrollTo({ top: 0, behavior: 'smooth' });
 
   let completedSteps = 0;
   let totalSteps = 1;
@@ -231,14 +230,7 @@ ${text}
 
     saveTranslationResult(text, src, tgt, lastSynthResult, finalScores, finalRemark, elapsed, mode, dynamicAgent, roundUsageSnapshots, roundData);
 
-    if (window.innerWidth >= 860) {
-      setTimeout(() => {
-        const leftPanel = document.querySelector('.panel-left');
-        leftPanel.scrollTo({ top: leftPanel.scrollHeight, behavior: 'smooth' });
-      }, 100);
-    } else {
-      document.getElementById(ID.RESULT_SECTION).scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+
   } catch (err) {
     stopTimer();
     handleTranslationError(err);
