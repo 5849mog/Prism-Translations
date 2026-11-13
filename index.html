@@ -47,6 +47,7 @@
 <link rel="stylesheet" href="src/css/animations.css" layer="animations">
 <link rel="stylesheet" href="src/css/hover.css" layer="overrides">
 <link rel="stylesheet" href="src/css/a11y.css" layer="overrides">
+<link rel="stylesheet" href="src/css/modern.css" layer="overrides">
 
 </head>
 <body>
@@ -57,9 +58,9 @@
     <div class="logo">
       <div class="logo-mark">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="var(--ivory)" stroke-width="1.2"/>
+          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="#eef4ea" stroke-width="1.2"/>
           <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="var(--terracotta)" stroke-width="0.9"/>
-          <circle cx="9" cy="9" r="1.8" fill="var(--ivory)"/>
+          <circle cx="9" cy="9" r="1.8" fill="#eef4ea"/>
         </svg>
       </div>
       <div>
@@ -67,7 +68,7 @@
           <span class="logo-text">棱镜译</span>
           <span class="logo-version">V6</span>
         </div>
-        <span class="logo-sub">PrismTrans Pro</span>
+        <span class="logo-sub">PRISM TRANSLATIONS</span>
       </div>
     </div>
     <div class="topbar-right">
@@ -119,14 +120,15 @@
   <!-- 可滚动内容区 -->
   <div class="left-content">
     <div class="input-section">
+      <div class="workspace-heading"><div><span class="eyebrow">YOUR TEXT</span><h1>从原文开始</h1></div><span class="workspace-caption">文字 / 文件</span></div>
       <!-- 文件上传区 -->
       <div class="file-drop-zone" id="fileDropZone">
         <svg class="file-drop-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <div class="file-drop-text">
-          <strong>拖入或点击上传文件</strong>
-          支持 txt · md · pdf · docx · pptx · xlsx · odt · rtf · html · csv · epub
+          <strong>添加文件</strong>
+          支持 PDF、Word、文本等多种格式
         </div>
-        <span class="file-drop-badge">文件导入</span>
+        <span class="file-drop-badge">浏览文件 ↗</span>
         <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.pptx,.xlsx,.odt,.rtf,.html,.htm,.csv,.epub,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.text,application/rtf,text/html,text/csv,application/epub+zip"/>
       </div>
       <div class="file-loaded-bar" id="fileLoadedBar">
@@ -136,7 +138,7 @@
       </div>
 
       <div class="textarea-card">
-        <textarea id="sourceText" placeholder="将需要翻译的文字贴于此处…（Ctrl+Enter 快速启动）" aria-label="输入待翻译文本"></textarea>
+        <textarea id="sourceText" placeholder="在这里输入或粘贴需要翻译的文字…" aria-label="输入待翻译文本"></textarea>
         <div class="input-footer">
           <span class="char-count"><span id="charNum">0</span> 字</span>
           <div class="input-actions">
@@ -311,70 +313,19 @@
 
   <!-- 右侧空状态 -->
   <div class="empty-state" id="emptyState">
-    <div class="empty-prism-wrap">
-      <div class="empty-prism">
-        <svg width="36" height="36" viewBox="0 0 18 18" fill="none">
-          <polygon points="9,1 16.5,5 16.5,13 9,17 1.5,13 1.5,5" fill="none" stroke="var(--border-warm)" stroke-width="1.2"/>
-          <polygon points="9,4.5 13,7 13,11 9,13.5 5,11 5,7" fill="none" stroke="var(--terracotta)" stroke-width="0.9"/>
-          <circle cx="9" cy="9" r="1.8" fill="var(--warm-sand)"/>
-        </svg>
+    <div class="empty-layout">
+      <div class="empty-kicker"><span class="kicker-dot"></span> PRISM TRANSLATIONS <span class="kicker-line"></span> TRANSLATION WORKSPACE</div>
+      <div class="empty-hero">
+        <div class="empty-copy">
+          <span class="eyebrow">为每一种表达，找到另一种可能</span>
+          <div class="empty-title">让好文字，<br><em>跨越语言。</em></div>
+          <div class="empty-desc">从一段文字开始。多位译者协作推敲语义与风格，呈现值得细读的译文。</div>
+          <div class="empty-cta"><button id="demoBtn"><span>探索示例</span><span aria-hidden="true">↗</span></button><div class="empty-cta-note">选择示例，体验完整翻译流程</div></div>
+        </div>
+        <div class="prism-art" aria-hidden="true"><div class="prism-art-label">SIX PERSPECTIVES<br><span>ONE CLEAR VOICE</span></div><div class="prism-orbit orbit-one"></div><div class="prism-orbit orbit-two"></div><div class="prism-shape"><div class="prism-core"></div></div><div class="prism-art-foot"><span>PRISM / 01</span><span>TRANSLATION IN FOCUS</span></div></div>
       </div>
+      <div class="empty-bottom"><span class="eyebrow">THE PROCESS</span><div class="empty-steps"><div><span>01</span><strong>多路译稿</strong><small>从不同视角理解原文</small></div><div><span>02</span><strong>交叉推敲</strong><small>审视表达与细节</small></div><div><span>03</span><strong>综合呈现</strong><small>生成最终译文</small></div></div></div>
     </div>
-    <div class="empty-title">棱镜译坊 · 待译</div>
-    <div class="empty-desc">输入原文并启动后，六位译者将在此并行译稿、互评、裁决，全流程可见</div>
-    <div class="empty-features">
-      <div class="empty-feature">
-        <div class="empty-feature-dot a"></div>
-        <div>
-          <div class="empty-feature-name">甲 · 语言学家</div>
-          <div class="empty-feature-text">忠实还原，逐句对应原文结构</div>
-        </div>
-      </div>
-      <div class="empty-feature">
-        <div class="empty-feature-dot b"></div>
-        <div>
-          <div class="empty-feature-name">乙 · 本土编辑</div>
-          <div class="empty-feature-text">母语视角重构，追求地道自然</div>
-        </div>
-      </div>
-      <div class="empty-feature">
-        <div class="empty-feature-dot c"></div>
-        <div>
-          <div class="empty-feature-name">丙 · 领域专家</div>
-          <div class="empty-feature-text">专业术语精准定位，语域准确</div>
-        </div>
-      </div>
-      <div class="empty-feature">
-        <div class="empty-feature-dot d"></div>
-        <div>
-          <div class="empty-feature-name">丁 · 专属译者</div>
-          <div class="empty-feature-text">按文本量身定制，补全关键短板</div>
-        </div>
-      </div>
-      <div class="empty-feature">
-        <div class="empty-feature-dot e"></div>
-        <div>
-          <div class="empty-feature-name">戊 · 隐义探微</div>
-          <div class="empty-feature-text">诊断隐含语义缺失，给出重构建议</div>
-        </div>
-      </div>
-      <div class="empty-feature">
-        <div class="empty-feature-dot f"></div>
-        <div>
-          <div class="empty-feature-name">己 · 风格摹写</div>
-          <div class="empty-feature-text">还原作者声音与修辞，实现文体风格等效迁移</div>
-        </div>
-      </div>
-    </div>
-    <!-- 一键体验 -->
-    <div class="empty-cta">
-      <button id="demoBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        试译一段
-      </button>
-      <div class="empty-cta-note">贴入一段多语言文本，看完整翻译过程</div>
-    </div>
-    <div class="empty-shortcut"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 快速启动</div>
   </div>
 </div>
 

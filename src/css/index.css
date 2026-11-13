@@ -25,3 +25,5 @@
 @import url('./animations.css') layer(animations);
 @import url('./hover.css') layer(overrides);
 @import url('./a11y.css') layer(overrides);
+
+@import url('./modern.css') layer(overrides);
