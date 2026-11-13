@@ -6,13 +6,13 @@
  * - CDN 依赖（marked/DOMPurify/文档解析库/字体）：stale-while-revalidate
  *   弱网/离线时命中缓存，避免白屏与解析库加载失败
  */
-const CACHE_NAME = 'prismtrans-v6.2';
+const CACHE_NAME = 'prismtrans-v6.3';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/prism.svg',
-  './src/main.js',
+  './src/main.js', './src/updates.js',
   './src/state.js', './src/storage.js', './src/dom-ids.js', './src/errors.js',
   './src/utils.js', './src/ui.js', './src/ui-demo.js', './src/ui-voice.js',
   './src/ui-history.js', './src/ui-settings.js', './src/ui-audit-card.js',
@@ -32,7 +32,7 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL).catch(() => {})) // 单个资源失败不阻断安装
+      .then((cache) => cache.addAll(APP_SHELL.map(url => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -40,7 +40,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('prismtrans-') && k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -56,25 +56,32 @@ self.addEventListener('fetch', (event) => {
   if (!isLocal && !isCDN) return;
 
   if (isLocal) {
-    // 应用壳：cache-first，后台无需更新检查（版本号随发布更新）
-    event.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((resp) => {
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, clone));
-        return resp;
-      }))
-    );
+    // 在线优先：每次读取重新验证服务器，网络不可用时使用离线副本。
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const network = await fetch(new Request(req, { cache: 'no-cache' }));
+        if (network.ok && network.type === 'basic') {
+          await cache.put(req, network.clone()).catch(() => {});
+        }
+        return network;
+      } catch (error) {
+        const saved = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
+        if (saved) return saved;
+        throw error;
+      }
+    })());
   } else {
-    // CDN：stale-while-revalidate
-    event.respondWith(
-      caches.match(req).then((hit) => {
-        const network = fetch(req).then((resp) => {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, clone));
-          return resp;
-        }).catch(() => hit);
-        return hit || network;
-      })
-    );
+    // CDN 依赖在后台更新，同时保留最后一个可用版本。
+    const cachePromise = caches.open(CACHE_NAME);
+    const network = fetch(req).then(async (resp) => {
+      if (resp.ok || resp.type === 'opaque') {
+        const cache = await cachePromise;
+        await cache.put(req, resp.clone()).catch(() => {});
+      }
+      return resp;
+    });
+    event.waitUntil(network.catch(() => {}));
+    event.respondWith(cachePromise.then(cache => cache.match(req)).then(hit => hit || network));
   }
 });
