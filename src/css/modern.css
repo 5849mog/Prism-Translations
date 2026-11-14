@@ -113,3 +113,58 @@ body::before { display:none; }
  .drawer { border-radius:20px 20px 0 0; }
 }
 @media (prefers-reduced-motion:reduce) { .prism-art *, .translate-btn { animation:none !important; transition:none !important; } }
+
+/* iPad and tablet workspaces: keep input and process alongside each other. */
+@media (min-width:700px) and (max-width:859px) and (min-height:600px) {
+  body { height:100vh; height:100dvh; overflow:hidden; }
+  .app-wrap { height:100vh; height:100dvh; min-height:0; overflow:hidden; }
+  .main-body { flex:1; min-height:0; flex-direction:row; overflow:hidden; }
+  .panel-left { width:42%; min-width:290px; height:100%; min-height:0; overflow:hidden; border-right:1px solid var(--border-cream); }
+  .left-content { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  .panel-right { flex:1; min-width:0; height:100%; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  #translateWrapMobile { display:none; }
+  #leftFooterDesktop { display:block; }
+  .left-footer { padding:14px 18px max(16px, env(safe-area-inset-bottom)); }
+  .left-footer .translate-wrap { padding:0; }
+  .input-section { padding:20px 18px 12px; }
+  .lang-bar { padding:10px 16px; }
+  .result-section { padding:14px 18px 20px; }
+  .export-section { padding:0 18px 20px; }
+  .empty-state { min-height:100%; height:auto; padding:30px; }
+  .empty-title { font-size:clamp(30px,4vw,38px); }
+  .empty-kicker { flex-wrap:wrap; }
+  .empty-steps { grid-template-columns:1fr; gap:13px; }
+  .empty-steps div { display:grid; grid-template-columns:25px 1fr; column-gap:8px; }
+  .empty-steps small { grid-column:2; }
+  .engine-inner { padding:20px 20px 36px; }
+  .phase-strip { padding:0; }
+  .round-section { padding:14px 0 0; }
+  #auditContainer { padding:0; }
+}
+
+/* A process card needs enough width to read, even when the tablet rotates. */
+@media (min-width:700px) and (max-width:1279px) {
+  .paths-row, .critique-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .paths-row .path-item, .critique-row .critique-item { border-right:0 !important; border-bottom:1px solid var(--border-cream) !important; padding:14px !important; }
+  .paths-row .path-item:nth-child(odd), .critique-row .critique-item:nth-child(odd) { border-right:1px solid var(--border-cream) !important; }
+  .round-section .path-text, .round-section .critique-text { height:145px; font-size:13px; line-height:1.75; -webkit-overflow-scrolling:touch; }
+  .path-label, .critique-label { font-size:11px; line-height:1.4; gap:6px; }
+  .path-label > span:first-child { min-width:0; overflow-wrap:anywhere; }
+  .round-section:not(:empty) { height:clamp(300px,58dvh,680px); }
+}
+
+/* Touch targets and iPad Safari: avoid focus zoom and leave room for system insets. */
+@media (min-width:700px) and (max-width:1366px) and (pointer:coarse) {
+  .icon-btn { width:44px; height:44px; }
+  .lang-arrow { width:44px; height:44px; }
+  .lang-display { min-height:44px; }
+  .input-mini-btn, .action-btn, .export-fmt-btn, .export-icon-btn { min-height:44px; }
+  .round-header { min-height:48px; }
+  #sourceText, .setting-input, .custom-prompt-input, .glossary-input, .lang-search, select { font-size:16px; }
+  .update-notice { right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); }
+}
+@media (min-width:860px) and (max-width:1279px) {
+  .panel-left { width:40%; min-width:320px; }
+  .panel-right { min-width:0; }
+  .engine-inner { padding:24px 24px 48px; }
+}
