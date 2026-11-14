@@ -6,7 +6,7 @@
  * - CDN 依赖（marked/DOMPurify/文档解析库/字体）：stale-while-revalidate
  *   弱网/离线时命中缓存，避免白屏与解析库加载失败
  */
-const CACHE_NAME = 'prismtrans-v6.4';
+const CACHE_NAME = 'prismtrans-v6.5';
 const APP_SHELL = [
   './',
   './index.html',
